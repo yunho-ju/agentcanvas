@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "ref 하나가 가리키는 모델 — 형식이 아니라 이름이라 schema를 들고 다니지 않는다.\n\n이 목록은 git에 커밋되고 화면으로 그대로 나가는 공개 데이터다: 열쇠는 여기 적지 않는다\n(열쇠는 서버만 아는 `secret://` 이름으로 따로 산다).",
+  "properties": {
+    "base_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Base Url"
+    },
+    "model_id": {
+      "minLength": 1,
+      "title": "Model Id",
+      "type": "string"
+    },
+    "provider": {
+      "enum": [
+        "anthropic",
+        "openai_compatible"
+      ],
+      "title": "Provider",
+      "type": "string"
+    },
+    "ref": {
+      "title": "Ref",
+      "type": "string"
+    },
+    "title": {
+      "$ref": "#/$defs/LocalizedText"
+    }
+  },
+  "required": [
+    "ref",
+    "title",
+    "provider",
+    "model_id"
+  ],
+  "title": "ModelDef",
+  "type": "object"
+}

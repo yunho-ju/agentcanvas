@@ -1,0 +1,137 @@
+{
+  "schema_version": "agent.spec/v1",
+  "id": "branching-assistant",
+  "version": 1,
+  "revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+  "status": "draft",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "question": { "type": "string" }
+    },
+    "required": ["question"]
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "route": { "type": "string" },
+      "messages": { "type": "array" },
+      "answer": { "type": "string" }
+    }
+  },
+  "nodes": [
+    {
+      "id": "input",
+      "type": "core.input",
+      "position": { "x": 80, "y": 240 },
+      "config": {
+        "bindings": {
+          "question": "input.question"
+        }
+      }
+    },
+    {
+      "id": "triage",
+      "type": "llm.router",
+      "position": { "x": 360, "y": 240 },
+      "config": {
+        "model_ref": "model://default",
+        "prompt_ref": "prompt://triage@1",
+        "output_schema_ref": "schema://triage-result@1"
+      }
+    },
+    {
+      "id": "clinical-agent",
+      "type": "llm.agent",
+      "position": { "x": 700, "y": 140 },
+      "config": {
+        "model_ref": "model://default",
+        "prompt_ref": "prompt://clinical@1"
+      }
+    },
+    {
+      "id": "quick-answer",
+      "type": "llm.agent",
+      "position": { "x": 700, "y": 400 },
+      "config": {
+        "model_ref": "model://default",
+        "prompt_ref": "prompt://quick@1"
+      }
+    },
+    {
+      "id": "review",
+      "type": "control.human_gate",
+      "position": { "x": 1040, "y": 140 },
+      "config": {
+        "approval_schema_ref": "schema://answer-review@1"
+      }
+    },
+    {
+      "id": "revise",
+      "type": "llm.agent",
+      "position": { "x": 1320, "y": 40 },
+      "config": {
+        "model_ref": "model://default",
+        "prompt_ref": "prompt://revise@1"
+      }
+    },
+    {
+      "id": "output",
+      "type": "core.output",
+      "position": { "x": 1320, "y": 280 },
+      "config": { "binding": "state.answer" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "input-triage",
+      "kind": "data",
+      "source": { "node": "input", "port": "question" },
+      "target": { "node": "triage", "port": "input" }
+    },
+    {
+      "id": "triage-clinical",
+      "kind": "control",
+      "source": { "node": "triage", "port": "passthrough" },
+      "target": { "node": "clinical-agent", "port": "messages" },
+      "condition": {
+        "language": "cel",
+        "expression": "route == 'clinical'"
+      }
+    },
+    {
+      "id": "triage-quick",
+      "kind": "control",
+      "source": { "node": "triage", "port": "passthrough" },
+      "target": { "node": "quick-answer", "port": "messages" },
+      "condition": {
+        "language": "cel",
+        "expression": "route == 'simple'"
+      }
+    },
+    {
+      "id": "clinical-review",
+      "kind": "approval",
+      "source": { "node": "clinical-agent", "port": "response" },
+      "target": { "node": "review", "port": "review" }
+    },
+    {
+      "id": "review-output",
+      "kind": "control",
+      "source": { "node": "review", "port": "approved" },
+      "target": { "node": "output", "port": "input" }
+    },
+    {
+      "id": "review-revise",
+      "kind": "control",
+      "source": { "node": "review", "port": "rejected" },
+      "target": { "node": "revise", "port": "messages" }
+    },
+    {
+      "id": "quick-output",
+      "kind": "control",
+      "source": { "node": "quick-answer", "port": "response" },
+      "target": { "node": "output", "port": "input" }
+    }
+  ]
+}

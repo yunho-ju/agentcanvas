@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "판정기 하나 — 이름과 버전, 그리고 무엇을 확인하는지 쉬운 말로 설명과 예시.",
+  "properties": {
+    "example": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "plain_description": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "version",
+    "plain_description",
+    "example"
+  ],
+  "title": "EvaluatorDef",
+  "type": "object"
+}

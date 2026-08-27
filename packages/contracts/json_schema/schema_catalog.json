@@ -1,0 +1,27 @@
+{
+  "schema://answer-review@1": {
+    "ref": "schema://answer-review@1",
+    "schema": {
+      "properties": {
+        "comment": {
+          "description": "What the person wants to say about what they checked.",
+          "format": "textarea",
+          "title": "Review note",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "확인한 내용에 대해 사람이 남기고 싶은 말이다.",
+              "title": "검토 의견"
+            }
+          }
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "title": {
+      "en": "Answer review",
+      "ko": "답 검토"
+    }
+  }
+}

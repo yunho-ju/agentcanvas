@@ -1,0 +1,37 @@
+[
+  {
+    "name": "straight line",
+    "nodes": ["a", "b", "c"],
+    "edges": [["a", "b"]],
+    "draw": ["b", "c"],
+    "cycle": false
+  },
+  {
+    "name": "two nodes closing on each other",
+    "nodes": ["a", "b"],
+    "edges": [["a", "b"]],
+    "draw": ["b", "a"],
+    "cycle": true
+  },
+  {
+    "name": "three nodes closing the ring",
+    "nodes": ["a", "b", "c"],
+    "edges": [["a", "b"], ["b", "c"]],
+    "draw": ["c", "a"],
+    "cycle": true
+  },
+  {
+    "name": "a node onto itself",
+    "nodes": ["a"],
+    "edges": [],
+    "draw": ["a", "a"],
+    "cycle": true
+  },
+  {
+    "name": "two ways meeting again",
+    "nodes": ["a", "b", "c", "d"],
+    "edges": [["a", "b"], ["a", "c"], ["b", "d"]],
+    "draw": ["c", "d"],
+    "cycle": false
+  }
+]

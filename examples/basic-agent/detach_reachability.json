@@ -1,0 +1,7 @@
+{
+  "input": ["triage", "clinical-agent", "human-gate", "output"],
+  "triage": ["clinical-agent", "human-gate", "output"],
+  "clinical-agent": ["human-gate", "output"],
+  "human-gate": ["output"],
+  "output": []
+}

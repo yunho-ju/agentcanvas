@@ -1,0 +1,117 @@
+{
+  "$defs": {
+    "EvalAttempt": {
+      "additionalProperties": false,
+      "description": "케이스 하나를 한 번 돌린 시도 — 어느 실행이었고, 통과했는가, 무엇을 답했는가.",
+      "properties": {
+        "output_text": {
+          "title": "Output Text",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "passed",
+        "output_text"
+      ],
+      "title": "EvalAttempt",
+      "type": "object"
+    },
+    "EvalCaseResult": {
+      "additionalProperties": false,
+      "description": "케이스 하나의 결론 — 몇 번 돌렸고, passes_needed를 채웠는가.",
+      "properties": {
+        "attempts": {
+          "items": {
+            "$ref": "#/$defs/EvalAttempt"
+          },
+          "title": "Attempts",
+          "type": "array"
+        },
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "evaluator": {
+          "minLength": 1,
+          "title": "Evaluator",
+          "type": "string"
+        },
+        "evaluator_version": {
+          "minLength": 1,
+          "title": "Evaluator Version",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "case_id",
+        "attempts",
+        "passed",
+        "evaluator",
+        "evaluator_version"
+      ],
+      "title": "EvalCaseResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "데이터셋 하나를 어느 판에 대고 돌린 한 벌의 결과.\n\nv1 배치는 spec을 그대로 돈다 — 스펙이 쓰는 모델은 spec_revision이 가리키는 그래프\n안에 있다. 검증하지 않은 모델 이름을 여기 따로 적어 두지 않는다(모델 비교 배치는 v2).",
+  "properties": {
+    "dataset_id": {
+      "minLength": 1,
+      "title": "Dataset Id",
+      "type": "string"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/EvalCaseResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "spec_revision": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Spec Revision",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "dataset_id",
+    "spec_id",
+    "spec_revision",
+    "started_at",
+    "results"
+  ],
+  "title": "EvalBatch",
+  "type": "object"
+}

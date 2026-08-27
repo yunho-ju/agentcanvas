@@ -1,0 +1,46 @@
+{
+  "classify": {
+    "id": "classify",
+    "text": {
+      "en": "Decide which category the input belongs to and answer with just that category name. Do not add reasons.",
+      "ko": "다음 글이 어떤 갈래에 속하는지 정하고, 그 갈래 이름 하나만 답해요. 이유는 덧붙이지 않아요."
+    },
+    "title": {
+      "en": "Classify",
+      "ko": "분류해요"
+    }
+  },
+  "simplify": {
+    "id": "simplify",
+    "text": {
+      "en": "Rewrite the input in plain language so a first-time reader can understand it. Keep the meaning unchanged.",
+      "ko": "다음 글을 처음 보는 사람도 이해할 수 있게 쉬운 말로 다시 써요. 뜻은 바꾸지 않아요."
+    },
+    "title": {
+      "en": "Put it in plain words",
+      "ko": "쉬운 말로 바꿔요"
+    }
+  },
+  "summarize": {
+    "id": "summarize",
+    "text": {
+      "en": "Read the input and summarize only the important points in three sentences or fewer. Use plain language.",
+      "ko": "다음 글을 읽고 중요한 내용만 세 문장 이내로 요약해요. 쉬운 말로 써요."
+    },
+    "title": {
+      "en": "Summarize",
+      "ko": "요약해요"
+    }
+  },
+  "translate": {
+    "id": "translate",
+    "text": {
+      "en": "Translate the input — into English if it is Korean, into Korean if it is English.",
+      "ko": "다음 글이 한국어면 영어로, 영어면 한국어로 자연스럽게 번역해요."
+    },
+    "title": {
+      "en": "Translate",
+      "ko": "번역해요"
+    }
+  }
+}

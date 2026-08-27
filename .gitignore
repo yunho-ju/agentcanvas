@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 서버가 로컬에서 만든 저장 파일 (packages/api)
+*.db
+*.db-shm
+*.db-wal
+
+# Node
+node_modules/
+dist/
+
+# Editors / local
+.DS_Store
+.claude/
+
+# Local agent, index and review artifacts
+.agents/
+.codegraph/
+semantic-review/
+skills-lock.json
+
+# 내부 작업 문서 — 공개 저장소에 올리지 않는다
+CLAUDE.md
+docs/briefs/
+
+# 실키가 사는 자리 — 절대 커밋하지 않는다
+.env
+.env.*
+!.env.example

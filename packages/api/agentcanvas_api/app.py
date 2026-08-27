@@ -1,0 +1,962 @@
+"""HTTP 문 — 들어온 것을 계약으로 옮기고, 나갈 것을 JSON으로 옮기는 일만 한다.
+
+판을 매기는 규칙은 service가, 저장은 store가 안다. 여기에는 SQL도 해시도 없다.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import asynccontextmanager
+from functools import partial
+from pathlib import Path
+from typing import Any, Literal
+
+from agentcanvas_adapters.openai_model import OPENAI_API_KEY_REF
+from agentcanvas_adapters.providers import asks_whoever_serves, nobody_to_ask
+from agentcanvas_adapters.secrets import env_vault
+from agentcanvas_contracts.agent_spec import AgentSpec, NonEmptyText
+from agentcanvas_contracts.architect_patch import AgentSpecPatch
+from agentcanvas_contracts.eval_case import EvalDataset
+from agentcanvas_contracts.eval_result import EvalBatch
+from agentcanvas_contracts.model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
+from agentcanvas_contracts.refs import ModelRef
+from agentcanvas_contracts.run import ApprovalAnswer
+from agentcanvas_engine.model_call import ModelCall, says_the_first_way
+from agentcanvas_engine.routed_runtime import (
+    resume_routed_run_stream,
+    routed_run_stream,
+)
+from agentcanvas_engine.validator import ValidationIssue
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, ConfigDict
+
+from .architect_service import (
+    ArchitectPreview,
+    ArchitectPreviewRefused,
+    ArchitectRefusal,
+    ArchitectService,
+    architect_request_fingerprint,
+    blank_architect_seed,
+)
+from .auth import (
+    AdminSessionMiddleware,
+    AuthSettings,
+    BuiltinAuth,
+    clear_session_cookie,
+    set_session_cookie,
+)
+from .eval_batch_store import EvalBatchStore
+from .eval_dataset_service import (
+    EvalDatasetRefusal,
+    EvalDatasetRefused,
+    EvalDatasetSaveOutcome,
+    EvalDatasetService,
+)
+from .eval_dataset_store import EvalDatasetStore, EvalDatasetSummary
+from .eval_service import (
+    EvalBatchFailed,
+    EvalBatchListing,
+    EvalBatchRefusal,
+    EvalBatchRefused,
+    EvalBatchRunning,
+    EvalBatchService,
+    EvalBatchView,
+)
+from .job_store import DurableJobStore, IdempotencyConflict
+from .job_worker import DurableJobWorker
+from .run_service import (
+    RunIdMaker,
+    RunOutcome,
+    RunRefusal,
+    RunRefused,
+    RunService,
+    RunView,
+    Worker,
+    in_the_background,
+    new_run_id,
+)
+from .run_store import RunStore
+from .run_stream import (
+    DEFAULT_TIMING,
+    StreamTiming,
+    resume_from,
+    run_event_stream,
+)
+from .service import (
+    Clock,
+    Refusal,
+    SaveOutcome,
+    SaveRefused,
+    SpecListing,
+    SpecService,
+    utc_now,
+)
+from .sqlite_database import prepare_database
+from .sqlite_eval_batch_store import SqliteEvalBatchStore
+from .sqlite_eval_dataset_store import SqliteEvalDatasetStore
+from .sqlite_job_store import SqliteJobStore
+from .sqlite_run_store import SqliteRunStore
+from .sqlite_store import SqliteSpecStore
+from .store import SpecRevision, SpecStore, StoredSpec
+
+_logger = logging.getLogger(__name__)
+
+DEFAULT_DB_PATH = Path("agentcanvas.db")
+DB_PATH_ENV = "AGENTCANVAS_DB"
+ALLOWED_ORIGINS_ENV = "AGENTCANVAS_ALLOWED_ORIGINS"
+
+#: 내 컴퓨터에서 띄운 모델을 이 서버에 알려 주는 자리 — 이름(예: gemma4:26b)과 그 문의 주소.
+LOCAL_MODEL_ENV = "AGENTCANVAS_LOCAL_MODEL"
+LOCAL_BASE_URL_ENV = "AGENTCANVAS_LOCAL_BASE_URL"
+
+#: 대개 로컬 서빙이 서 있는 자리 (Ollama의 OpenAI 말투 문).
+DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:11434/v1"
+
+#: 그 모델이 그래프에서 갖는 이름 — 프리셋 목록에는 없고, 직접 적어 넣으면 된다.
+LOCAL_MODEL_REF = "model://local"
+
+#: OpenAI provider를 쓸 때 명시적으로 선택할 모델 ID. API key와 모델 ID가
+#: 모두 있어야 catalog에 추가하며, 비용·가용성이 변하는 외부 기본값은 두지 않는다.
+OPENAI_MODEL_ENV = "AGENTCANVAS_OPENAI_MODEL"
+
+#: 그 모델이 그래프에서 갖는 이름 — 열쇠가 있는 서버에서만 생긴다.
+OPENAI_MODEL_REF = "model://openai"
+# Guided는 현재 provider 실증 대상이므로 기존 `model://default`와 분리한다.
+GUIDED_MODEL_REF = OPENAI_MODEL_REF
+
+#: 스튜디오는 서버와 다른 자리에서 뜬다(개발에서는 언제나 포트가 다르다). 브라우저는 다른 자리에서
+#: 온 요청을 서버가 허락했는지 먼저 묻는데, 그 허락을 여기서 정한다.
+#: 기본은 내 컴퓨터에서 띄운 스튜디오뿐이다 — 아무나(*)는 열지 않는다. 나중에 로그인이 붙으면
+#: 그 구멍이 그대로 남기 때문이다. 배포에서는 AGENTCANVAS_ALLOWED_ORIGINS로 정확히 적어 준다.
+LOCAL_STUDIO_ORIGINS = r"^http://(localhost|127\.0\.0\.1):5173$"
+
+#: 저장을 물린 까닭을 HTTP의 말로 옮기는 표 — 새 까닭은 여기 한 줄을 더한다.
+REFUSAL_STATUS: dict[Refusal, int] = {
+    "already_saved": 409,
+    "id_mismatch": 409,
+    "unknown": 404,
+    "missing_revision": 428,
+    "stale_revision": 409,
+}
+
+#: 실행을 물린 까닭을 HTTP의 말로 옮기는 표.
+RUN_REFUSAL_STATUS: dict[RunRefusal, int] = {
+    "unknown_spec": 404,
+    "unknown_run": 404,
+    "stale_revision": 409,
+    "revision_gone": 409,
+    "not_paused": 409,
+    "already_answered": 409,
+    "nowhere_to_answer": 409,
+    "another_revision": 409,
+}
+
+#: 데이터셋 저장을 물린 까닭을 HTTP의 말로 옮기는 표 — /specs와 같은 결이다.
+EVAL_DATASET_REFUSAL_STATUS: dict[EvalDatasetRefusal, int] = {
+    "already_saved": 409,
+    "id_mismatch": 409,
+    "unknown": 404,
+}
+
+#: 배치를 물린 까닭을 HTTP의 말로 옮기는 표.
+EVAL_BATCH_REFUSAL_STATUS: dict[EvalBatchRefusal, int] = {
+    "unknown_dataset": 404,
+    "unknown_spec": 404,
+    "stale_revision": 409,
+}
+
+# Architect는 저장하지 않는 preview다 — provider/계약/graph 중 어느 경계에서 멈췄는지 HTTP로 옮긴다.
+ARCHITECT_REFUSAL_STATUS: dict[ArchitectRefusal, int] = {
+    "invalid_base_revision": 422,
+    "unknown_model": 503,
+    "missing_secret": 503,
+    "provider_error": 503,
+    "invalid_patch": 422,
+    "graph_invalid": 422,
+    "patch_conflict": 422,
+    "stale_revision": 409,
+}
+
+
+class AdminLoginRequest(BaseModel):
+    """단일 self-host 관리자가 로그인 문에 건네는 비밀번호."""
+
+    password: str
+
+
+class AdminSessionResponse(BaseModel):
+    """Studio가 메모리에만 두는 현재 세션 상태와 CSRF nonce."""
+
+    authenticated: bool
+    csrf_token: str | None
+
+
+class SavedSpec(BaseModel):
+    """저장된 그래프와, 저장하면서 눈에 걸린 것들."""
+
+    spec: AgentSpec
+    issues: list[ValidationIssue]
+
+
+class ArchitectPatchRequest(BaseModel):
+    """기존 AgentSpec에 대한 Architect preview 요청 — 저장은 별도 명시적 행동이다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_ref: ModelRef
+    request: NonEmptyText
+    base_spec: AgentSpec
+
+
+class ArchitectDraftRequest(BaseModel):
+    """빈 캔버스 Guided preview 요청 — seed와 id는 서버 경계에서 고정한다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_ref: ModelRef
+    request: NonEmptyText
+    draft_id: NonEmptyText
+
+
+class ArchitectCostEvidence(BaseModel):
+    status: Literal["estimate_requires_price_snapshot"]
+    estimated_usd: float | None = None
+
+
+class ArchitectEvidence(BaseModel):
+    """preview 응답에만 붙는 비밀 없는 provider 관찰값."""
+
+    provider: str
+    model_ref: ModelRef
+    model_id: str
+    request_id: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    latency_ms: int | None = None
+    provider_processing_ms: int | None = None
+    request_fingerprint: str
+    external_state: Literal["preview_only"] = "preview_only"
+    persisted: Literal[False] = False
+    watermark: Literal["not_applicable_json_candidate"] = (
+        "not_applicable_json_candidate"
+    )
+    cost: ArchitectCostEvidence
+
+
+class ArchitectPatchResponse(BaseModel):
+    patch: AgentSpecPatch
+    candidate: AgentSpec
+    issues: list[ValidationIssue]
+    evidence: ArchitectEvidence | None = None
+
+
+class SpecHistory(BaseModel):
+    revisions: list[SpecRevision]
+
+
+class RunRequest(BaseModel):
+    """실행을 청하며 함께 적어 보낼 수 있는 것 — 어느 판을 돌릴 셈이었는가, 무엇을 건네는가.
+
+    건넨 것은 실행이 여는 상태다: 첫 노드부터 그것을 보고 일한다.
+    모르는 필드는 버리지 않고 물린다 — `specRevision` 같은 오타를 조용히 삼키면,
+    판을 고정한 줄 아는 사람 밑에서 최신 판이 돈다.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    spec_revision: str | None = None
+    input: dict[str, Any] | None = None
+
+
+class EvalBatchRequest(BaseModel):
+    """배치를 청하며 적어 보내는 것 — 어느 그래프의 어느 판을 돌리는가.
+
+    v1 배치는 spec을 그대로 돈다: 모델은 spec_revision이 가리키는 그래프 안에 있다.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    spec_id: str
+    spec_revision: str
+
+
+class EvalBatchStartResponse(BaseModel):
+    """배치가 열렸다는 답 — 이 이름으로 지금의 모습을 물을 수 있다."""
+
+    batch_id: str
+
+
+class EvalBatchReadResponse(BaseModel):
+    """배치의 지금 모습 — 계약(EvalBatch)에는 상태 필드가 없으므로 이 응답 래퍼로만 있다."""
+
+    status: Literal["running", "completed", "failed"]
+    batch: EvalBatch | None = None
+    #: 배경에서 어그러졌을 때만 있다 — 속엣말은 담지 않는다.
+    message: str | None = None
+
+
+def _default_store(path: Path) -> SpecStore:
+    return SqliteSpecStore(path, database_is_prepared=True)
+
+
+def _default_run_store(path: Path) -> RunStore:
+    return SqliteRunStore(path, database_is_prepared=True)
+
+
+def _default_eval_dataset_store(path: Path) -> EvalDatasetStore:
+    return SqliteEvalDatasetStore(path, database_is_prepared=True)
+
+
+def _default_eval_batch_store(path: Path) -> EvalBatchStore:
+    return SqliteEvalBatchStore(path, database_is_prepared=True)
+
+
+def _on_my_computer(env: Mapping[str, str]) -> dict[str, ModelDef]:
+    """내 컴퓨터에서 띄운 모델 — 이름을 일러 주지 않았으면 그런 것은 없다."""
+    named = env.get(LOCAL_MODEL_ENV, "").strip()
+    if not named:
+        return {}
+    return {
+        LOCAL_MODEL_REF: ModelDef(
+            ref=LOCAL_MODEL_REF,
+            title={
+                "ko": f"내 컴퓨터의 모델 — {named}",
+                "en": f"On my computer — {named}",
+            },
+            provider="openai_compatible",
+            model_id=named,
+            base_url=env.get(LOCAL_BASE_URL_ENV, "").strip() or DEFAULT_LOCAL_BASE_URL,
+        )
+    }
+
+
+def _at_the_company(env: Mapping[str, str]) -> dict[str, ModelDef]:
+    """OpenAI provider — key와 model ID를 모두 명시한 서버에서만 생긴다."""
+    named = env.get(OPENAI_MODEL_ENV, "").strip()
+    if env_vault(env)(OPENAI_API_KEY_REF) is None or not named:
+        return {}
+    return {
+        OPENAI_MODEL_REF: ModelDef(
+            ref=OPENAI_MODEL_REF,
+            title={"ko": f"OpenAI의 모델 — {named}", "en": f"OpenAI — {named}"},
+            provider="openai_compatible",
+            model_id=named,
+        )
+    }
+
+
+def catalog_in(env: Mapping[str, str]) -> dict[str, ModelDef]:
+    """이 서버가 아는 모델들 — 내 컴퓨터에서 띄운 것과, 열쇠가 여는 본사의 문까지.
+
+    제품이 싣고 다니는 목록(공개 JSON)은 건드리지 않는다: 사본에만 더한다.
+    """
+    return {
+        **DEFAULT_MODEL_CATALOG,
+        **_on_my_computer(env),
+        **_at_the_company(env),
+    }
+
+
+def asks_the_model_in(env: Mapping[str, str]) -> ModelCall:
+    """서버를 띄운 자리를 보고 누구에게 물을지 정한다 — 물을 곳이 있으면 진짜, 없으면 결정론 대역.
+
+    이 갈림은 여기 한 곳뿐이다: 실행기도 서비스도 어느 provider인지 알지 못한다. 어느 곳에
+    물을지는 모델 정의가 정하고(provider 표), 열쇠도 로컬 모델도 없으면 서버는 예전처럼
+    지어낸 판단으로 돈다 (아무것도 설정하지 않아도 뜨고 돌아간다).
+    """
+    vault = env_vault(env)
+    catalog = catalog_in(env)
+    if nobody_to_ask(vault, catalog):
+        return says_the_first_way
+    return asks_whoever_serves(vault, catalog)
+
+
+def _default_model_call() -> ModelCall:
+    return asks_the_model_in(os.environ)
+
+
+def _origins_from_env() -> list[str]:
+    """서버를 띄운 자리가 일러 주는 허용 목록 — 쉼표로 나눠 적는다."""
+    written = os.environ.get(ALLOWED_ORIGINS_ENV, "")
+    return [origin.strip() for origin in written.split(",") if origin.strip()]
+
+
+def _allow_the_studio(app: FastAPI, allowed_origins: Sequence[str] | None) -> None:
+    """어느 자리에서 온 credential 요청까지 받아 줄지 정확한 origin으로 정한다."""
+    origins = (
+        list(allowed_origins) if allowed_origins is not None else _origins_from_env()
+    )
+    if "*" in origins:
+        raise RuntimeError("AGENTCANVAS_ALLOWED_ORIGINS must not contain '*'")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_origin_regex=None if origins else LOCAL_STUDIO_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["content-type", "if-match", "x-csrf-token"],
+    )
+
+
+def _durability_blockers(
+    *, injected_stores: Mapping[str, object | None], worker: Worker
+) -> list[str]:
+    """기본 배선이 아니라 durable job을 켤 수 없는 까닭을 사람이 읽을 말로 모은다."""
+    blockers = [
+        f"an injected {name} does not share the durable database"
+        for name, candidate in injected_stores.items()
+        if candidate is not None
+    ]
+    if worker is not in_the_background:
+        blockers.append("an injected worker does not carry jobs in the background")
+    return blockers
+
+
+def create_app(
+    store: SpecStore | None = None,
+    clock: Clock = utc_now,
+    allowed_origins: Sequence[str] | None = None,
+    run_store: RunStore | None = None,
+    new_run_id: RunIdMaker = new_run_id,
+    stream_timing: StreamTiming = DEFAULT_TIMING,
+    worker: Worker = in_the_background,
+    model: ModelCall | None = None,
+    eval_dataset_store: EvalDatasetStore | None = None,
+    eval_batch_store: EvalBatchStore | None = None,
+    auth_settings: AuthSettings | None = None,
+    job_store: DurableJobStore | None = None,
+    durability: bool | None = None,
+) -> FastAPI:
+    """저장소·시계·일꾼·모델·허용할 자리·인증을 주입해 서버를 만든다.
+
+    실행은 일꾼이 배경에서 옮긴다: 문은 실행이 끝나기를 기다리지 않고 곧바로 답한다.
+    누구에게 물을지 적어 주지 않으면 서버를 띄운 자리가 정한다 (열쇠가 있으면 진짜 모델).
+    인증을 명시하지 않으면 환경에서 읽으며, 운영 기본은 자격증명 누락 시 시작하지 않는다.
+
+    durability를 적지 않으면 기본 배선일 때만 durable job을 켠다 — 켜지 못하면 까닭을 남긴다.
+    True는 켜지 못하는 배선에서 조용히 넘어가지 않고 멈춘다. False는 켜지 않는다.
+    """
+    auth = BuiltinAuth(
+        auth_settings if auth_settings is not None else AuthSettings.from_env()
+    )
+    injected_stores: Mapping[str, object | None] = {
+        "spec store": store,
+        "run store": run_store,
+        "eval dataset store": eval_dataset_store,
+        "eval batch store": eval_batch_store,
+    }
+    if durability is False and job_store is not None:
+        raise RuntimeError(
+            "durable jobs cannot be off while a durable job store is injected"
+        )
+    needs_default_database = any(
+        candidate is None for candidate in injected_stores.values()
+    )
+    database_path = Path(os.environ.get(DB_PATH_ENV, DEFAULT_DB_PATH))
+    if needs_default_database:
+        # 한 파일을 공유하는 네 store보다 먼저 schema migration과 backup을 한 번 끝낸다.
+        prepare_database(database_path)
+
+    specs = store if store is not None else _default_store(database_path)
+    service = SpecService(specs, clock)
+    guided_provider_is_live = model is None
+    asks_a_model = model if model is not None else _default_model_call()
+    architect = ArchitectService(asks_a_model)
+    durable_jobs = job_store
+    if durable_jobs is None and durability is not False:
+        blockers = _durability_blockers(injected_stores=injected_stores, worker=worker)
+        if not blockers:
+            durable_jobs = SqliteJobStore(database_path, database_is_prepared=True)
+        elif durability:
+            raise RuntimeError(
+                "durable jobs cannot be turned on: " + "; ".join(blockers)
+            )
+        else:
+            _logger.warning("durable jobs are off: %s", "; ".join(blockers))
+    durable_runtime: DurableJobWorker | None = None
+
+    def wake_durable_worker() -> None:
+        if durable_runtime is not None:
+            durable_runtime.wake()
+
+    runs = RunService(
+        specs=specs,
+        runs=(
+            run_store if run_store is not None else _default_run_store(database_path)
+        ),
+        clock=clock,
+        new_run_id=new_run_id,
+        worker=worker,
+        start_run=partial(routed_run_stream, model=asks_a_model),
+        resume_run=partial(resume_routed_run_stream, model=asks_a_model),
+        jobs=durable_jobs,
+        wake_worker=wake_durable_worker,
+    )
+    eval_dataset_store_used = (
+        eval_dataset_store
+        if eval_dataset_store is not None
+        else _default_eval_dataset_store(database_path)
+    )
+    eval_datasets = EvalDatasetService(eval_dataset_store_used)
+    eval_batches = EvalBatchService(
+        datasets=eval_dataset_store_used,
+        specs=specs,
+        batches=(
+            eval_batch_store
+            if eval_batch_store is not None
+            else _default_eval_batch_store(database_path)
+        ),
+        model=asks_a_model,
+        clock=clock,
+        worker=worker,
+        jobs=durable_jobs,
+        wake_worker=wake_durable_worker,
+    )
+    if durable_jobs is not None:
+        durable_runtime = DurableJobWorker(durable_jobs, runs, eval_batches)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if durable_runtime is not None:
+            durable_runtime.start()
+        try:
+            yield
+        finally:
+            if durable_runtime is not None:
+                durable_runtime.stop()
+
+    app = FastAPI(
+        title="AgentCanvas control plane",
+        version="0.1.0-alpha.1",
+        lifespan=lifespan,
+    )
+    # 인증이 안쪽, CORS가 바깥쪽에 있어 401/403에도 브라우저가 읽을 CORS 헤더가 붙는다.
+    app.add_middleware(AdminSessionMiddleware, auth=auth)
+    _allow_the_studio(app, allowed_origins)
+
+    @app.get("/health/live", tags=["operations"])
+    def health_live() -> dict[str, str]:
+        """프로세스가 요청에 답할 수 있는지만 말한다 — 외부 provider는 부르지 않는다."""
+        return {"status": "ok"}
+
+    @app.get("/health/ready", tags=["operations"])
+    def health_ready() -> dict[str, str]:
+        """네 영속 저장소를 짧게 읽어 요청을 받을 준비가 됐는지 확인한다."""
+        readiness_id = "__agentcanvas_readiness__"
+        try:
+            if durable_runtime is not None and not durable_runtime.healthy:
+                raise RuntimeError("durable worker is not healthy")
+            service.latest(readiness_id)
+            runs.view(readiness_id)
+            eval_datasets.read(readiness_id)
+            eval_batches.view(readiness_id)
+        except Exception as unavailable:
+            # 저장소 예외·경로·SQL을 probe 응답으로 내보내지 않는다.
+            raise HTTPException(
+                status_code=503, detail="service not ready"
+            ) from unavailable
+        return {"status": "ok"}
+
+    @app.post(
+        "/auth/login", response_model=AdminSessionResponse, tags=["authentication"]
+    )
+    def login(asked: AdminLoginRequest) -> JSONResponse:
+        """환경에 둔 단일 관리자 비밀번호를 확인하고 짧은 서명 세션을 발급한다."""
+        if auth.enabled and not auth.password_matches(asked.password):
+            raise HTTPException(status_code=401, detail="invalid credentials")
+        token, session = auth.issue()
+        response = JSONResponse(
+            {"authenticated": True, "csrf_token": session.csrf_token},
+            headers={"Cache-Control": "no-store"},
+        )
+        if auth.enabled:
+            set_session_cookie(response, token, auth.settings)
+        return response
+
+    @app.get(
+        "/auth/session", response_model=AdminSessionResponse, tags=["authentication"]
+    )
+    def read_session(request: Request) -> JSONResponse:
+        """유효한 cookie를 이미 확인한 middleware가 Studio에 CSRF nonce를 돌려준다."""
+        session = request.state.admin_session if auth.enabled else auth.verify(None)
+        return JSONResponse(
+            {
+                "authenticated": True,
+                "csrf_token": session.csrf_token if session is not None else None,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.post(
+        "/auth/logout", response_model=AdminSessionResponse, tags=["authentication"]
+    )
+    def logout() -> JSONResponse:
+        """현재 브라우저의 세션 cookie를 지운다."""
+        response = JSONResponse(
+            {"authenticated": False, "csrf_token": None},
+            headers={"Cache-Control": "no-store"},
+        )
+        if auth.enabled:
+            clear_session_cookie(response, auth.settings)
+        return response
+
+    def _answered(outcome: SaveOutcome) -> SavedSpec:
+        """서비스가 내린 답을 HTTP의 말로 옮긴다 — 규칙은 서비스가 정했다."""
+        if isinstance(outcome, SaveRefused):
+            raise HTTPException(
+                status_code=REFUSAL_STATUS[outcome.reason], detail=outcome.message
+            )
+        return SavedSpec(spec=outcome.stored.spec, issues=outcome.issues)
+
+    def _found(spec_id: str) -> StoredSpec:
+        """저장된 적 없는 그래프는 열어 볼 수 없다."""
+        stored = service.latest(spec_id)
+        if stored is None:
+            raise HTTPException(status_code=404, detail=f"no graph called {spec_id!r}")
+        return stored
+
+    def _architected(
+        outcome: ArchitectPreview | ArchitectPreviewRefused,
+        *,
+        model_ref: str | None = None,
+        request: str | None = None,
+        guided: bool = False,
+    ):
+        if isinstance(outcome, ArchitectPreviewRefused):
+            status = ARCHITECT_REFUSAL_STATUS[outcome.reason]
+            detail = outcome.message
+            if guided:
+                if outcome.reason in {"unknown_model", "missing_secret"}:
+                    status = 503
+                    detail = "architect provider is not configured"
+                elif outcome.reason == "provider_error":
+                    status = 503
+                    detail = "architect provider is unavailable"
+                elif outcome.reason == "invalid_patch":
+                    status = 502
+                    detail = "architect provider returned invalid output"
+            raise HTTPException(
+                status_code=status,
+                detail=detail,
+            )
+        evidence = None
+        if (
+            model_ref is not None
+            and request is not None
+            and outcome.evidence is not None
+        ):
+            evidence = ArchitectEvidence(
+                provider=outcome.evidence.provider,
+                model_ref=model_ref,
+                model_id=outcome.evidence.model_id,
+                request_id=outcome.evidence.request_id,
+                input_tokens=outcome.input_tokens,
+                output_tokens=outcome.output_tokens,
+                latency_ms=outcome.evidence.latency_ms,
+                provider_processing_ms=outcome.evidence.provider_processing_ms,
+                request_fingerprint=architect_request_fingerprint(
+                    model_ref=model_ref,
+                    request=request,
+                    base_revision=outcome.patch.base_revision,
+                ),
+                cost=ArchitectCostEvidence(
+                    status="estimate_requires_price_snapshot",
+                ),
+            )
+        return ArchitectPatchResponse(
+            patch=outcome.patch,
+            candidate=outcome.candidate,
+            issues=outcome.issues,
+            evidence=evidence,
+        )
+
+    @app.post("/architect/patch", response_model=ArchitectPatchResponse)
+    def architect_patch(asked: ArchitectPatchRequest) -> ArchitectPatchResponse:
+        return _architected(
+            architect.preview(
+                base_spec=asked.base_spec,
+                request=asked.request,
+                model_ref=asked.model_ref,
+            ),
+            model_ref=asked.model_ref,
+            request=asked.request,
+        )
+
+    @app.post("/architect/draft", response_model=ArchitectPatchResponse)
+    def architect_draft(asked: ArchitectDraftRequest) -> ArchitectPatchResponse:
+        if asked.model_ref != GUIDED_MODEL_REF:
+            raise HTTPException(
+                status_code=503,
+                detail="architect provider is not configured",
+            )
+        if guided_provider_is_live and GUIDED_MODEL_REF not in catalog_in(os.environ):
+            # 일반 run의 deterministic fallback은 유지하되, Guided 실증에는 쓰지 않는다.
+            raise HTTPException(
+                status_code=503,
+                detail="architect provider is not configured",
+            )
+        return _architected(
+            architect.preview_new(
+                draft_id=asked.draft_id,
+                request=asked.request,
+                model_ref=asked.model_ref,
+            ),
+            model_ref=asked.model_ref,
+            request=asked.request,
+            guided=True,
+        )
+
+    @app.post("/specs", response_model=SavedSpec, status_code=201)
+    def create_spec(spec: AgentSpec) -> SavedSpec:
+        return _answered(service.create(spec))
+
+    @app.put("/specs/{spec_id}", response_model=SavedSpec)
+    def update_spec(
+        spec_id: str,
+        spec: AgentSpec,
+        if_match: str | None = Header(default=None, alias="If-Match"),
+    ) -> SavedSpec:
+        return _answered(service.update(spec_id, spec, if_match))
+
+    @app.get("/specs", response_model=SpecListing)
+    def list_specs() -> SpecListing:
+        return service.summaries()
+
+    @app.get("/specs/{spec_id}", response_model=SavedSpec)
+    def read_spec(spec_id: str) -> SavedSpec:
+        view = service.read(spec_id)
+        if view is None:
+            raise HTTPException(status_code=404, detail=f"no graph called {spec_id!r}")
+        return SavedSpec(spec=view.stored.spec, issues=view.issues)
+
+    @app.get("/specs/{spec_id}/revisions", response_model=SpecHistory)
+    def read_revisions(spec_id: str) -> SpecHistory:
+        _found(spec_id)
+        return SpecHistory(revisions=service.revisions(spec_id))
+
+    def _idempotency_key(written: str | None) -> str | None:
+        if written is None:
+            return None
+        key = written.strip()
+        if not key or len(key) > 200:
+            raise HTTPException(
+                status_code=400,
+                detail="Idempotency-Key must contain 1 to 200 characters",
+            )
+        return key
+
+    def _ran(outcome: RunOutcome) -> RunView:
+        """실행 서비스가 내린 답을 HTTP의 말로 옮긴다 — 규칙은 서비스가 정했다."""
+        if isinstance(outcome, RunRefused):
+            raise HTTPException(
+                status_code=RUN_REFUSAL_STATUS[outcome.reason], detail=outcome.message
+            )
+        return outcome
+
+    def _running(run_id: str) -> RunView:
+        """시작된 적 없는 실행은 들여다볼 수 없다."""
+        view = runs.view(run_id)
+        if view is None:
+            raise HTTPException(status_code=404, detail=f"no run called {run_id!r}")
+        return view
+
+    @app.post("/specs/{spec_id}/runs", response_model=RunView, status_code=201)
+    def start_run(
+        spec_id: str,
+        asked: RunRequest | None = None,
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    ) -> RunView:
+        wanted = asked if asked is not None else RunRequest()
+        try:
+            return _ran(
+                runs.start(
+                    spec_id,
+                    wanted.spec_revision,
+                    wanted.input,
+                    _idempotency_key(idempotency_key),
+                )
+            )
+        except IdempotencyConflict as conflict:
+            raise HTTPException(
+                status_code=409, detail="idempotency key conflicts with another request"
+            ) from conflict
+
+    @app.get("/runs/{run_id}", response_model=RunView)
+    def read_run(run_id: str) -> RunView:
+        return _running(run_id)
+
+    @app.get("/runs/{run_id}/events")
+    def stream_run_events(
+        run_id: str,
+        after: int | None = None,
+        last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
+    ) -> StreamingResponse:
+        _running(run_id)
+        return StreamingResponse(
+            run_event_stream(
+                lambda seq: runs.events(run_id, seq),
+                lambda: runs.has_ended(run_id),
+                after=resume_from(last_event_id, after),
+                timing=stream_timing,
+            ),
+            media_type="text/event-stream",
+            # 사이에 선 중계기가 줄글을 모아 두지 않게 한다 — 이벤트는 일어나는 대로 닿아야 한다.
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.post("/runs/{run_id}/approval", response_model=RunView)
+    def answer_gate(
+        run_id: str,
+        approval: ApprovalAnswer,
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    ) -> RunView:
+        try:
+            return _ran(
+                runs.answer(run_id, approval, _idempotency_key(idempotency_key))
+            )
+        except IdempotencyConflict as conflict:
+            raise HTTPException(
+                status_code=409, detail="idempotency key conflicts with another request"
+            ) from conflict
+
+    @app.post("/runs/{run_id}/cancel", response_model=RunView)
+    def cancel_run(run_id: str) -> RunView:
+        view = runs.cancel(run_id)
+        if view is None:
+            raise HTTPException(status_code=404, detail=f"no run called {run_id!r}")
+        return view
+
+    def _dataset_answered(outcome: EvalDatasetSaveOutcome) -> EvalDataset:
+        """데이터셋 서비스가 내린 답을 HTTP의 말로 옮긴다 — 규칙은 서비스가 정했다."""
+        if isinstance(outcome, EvalDatasetRefused):
+            raise HTTPException(
+                status_code=EVAL_DATASET_REFUSAL_STATUS[outcome.reason],
+                detail=outcome.message,
+            )
+        return outcome
+
+    @app.post("/eval/datasets", response_model=EvalDataset, status_code=201)
+    def create_eval_dataset(dataset: EvalDataset) -> EvalDataset:
+        return _dataset_answered(eval_datasets.create(dataset))
+
+    @app.put("/eval/datasets/{dataset_id}", response_model=EvalDataset)
+    def update_eval_dataset(dataset_id: str, dataset: EvalDataset) -> EvalDataset:
+        return _dataset_answered(eval_datasets.update(dataset_id, dataset))
+
+    @app.get("/eval/datasets", response_model=list[EvalDatasetSummary])
+    def list_eval_datasets() -> list[EvalDatasetSummary]:
+        return eval_datasets.list_summaries()
+
+    @app.get("/eval/datasets/{dataset_id}", response_model=EvalDataset)
+    def read_eval_dataset(dataset_id: str) -> EvalDataset:
+        found = eval_datasets.read(dataset_id)
+        if found is None:
+            raise HTTPException(
+                status_code=404, detail=f"no dataset called {dataset_id!r}"
+            )
+        return found
+
+    @app.delete("/eval/datasets/{dataset_id}", status_code=204)
+    def delete_eval_dataset(dataset_id: str) -> None:
+        if not eval_datasets.delete(dataset_id):
+            raise HTTPException(
+                status_code=404, detail=f"no dataset called {dataset_id!r}"
+            )
+
+    @app.post(
+        "/eval/datasets/{dataset_id}/batches",
+        response_model=EvalBatchStartResponse,
+        status_code=202,
+    )
+    def start_eval_batch(
+        dataset_id: str,
+        asked: EvalBatchRequest,
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    ) -> EvalBatchStartResponse:
+        try:
+            outcome = eval_batches.start(
+                dataset_id,
+                asked.spec_id,
+                asked.spec_revision,
+                _idempotency_key(idempotency_key),
+            )
+        except IdempotencyConflict as conflict:
+            raise HTTPException(
+                status_code=409, detail="idempotency key conflicts with another request"
+            ) from conflict
+        if isinstance(outcome, EvalBatchRefused):
+            raise HTTPException(
+                status_code=EVAL_BATCH_REFUSAL_STATUS[outcome.reason],
+                detail=outcome.message,
+            )
+        return EvalBatchStartResponse(batch_id=outcome.batch_id)
+
+    def _eval_batch_response(
+        batch_id: str, view: EvalBatchView
+    ) -> EvalBatchReadResponse:
+        if view is None:
+            raise HTTPException(status_code=404, detail=f"no batch called {batch_id!r}")
+        if isinstance(view, EvalBatchRunning):
+            return EvalBatchReadResponse(status="running")
+        if isinstance(view, EvalBatchFailed):
+            return EvalBatchReadResponse(status="failed", message=view.message)
+        return EvalBatchReadResponse(status="completed", batch=view)
+
+    @app.get("/eval/batches/{batch_id}", response_model=EvalBatchReadResponse)
+    def read_eval_batch(batch_id: str) -> EvalBatchReadResponse:
+        return _eval_batch_response(batch_id, eval_batches.view(batch_id))
+
+    @app.post("/eval/batches/{batch_id}/cancel", response_model=EvalBatchReadResponse)
+    def cancel_eval_batch(batch_id: str) -> EvalBatchReadResponse:
+        return _eval_batch_response(batch_id, eval_batches.cancel(batch_id))
+
+    @app.get("/eval/datasets/{dataset_id}/batches", response_model=EvalBatchListing)
+    def list_eval_batches(dataset_id: str) -> EvalBatchListing:
+        listing = eval_batches.list_for_dataset(dataset_id)
+        if listing is None:
+            raise HTTPException(
+                status_code=404, detail=f"no dataset called {dataset_id!r}"
+            )
+        return listing
+
+    return app
+
+
+# 서버는 띄울 때 만들어진다 (`uvicorn agentcanvas_api.app:create_app --factory`) —
+# 이 파일을 읽는 것만으로 저장 파일이 생기지 않는다.
+
+__all__ = [
+    "ALLOWED_ORIGINS_ENV",
+    "ARCHITECT_REFUSAL_STATUS",
+    "DB_PATH_ENV",
+    "DEFAULT_DB_PATH",
+    "DEFAULT_LOCAL_BASE_URL",
+    "EVAL_BATCH_REFUSAL_STATUS",
+    "EVAL_DATASET_REFUSAL_STATUS",
+    "GUIDED_MODEL_REF",
+    "LOCAL_BASE_URL_ENV",
+    "LOCAL_MODEL_ENV",
+    "LOCAL_MODEL_REF",
+    "LOCAL_STUDIO_ORIGINS",
+    "OPENAI_MODEL_ENV",
+    "OPENAI_MODEL_REF",
+    "REFUSAL_STATUS",
+    "ArchitectCostEvidence",
+    "ArchitectDraftRequest",
+    "ArchitectEvidence",
+    "ArchitectPatchRequest",
+    "ArchitectPatchResponse",
+    "EvalBatchReadResponse",
+    "EvalBatchRequest",
+    "EvalBatchStartResponse",
+    "SavedSpec",
+    "SpecHistory",
+    "asks_the_model_in",
+    "blank_architect_seed",
+    "catalog_in",
+    "create_app",
+]

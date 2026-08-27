@@ -1,0 +1,59 @@
+name: Feature request
+description: Propose a scoped improvement to AgentCanvas
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AgentCanvas is an alpha focused on a single-admin, single-workspace self-hosted profile. Please explain the user problem before proposing an implementation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who has the problem, in which workflow, and what is blocked today?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior and success criteria.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workarounds or smaller options you considered.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Studio / canvas
+        - Run / approval
+        - Evaluation
+        - Architect / providers
+        - API / contracts
+        - Persistence / durability
+        - Authentication / security
+        - Deployment / operations
+        - Documentation / contributor experience
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and operational impact
+      description: Note API/schema/migration/security/privacy/provider-cost implications if known.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked the product scope, operations roadmap, and existing issues.
+          required: true
+        - label: This request does not contain credentials or private user/provider data.
+          required: true

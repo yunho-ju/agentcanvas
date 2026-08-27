@@ -1,0 +1,16 @@
+{
+  "name": "agentcanvas",
+  "version": "0.1.0-alpha.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "dev": "pnpm --filter @agentcanvas/studio dev",
+    "build": "pnpm --filter @agentcanvas/studio build",
+    "test": "pnpm --filter @agentcanvas/studio test",
+    "gen:types": "pnpm --filter @agentcanvas/studio gen:types"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

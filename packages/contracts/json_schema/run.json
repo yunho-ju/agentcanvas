@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "description": "한 번의 실행 — 어느 그래프의 어느 판을, 언제 돌리기 시작했는가.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "spec_revision": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Spec Revision",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "spec_id",
+    "spec_revision",
+    "created_at"
+  ],
+  "title": "Run",
+  "type": "object"
+}

@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "description": "밸브 앞에서 사람이 내린 답 — 허락인가, 그리고 함께 적어 넣은 값이 있는가.\n\n거절(approved=false)에는 values를 실을 수 없다 — 허락하지 않은 값이 실행에 남지 않는다.",
+  "properties": {
+    "approved": {
+      "title": "Approved",
+      "type": "boolean"
+    },
+    "values": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Values"
+    }
+  },
+  "required": [
+    "approved"
+  ],
+  "title": "ApprovalAnswer",
+  "type": "object"
+}

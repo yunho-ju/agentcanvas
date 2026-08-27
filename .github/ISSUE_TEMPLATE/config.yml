@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Installation or usage questions
+    url: https://github.com/yunho-ju/agentcanvas/discussions
+    about: Ask questions and discuss usage in GitHub Discussions.
+  - name: Support scope and expectations
+    url: https://github.com/yunho-ju/agentcanvas/blob/main/SUPPORT.md
+    about: Read the supported profile and what to include before reporting.
+  - name: Security and vulnerability reports
+    url: https://github.com/yunho-ju/agentcanvas/security/advisories/new
+    about: Report vulnerabilities privately; do not use a public issue.

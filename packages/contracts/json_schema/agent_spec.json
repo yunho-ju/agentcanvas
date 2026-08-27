@@ -1,0 +1,338 @@
+{
+  "$defs": {
+    "AgentStatus": {
+      "enum": [
+        "draft",
+        "validated",
+        "approved",
+        "published",
+        "deprecated"
+      ],
+      "title": "AgentStatus",
+      "type": "string"
+    },
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EdgeCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/EdgeKind"
+        },
+        "source": {
+          "$ref": "#/$defs/EdgeEndpoint"
+        },
+        "target": {
+          "$ref": "#/$defs/EdgeEndpoint"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "target"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "EdgeCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        },
+        "language": {
+          "const": "cel",
+          "title": "Language",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "expression"
+      ],
+      "title": "EdgeCondition",
+      "type": "object"
+    },
+    "EdgeEndpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "node": {
+          "minLength": 1,
+          "title": "Node",
+          "type": "string"
+        },
+        "port": {
+          "minLength": 1,
+          "title": "Port",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node",
+        "port"
+      ],
+      "title": "EdgeEndpoint",
+      "type": "object"
+    },
+    "EdgeKind": {
+      "enum": [
+        "data",
+        "control",
+        "approval"
+      ],
+      "title": "EdgeKind",
+      "type": "string"
+    },
+    "ExecutionConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpointer": {
+          "minLength": 1,
+          "title": "Checkpointer",
+          "type": "string"
+        },
+        "limits": {
+          "$ref": "#/$defs/ExecutionLimits"
+        },
+        "replay_policy": {
+          "minLength": 1,
+          "title": "Replay Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "checkpointer",
+        "replay_policy",
+        "limits"
+      ],
+      "title": "ExecutionConfig",
+      "type": "object"
+    },
+    "ExecutionLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_runtime_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Max Runtime Ms",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "exclusiveMinimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_total_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Max Total Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_total_tokens",
+        "max_runtime_ms",
+        "max_tool_calls"
+      ],
+      "title": "ExecutionLimits",
+      "type": "object"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "position"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Position",
+      "type": "object"
+    },
+    "ResourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Tools",
+          "type": "array"
+        },
+        "approval_policy": {
+          "minLength": 1,
+          "title": "Approval Policy",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "server_ref": {
+          "title": "Server Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "server_ref",
+        "approval_policy"
+      ],
+      "title": "ResourceBinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/Edge"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "execution": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExecutionConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Name"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/Node"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/ResourceBinding"
+      },
+      "title": "Resources",
+      "type": "array"
+    },
+    "revision": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Revision",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "agent.spec/v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "state_schema": {
+      "additionalProperties": true,
+      "title": "State Schema",
+      "type": "object"
+    },
+    "status": {
+      "$ref": "#/$defs/AgentStatus"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "revision",
+    "status",
+    "input_schema",
+    "state_schema",
+    "nodes",
+    "edges"
+  ],
+  "title": "AgentSpec",
+  "type": "object"
+}

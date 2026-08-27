@@ -1,0 +1,42 @@
+{
+  "model://claude-haiku": {
+    "base_url": null,
+    "model_id": "claude-haiku-4-5",
+    "provider": "anthropic",
+    "ref": "model://claude-haiku",
+    "title": {
+      "en": "Claude Haiku — fastest",
+      "ko": "Claude Haiku — 가장 빠름"
+    }
+  },
+  "model://claude-opus": {
+    "base_url": null,
+    "model_id": "claude-opus-5",
+    "provider": "anthropic",
+    "ref": "model://claude-opus",
+    "title": {
+      "en": "Claude Opus — deep reasoning",
+      "ko": "Claude Opus — 깊은 판단"
+    }
+  },
+  "model://claude-sonnet": {
+    "base_url": null,
+    "model_id": "claude-sonnet-5",
+    "provider": "anthropic",
+    "ref": "model://claude-sonnet",
+    "title": {
+      "en": "Claude Sonnet — fast and balanced",
+      "ko": "Claude Sonnet — 빠르고 균형 잡힘"
+    }
+  },
+  "model://default": {
+    "base_url": null,
+    "model_id": "claude-opus-5",
+    "provider": "anthropic",
+    "ref": "model://default",
+    "title": {
+      "en": "Default model",
+      "ko": "기본 모델"
+    }
+  }
+}

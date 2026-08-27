@@ -1,0 +1,458 @@
+{
+  "control.human_gate": {
+    "config_schema": {
+      "properties": {
+        "approval_schema_ref": {
+          "description": "The name that points to the shape of what the person sees while checking.",
+          "format": "schema-ref",
+          "title": "Shape of the review screen",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "사람이 확인할 때 보여줄 항목의 형식을 가리키는 이름이다.",
+              "title": "확인 화면의 형식"
+            }
+          }
+        }
+      },
+      "required": [
+        "approval_schema_ref"
+      ],
+      "type": "object"
+    },
+    "display_name": {
+      "en": "Human check",
+      "ko": "사람 확인"
+    },
+    "plain_description": {
+      "en": "A person has to look and say yes before this goes on.",
+      "ko": "사람이 확인하고 승인해야 다음으로 넘어간다."
+    },
+    "ports": {
+      "inputs": [
+        {
+          "id": "review",
+          "plain_description": {
+            "en": "What the person will look at",
+            "ko": "사람이 확인할 내용"
+          },
+          "schema": {}
+        }
+      ],
+      "outputs": [
+        {
+          "id": "approved",
+          "plain_description": {
+            "en": "The value that flows on after a yes",
+            "ko": "승인했을 때 흘러가는 값"
+          },
+          "schema": {}
+        },
+        {
+          "id": "rejected",
+          "plain_description": {
+            "en": "The value that flows on after a no",
+            "ko": "거절했을 때 흘러가는 값"
+          },
+          "schema": {}
+        }
+      ]
+    },
+    "runtime": "langgraph.interrupt",
+    "type": "control.human_gate",
+    "version": "1.0"
+  },
+  "core.input": {
+    "config_schema": {
+      "properties": {
+        "bindings": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Pick which values to take from what the agent was given. Each name you write on the left becomes an output of this node.",
+          "title": "Values to bring in",
+          "type": "object",
+          "x-i18n": {
+            "ko": {
+              "description": "에이전트가 받은 입력에서 어떤 값을 꺼내 쓸지 정한다. 왼쪽에 적은 이름이 그대로 이 노드의 출력 포트가 된다.",
+              "title": "가져올 입력 값"
+            }
+          }
+        }
+      },
+      "required": [
+        "bindings"
+      ],
+      "type": "object"
+    },
+    "display_name": {
+      "en": "Input",
+      "ko": "입력"
+    },
+    "plain_description": {
+      "en": "Brings the values the agent was given into the graph.",
+      "ko": "에이전트가 받은 입력값을 그래프 안으로 흘려보낸다."
+    },
+    "ports": {
+      "inputs": [],
+      "outputs": []
+    },
+    "runtime": "core.input",
+    "type": "core.input",
+    "version": "1.0"
+  },
+  "core.output": {
+    "config_schema": {
+      "properties": {
+        "binding": {
+          "description": "Write where to find the value the agent hands back when it finishes. For example: state.answer",
+          "title": "Where the value sits",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "에이전트가 끝날 때 돌려줄 값이 어디에 있는지 적는다. 예: state.answer",
+              "title": "내보낼 값의 위치"
+            }
+          }
+        }
+      },
+      "required": [
+        "binding"
+      ],
+      "type": "object"
+    },
+    "display_name": {
+      "en": "Output",
+      "ko": "출력"
+    },
+    "plain_description": {
+      "en": "Decides what the agent hands back when it is done.",
+      "ko": "에이전트가 최종적으로 돌려줄 값을 정한다."
+    },
+    "ports": {
+      "inputs": [
+        {
+          "id": "input",
+          "plain_description": {
+            "en": "The value to send out as the final answer",
+            "ko": "최종 결과로 내보낼 값"
+          },
+          "schema": {}
+        }
+      ],
+      "outputs": []
+    },
+    "runtime": "core.output",
+    "type": "core.output",
+    "version": "1.0"
+  },
+  "llm.agent": {
+    "config_schema": {
+      "properties": {
+        "instruction": {
+          "description": "Write what this step should do and how. The model reads it exactly as you wrote it.",
+          "format": "instruction",
+          "title": "Instructions",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "이 단계가 무엇을 어떻게 하면 되는지 적는다. 적은 그대로 모델에게 전달된다.",
+              "title": "지시문"
+            }
+          }
+        },
+        "max_turns": {
+          "description": "The most times the model may go back and forth with tools while working on its answer. A large number takes a long time.",
+          "minimum": 1,
+          "title": "How many turns at most",
+          "type": "integer",
+          "x-i18n": {
+            "ko": {
+              "description": "모델이 도구를 쓰며 답을 다듬을 수 있는 최대 횟수다. 너무 크면 오래 걸린다.",
+              "title": "최대 주고받기 횟수"
+            }
+          }
+        },
+        "model_ref": {
+          "description": "The name that points to the AI model writing the answer. For example: model://default",
+          "format": "model-ref",
+          "title": "Model to use",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "답을 만들 AI 모델을 가리키는 이름이다. 예: model://default",
+              "title": "사용할 모델"
+            }
+          }
+        },
+        "prompt_ref": {
+          "description": "A name for sharing one instruction across documents later. For now it is only a label. For example: prompt://clinical@7",
+          "title": "Instruction name (advanced)",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "나중에 여러 문서가 같은 지시문을 함께 쓰게 될 이름 자리다. 지금은 이름표일 뿐이다. 예: prompt://clinical@7",
+              "title": "지시문 이름 (고급)"
+            }
+          }
+        },
+        "toolset_refs": {
+          "description": "Write the name of each tool set this agent is allowed to use, one per line.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Tool sets it may use",
+          "type": "array",
+          "x-i18n": {
+            "ko": {
+              "description": "이 에이전트가 사용할 수 있는 도구 묶음의 이름을 한 줄에 하나씩 적는다.",
+              "title": "쓸 수 있는 도구 묶음"
+            }
+          }
+        }
+      },
+      "required": [
+        "model_ref"
+      ],
+      "type": "object",
+      "x-field-order": [
+        "instruction",
+        "model_ref",
+        "max_turns",
+        "toolset_refs",
+        "prompt_ref"
+      ]
+    },
+    "display_name": {
+      "en": "AI agent",
+      "ko": "AI 에이전트"
+    },
+    "plain_description": {
+      "en": "The model works with tools to build an answer.",
+      "ko": "모델이 도구를 써 가며 답을 만든다."
+    },
+    "ports": {
+      "inputs": [
+        {
+          "id": "messages",
+          "plain_description": {
+            "en": "The conversation to hand the model",
+            "ko": "모델에게 줄 대화 내용"
+          },
+          "schema": {
+            "type": "array"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "response",
+          "plain_description": {
+            "en": "The answer the model wrote",
+            "ko": "모델이 만든 답"
+          },
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "id": "tool_calls",
+          "plain_description": {
+            "en": "A record of the tools the model reached for",
+            "ko": "모델이 사용한 도구 호출 기록"
+          },
+          "schema": {
+            "type": "array"
+          }
+        }
+      ]
+    },
+    "runtime": "langgraph.llm",
+    "type": "llm.agent",
+    "version": "1.0"
+  },
+  "llm.router": {
+    "config_schema": {
+      "properties": {
+        "instruction": {
+          "description": "Write what this step should decide and how. The model reads it exactly as you wrote it.",
+          "format": "instruction",
+          "title": "Instructions",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "이 갈림길이 무엇을 어떻게 판단하면 되는지 적는다. 적은 그대로 모델에게 전달된다.",
+              "title": "지시문"
+            }
+          }
+        },
+        "model_ref": {
+          "description": "The name that points to the AI model making this call. For example: model://default",
+          "format": "model-ref",
+          "title": "Model to use",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "판단을 맡길 AI 모델을 가리키는 이름이다. 예: model://default",
+              "title": "사용할 모델"
+            }
+          }
+        },
+        "output_schema_ref": {
+          "description": "The name that points to the shape the model's answer has to follow. Leave it empty to ask for no particular shape.",
+          "format": "schema-ref",
+          "title": "Shape of the answer",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "모델의 답이 지켜야 할 형식을 가리키는 이름이다. 비워 두면 형식을 강제하지 않는다.",
+              "title": "답의 형식"
+            }
+          }
+        },
+        "prompt_ref": {
+          "description": "A name for sharing one instruction across documents later. For now it is only a label. For example: prompt://triage@2",
+          "title": "Instruction name (advanced)",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "나중에 여러 문서가 같은 지시문을 함께 쓰게 될 이름 자리다. 지금은 이름표일 뿐이다. 예: prompt://triage@2",
+              "title": "지시문 이름 (고급)"
+            }
+          }
+        }
+      },
+      "required": [
+        "model_ref"
+      ],
+      "type": "object",
+      "x-field-order": [
+        "instruction",
+        "model_ref",
+        "output_schema_ref",
+        "prompt_ref"
+      ]
+    },
+    "display_name": {
+      "en": "Decision",
+      "ko": "갈림길 판단"
+    },
+    "plain_description": {
+      "en": "Looks at what came in and picks which way to go next.",
+      "ko": "입력을 보고 다음에 어느 길로 갈지 고른다."
+    },
+    "ports": {
+      "inputs": [
+        {
+          "id": "input",
+          "plain_description": {
+            "en": "The value to look at",
+            "ko": "판단할 값"
+          },
+          "schema": {}
+        }
+      ],
+      "outputs": [
+        {
+          "id": "route",
+          "plain_description": {
+            "en": "The name of the way it picked",
+            "ko": "고른 길의 이름"
+          },
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "id": "passthrough",
+          "plain_description": {
+            "en": "Hands the value it got to the next node as is",
+            "ko": "들어온 값을 그대로 다음 노드로 전달"
+          },
+          "schema": {}
+        }
+      ]
+    },
+    "runtime": "langgraph.llm",
+    "type": "llm.router",
+    "version": "1.0"
+  },
+  "tool.mcp": {
+    "config_schema": {
+      "properties": {
+        "resource_ref": {
+          "description": "The name of the outside server connection that holds the tool you want to run. For example: clinical-reference",
+          "title": "Tool server to reach",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "실행할 도구가 있는 외부 서버 연결의 이름이다. 예: clinical-reference",
+              "title": "연결할 도구 서버"
+            }
+          }
+        },
+        "tool_name": {
+          "description": "The name of the tool to actually run on that server.",
+          "title": "Name of the tool to run",
+          "type": "string",
+          "x-i18n": {
+            "ko": {
+              "description": "그 서버에서 실제로 실행할 도구의 이름이다.",
+              "title": "실행할 도구 이름"
+            }
+          }
+        }
+      },
+      "required": [
+        "resource_ref",
+        "tool_name"
+      ],
+      "type": "object"
+    },
+    "display_name": {
+      "en": "Run a tool",
+      "ko": "도구 실행"
+    },
+    "plain_description": {
+      "en": "Runs one connected outside tool a single time.",
+      "ko": "연결된 외부 도구를 한 번 실행한다."
+    },
+    "ports": {
+      "inputs": [
+        {
+          "id": "input",
+          "plain_description": {
+            "en": "The value to hand the tool",
+            "ko": "도구에 넘길 값"
+          },
+          "schema": {
+            "type": "object"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "result",
+          "plain_description": {
+            "en": "What the tool gave back",
+            "ko": "도구가 돌려준 값"
+          },
+          "schema": {}
+        },
+        {
+          "id": "error",
+          "plain_description": {
+            "en": "Why the tool could not finish",
+            "ko": "도구가 실패했을 때의 이유"
+          },
+          "schema": {
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "runtime": "mcp.gateway",
+    "type": "tool.mcp",
+    "version": "1.0"
+  }
+}

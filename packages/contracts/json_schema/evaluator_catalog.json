@@ -1,0 +1,14 @@
+{
+  "expected_phrases": {
+    "example": {
+      "en": "If the expected phrase is \"nice to meet you\", an answer like \"it is nice to meet you\" passes.",
+      "ko": "기대하는 말이 \"반갑습니다\"라면, 답이 \"만나서 반갑습니다\"일 때 통과예요."
+    },
+    "name": "expected_phrases",
+    "plain_description": {
+      "en": "Checks whether the answer contains this phrase",
+      "ko": "답에 이 말이 들어있는지 확인해요"
+    },
+    "version": "v1"
+  }
+}

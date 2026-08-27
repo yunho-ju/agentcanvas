@@ -1,0 +1,308 @@
+{
+  "$defs": {
+    "AddEdgeOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "edge": {
+          "$ref": "#/$defs/Edge"
+        },
+        "op": {
+          "const": "add_edge",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "edge"
+      ],
+      "title": "AddEdgeOperation",
+      "type": "object"
+    },
+    "AddNodeOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "node": {
+          "$ref": "#/$defs/Node"
+        },
+        "op": {
+          "const": "add_node",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "node"
+      ],
+      "title": "AddNodeOperation",
+      "type": "object"
+    },
+    "Edge": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EdgeCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/EdgeKind"
+        },
+        "source": {
+          "$ref": "#/$defs/EdgeEndpoint"
+        },
+        "target": {
+          "$ref": "#/$defs/EdgeEndpoint"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "target"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "EdgeCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        },
+        "language": {
+          "const": "cel",
+          "title": "Language",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "expression"
+      ],
+      "title": "EdgeCondition",
+      "type": "object"
+    },
+    "EdgeEndpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "node": {
+          "minLength": 1,
+          "title": "Node",
+          "type": "string"
+        },
+        "port": {
+          "minLength": 1,
+          "title": "Port",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node",
+        "port"
+      ],
+      "title": "EdgeEndpoint",
+      "type": "object"
+    },
+    "EdgeKind": {
+      "enum": [
+        "data",
+        "control",
+        "approval"
+      ],
+      "title": "EdgeKind",
+      "type": "string"
+    },
+    "Node": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Position"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "position"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "PatchOperation": {
+      "discriminator": {
+        "mapping": {
+          "add_edge": "#/$defs/AddEdgeOperation",
+          "add_node": "#/$defs/AddNodeOperation",
+          "remove_edge": "#/$defs/RemoveEdgeOperation",
+          "remove_node": "#/$defs/RemoveNodeOperation",
+          "replace_node_config": "#/$defs/ReplaceNodeConfigOperation"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AddNodeOperation"
+        },
+        {
+          "$ref": "#/$defs/RemoveNodeOperation"
+        },
+        {
+          "$ref": "#/$defs/ReplaceNodeConfigOperation"
+        },
+        {
+          "$ref": "#/$defs/AddEdgeOperation"
+        },
+        {
+          "$ref": "#/$defs/RemoveEdgeOperation"
+        }
+      ]
+    },
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Position",
+      "type": "object"
+    },
+    "RemoveEdgeOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "edge_id": {
+          "minLength": 1,
+          "title": "Edge Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "remove_edge",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "edge_id"
+      ],
+      "title": "RemoveEdgeOperation",
+      "type": "object"
+    },
+    "RemoveNodeOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "remove_node",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "node_id"
+      ],
+      "title": "RemoveNodeOperation",
+      "type": "object"
+    },
+    "ReplaceNodeConfigOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "replace_node_config",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "node_id",
+        "config"
+      ],
+      "title": "ReplaceNodeConfigOperation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "AgentSpec을 안전하게 바꾸기 위한 순서 있는 작업 목록.",
+  "properties": {
+    "base_revision": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Base Revision",
+      "type": "string"
+    },
+    "operations": {
+      "items": {
+        "$ref": "#/$defs/PatchOperation"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Operations",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "agent.patch/v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "base_revision",
+    "operations"
+  ],
+  "title": "AgentSpecPatch",
+  "type": "object"
+}

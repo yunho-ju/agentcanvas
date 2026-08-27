@@ -1,0 +1,47 @@
+"""실행을 어떻게 되찾는가 — 실행 저장소가 지키는 약속(프로토콜).
+
+저장소는 저장만 안다. 어떤 이벤트가 나오는지는 엔진이, 언제 이어 붙일지는 서비스가 정한다.
+실행이 남긴 이벤트는 덧붙이기만 한다 — 일어난 일은 고쳐 쓰지 않는다.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Protocol
+
+from agentcanvas_contracts.run import Run
+from agentcanvas_contracts.run_events import RunEvent
+
+
+class SeqAlreadyStored(Exception):
+    """이미 적힌 순번을 다시 적으려 했다 — 일어난 일은 고쳐 쓰지 않는다."""
+
+
+class RunStore(Protocol):
+    """실행과 그 이벤트를 쌓아 두는 자리."""
+
+    def start(self, run: Run) -> None:
+        """실행 하나를 연다 — 이 실행이 어느 그래프의 어느 판인지 적어 둔다."""
+        ...
+
+    def get(self, run_id: str) -> Run | None:
+        """그 이름의 실행. 시작된 적이 없으면 없다."""
+        ...
+
+    def append(self, run_id: str, events: Sequence[RunEvent]) -> None:
+        """실행이 남긴 이벤트를 끝에 잇는다.
+
+        한 실행의 순번은 하나뿐이다 — 이미 적힌 순번을 다시 적으면 `SeqAlreadyStored`를 낸다.
+        """
+        ...
+
+    def events(self, run_id: str, after: int | None = None) -> list[RunEvent]:
+        """그 실행이 남긴 이벤트 — 순번 순서대로. `after`를 주면 그 다음 것부터."""
+        ...
+
+    def last_event(self, run_id: str) -> RunEvent | None:
+        """가장 나중에 적힌 이벤트 하나 — 상태는 이것만 보고도 안다 (전체를 꺼내지 않는다)."""
+        ...
+
+
+__all__ = ["RunStore", "SeqAlreadyStored"]

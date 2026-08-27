@@ -1,0 +1,81 @@
+{
+  "$defs": {
+    "EvalCase": {
+      "additionalProperties": false,
+      "description": "돌려보고 답을 확인할 입력 하나 — 무엇을 넣고, 무슨 말이 들어있어야 통과인가.\n\npasses_needed는 runs_per_case를 넘을 수 없다 — 돌리기로 한 횟수보다 더 많은 통과를 요구할 수 없다.",
+      "properties": {
+        "expected_phrases": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Expected Phrases",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "additionalProperties": true,
+          "title": "Input",
+          "type": "object"
+        },
+        "passes_needed": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Passes Needed",
+          "type": "integer"
+        },
+        "runs_per_case": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Runs Per Case",
+          "type": "integer"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "input",
+        "expected_phrases"
+      ],
+      "title": "EvalCase",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "케이스의 모음 — 독립 엔티티다 (v1은 revision 없음).",
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/EvalCase"
+      },
+      "title": "Cases",
+      "type": "array"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name"
+  ],
+  "title": "EvalDataset",
+  "type": "object"
+}

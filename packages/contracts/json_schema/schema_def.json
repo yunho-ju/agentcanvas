@@ -1,0 +1,49 @@
+{
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "ref 하나가 가리키는 값의 형식 — 폼은 이 `schema`를 그린다.",
+  "properties": {
+    "ref": {
+      "title": "Ref",
+      "type": "string"
+    },
+    "schema": {
+      "additionalProperties": true,
+      "title": "Schema",
+      "type": "object"
+    },
+    "title": {
+      "$ref": "#/$defs/LocalizedText"
+    }
+  },
+  "required": [
+    "ref",
+    "title",
+    "schema"
+  ],
+  "title": "SchemaDef",
+  "type": "object"
+}

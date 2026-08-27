@@ -1,0 +1,42 @@
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dco-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sign-off:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify every commit carries a Signed-off-by trailer
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for commit in $(git rev-list "$BASE_SHA".."$HEAD_SHA"); do
+            if [ "$(git rev-list --parents -n 1 "$commit" | wc -w)" -gt 2 ]; then
+              continue
+            fi
+            if git show --no-patch --format=%B "$commit" \
+              | grep --quiet --extended-regexp '^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$'; then
+              continue
+            fi
+            echo "Missing Signed-off-by: $commit $(git show --no-patch --format=%s "$commit")"
+            missing=1
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Every commit must be signed off. See CONTRIBUTING.md and DCO; amend with 'git commit -s --amend' or 'git rebase --signoff'."
+            exit 1
+          fi
+          echo "All commits carry a Signed-off-by trailer."

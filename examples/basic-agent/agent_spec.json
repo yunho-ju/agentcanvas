@@ -1,0 +1,121 @@
+{
+  "schema_version": "agent.spec/v1",
+  "id": "clinical-assistant",
+  "version": 3,
+  "revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+  "status": "draft",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "question": { "type": "string" },
+      "patient_context": { "type": "object" }
+    },
+    "required": ["question"]
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "route": { "type": "string" },
+      "messages": { "type": "array" },
+      "evidence": { "type": "array" },
+      "answer": { "type": "string" },
+      "approval": { "type": "object" }
+    }
+  },
+  "resources": [
+    {
+      "id": "clinical-reference",
+      "kind": "mcp.toolset",
+      "server_ref": "mcp://clinical-reference",
+      "allowed_tools": ["search_article", "get_article"],
+      "approval_policy": "read_only_auto"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "input",
+      "type": "core.input",
+      "position": { "x": 80, "y": 240 },
+      "config": {
+        "bindings": {
+          "question": "input.question",
+          "patient_context": "input.patient_context"
+        }
+      }
+    },
+    {
+      "id": "triage",
+      "type": "llm.router",
+      "position": { "x": 360, "y": 240 },
+      "config": {
+        "model_ref": "model://default",
+        "prompt_ref": "prompt://triage@2",
+        "output_schema_ref": "schema://triage-result@1"
+      }
+    },
+    {
+      "id": "clinical-agent",
+      "type": "llm.agent",
+      "position": { "x": 700, "y": 240 },
+      "config": {
+        "model_ref": "model://default",
+        "prompt_ref": "prompt://clinical@7",
+        "toolset_refs": ["clinical-reference"],
+        "max_turns": 4
+      }
+    },
+    {
+      "id": "human-gate",
+      "type": "control.human_gate",
+      "position": { "x": 1040, "y": 240 },
+      "config": {
+        "approval_schema_ref": "schema://answer-review@1"
+      }
+    },
+    {
+      "id": "output",
+      "type": "core.output",
+      "position": { "x": 1320, "y": 240 },
+      "config": { "binding": "state.answer" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "input-triage",
+      "kind": "data",
+      "source": { "node": "input", "port": "question" },
+      "target": { "node": "triage", "port": "input" }
+    },
+    {
+      "id": "triage-agent",
+      "kind": "control",
+      "source": { "node": "triage", "port": "passthrough" },
+      "target": { "node": "clinical-agent", "port": "messages" },
+      "condition": {
+        "language": "cel",
+        "expression": "route == 'clinical'"
+      }
+    },
+    {
+      "id": "agent-human",
+      "kind": "approval",
+      "source": { "node": "clinical-agent", "port": "response" },
+      "target": { "node": "human-gate", "port": "review" }
+    },
+    {
+      "id": "human-output",
+      "kind": "control",
+      "source": { "node": "human-gate", "port": "approved" },
+      "target": { "node": "output", "port": "input" }
+    }
+  ],
+  "execution": {
+    "checkpointer": "postgres",
+    "replay_policy": "recorded_tools_first",
+    "limits": {
+      "max_total_tokens": 20000,
+      "max_runtime_ms": 120000,
+      "max_tool_calls": 12
+    }
+  }
+}

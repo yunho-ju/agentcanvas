@@ -1,0 +1,324 @@
+[
+  {
+    "seq": 0,
+    "run_id": "run_example",
+    "event_type": "run.started",
+    "timestamp": "2026-08-01T12:30:00.000Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "spec_id": "clinical-assistant"
+    }
+  },
+  {
+    "seq": 1,
+    "run_id": "run_example",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:00.400Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 2,
+    "run_id": "run_example",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:00.800Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 3,
+    "run_id": "run_example",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:01.200Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 4,
+    "run_id": "run_example",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:01.600Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "llm.router"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 5,
+    "run_id": "run_example",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:02.000Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "llm.router"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 6,
+    "run_id": "run_example",
+    "event_type": "prompt.compiled",
+    "timestamp": "2026-08-01T12:30:02.400Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "prompt_ref": "prompt://triage@2",
+      "blocks": [
+        {
+          "id": "system-role",
+          "included": true,
+          "token_count": 512
+        }
+      ],
+      "total_tokens": 512
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 7,
+    "run_id": "run_example",
+    "event_type": "llm.requested",
+    "timestamp": "2026-08-01T12:30:02.800Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "model_ref": "model://default"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 8,
+    "run_id": "run_example",
+    "event_type": "llm.completed",
+    "timestamp": "2026-08-01T12:30:03.200Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "model_ref": "model://default",
+      "output_tokens": 128
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 9,
+    "run_id": "run_example",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:03.600Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "llm.router"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 10,
+    "run_id": "run_example",
+    "event_type": "state.patch",
+    "timestamp": "2026-08-01T12:30:04.000Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "edge_id": "triage-agent",
+      "from": "triage",
+      "to": "clinical-agent",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/messages",
+          "value": "result of triage.passthrough"
+        }
+      ]
+    }
+  },
+  {
+    "seq": 11,
+    "run_id": "run_example",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:04.400Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "llm.agent"
+    },
+    "node_id": "clinical-agent"
+  },
+  {
+    "seq": 12,
+    "run_id": "run_example",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:04.800Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "llm.agent"
+    },
+    "node_id": "clinical-agent"
+  },
+  {
+    "seq": 13,
+    "run_id": "run_example",
+    "event_type": "prompt.compiled",
+    "timestamp": "2026-08-01T12:30:05.200Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "prompt_ref": "prompt://clinical@7",
+      "blocks": [
+        {
+          "id": "system-role",
+          "included": true,
+          "token_count": 512
+        }
+      ],
+      "total_tokens": 512
+    },
+    "node_id": "clinical-agent"
+  },
+  {
+    "seq": 14,
+    "run_id": "run_example",
+    "event_type": "llm.requested",
+    "timestamp": "2026-08-01T12:30:05.600Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "model_ref": "model://default"
+    },
+    "node_id": "clinical-agent"
+  },
+  {
+    "seq": 15,
+    "run_id": "run_example",
+    "event_type": "llm.completed",
+    "timestamp": "2026-08-01T12:30:06.000Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "model_ref": "model://default",
+      "output_tokens": 128
+    },
+    "node_id": "clinical-agent"
+  },
+  {
+    "seq": 16,
+    "run_id": "run_example",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:06.400Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "llm.agent"
+    },
+    "node_id": "clinical-agent"
+  },
+  {
+    "seq": 17,
+    "run_id": "run_example",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:06.800Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "control.human_gate"
+    },
+    "node_id": "human-gate"
+  },
+  {
+    "seq": 18,
+    "run_id": "run_example",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:07.200Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "control.human_gate"
+    },
+    "node_id": "human-gate"
+  },
+  {
+    "seq": 19,
+    "run_id": "run_example",
+    "event_type": "human.approval_requested",
+    "timestamp": "2026-08-01T12:30:07.600Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "approval_schema_ref": "schema://answer-review@1"
+    },
+    "node_id": "human-gate"
+  },
+  {
+    "seq": 20,
+    "run_id": "run_example",
+    "event_type": "run.paused",
+    "timestamp": "2026-08-01T12:30:08.000Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "waiting_for": "human-gate"
+    },
+    "node_id": "human-gate"
+  },
+  {
+    "seq": 21,
+    "run_id": "run_example",
+    "event_type": "run.resumed",
+    "timestamp": "2026-08-01T12:30:08.400Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "waiting_for": "human-gate",
+      "approved": true
+    },
+    "node_id": "human-gate"
+  },
+  {
+    "seq": 22,
+    "run_id": "run_example",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:08.800Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "control.human_gate"
+    },
+    "node_id": "human-gate"
+  },
+  {
+    "seq": 23,
+    "run_id": "run_example",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:09.200Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "output"
+  },
+  {
+    "seq": 24,
+    "run_id": "run_example",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:09.600Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "output"
+  },
+  {
+    "seq": 25,
+    "run_id": "run_example",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:10.000Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "output"
+  },
+  {
+    "seq": 26,
+    "run_id": "run_example",
+    "event_type": "run.completed",
+    "timestamp": "2026-08-01T12:30:10.400Z",
+    "spec_revision": "sha256:c41eed9b1ae8a90acc4c653250f793b118b33c88fd23adc19ddf6e6848e980e9",
+    "payload": {
+      "node_count": 5
+    }
+  }
+]

@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "Approval": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_at": {
+          "format": "date-time",
+          "title": "Approved At",
+          "type": "string"
+        },
+        "approved_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Approved By",
+          "type": "array"
+        },
+        "status": {
+          "minLength": 1,
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "approved_at"
+      ],
+      "title": "Approval",
+      "type": "object"
+    },
+    "ModelSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "quantization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quantization"
+        }
+      },
+      "required": [
+        "provider",
+        "model"
+      ],
+      "title": "ModelSnapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approval": {
+      "$ref": "#/$defs/Approval"
+    },
+    "eval_suite_snapshot": {
+      "minLength": 1,
+      "title": "Eval Suite Snapshot",
+      "type": "string"
+    },
+    "graph_revision": {
+      "minLength": 1,
+      "title": "Graph Revision",
+      "type": "string"
+    },
+    "mcp_policy_snapshot": {
+      "minLength": 1,
+      "title": "Mcp Policy Snapshot",
+      "type": "string"
+    },
+    "model_snapshot": {
+      "$ref": "#/$defs/ModelSnapshot"
+    },
+    "prompt_revisions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Prompt Revisions",
+      "type": "object"
+    },
+    "release_id": {
+      "minLength": 1,
+      "title": "Release Id",
+      "type": "string"
+    },
+    "tool_registry_snapshot": {
+      "minLength": 1,
+      "title": "Tool Registry Snapshot",
+      "type": "string"
+    }
+  },
+  "required": [
+    "release_id",
+    "graph_revision",
+    "model_snapshot",
+    "tool_registry_snapshot",
+    "mcp_policy_snapshot",
+    "eval_suite_snapshot",
+    "approval"
+  ],
+  "title": "ReleaseManifest",
+  "type": "object"
+}

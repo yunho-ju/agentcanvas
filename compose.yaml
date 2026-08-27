@@ -1,0 +1,67 @@
+name: agentcanvas
+
+services:
+  api:
+    build:
+      context: .
+      target: api-runtime
+    environment:
+      AGENTCANVAS_DB: ${AGENTCANVAS_DB:-/data/agentcanvas.db}
+      AGENTCANVAS_BACKUP_DIR: /backups
+      AGENTCANVAS_BACKUP_RETENTION: ${AGENTCANVAS_BACKUP_RETENTION:-10}
+      AGENTCANVAS_ALLOWED_ORIGINS: ${AGENTCANVAS_ALLOWED_ORIGINS:-http://localhost:8080}
+      AGENTCANVAS_AUTH_MODE: required
+      AGENTCANVAS_ADMIN_PASSWORD: ${AGENTCANVAS_ADMIN_PASSWORD:-}
+      AGENTCANVAS_SESSION_SECRET: ${AGENTCANVAS_SESSION_SECRET:-}
+      AGENTCANVAS_SESSION_TTL_SECONDS: ${AGENTCANVAS_SESSION_TTL_SECONDS:-28800}
+      AGENTCANVAS_COOKIE_SECURE: ${AGENTCANVAS_COOKIE_SECURE:-false}
+      AGENTCANVAS_OPENAI_MODEL: ${AGENTCANVAS_OPENAI_MODEL:-}
+      AGENTCANVAS_SECRET_OPENAI_API_KEY: ${AGENTCANVAS_SECRET_OPENAI_API_KEY:-}
+      AGENTCANVAS_SECRET_ANTHROPIC_API_KEY: ${AGENTCANVAS_SECRET_ANTHROPIC_API_KEY:-}
+      AGENTCANVAS_LOCAL_MODEL: ${AGENTCANVAS_LOCAL_MODEL:-}
+      AGENTCANVAS_LOCAL_BASE_URL: ${AGENTCANVAS_LOCAL_BASE_URL:-http://host.docker.internal:11434/v1}
+    volumes:
+      - agentcanvas-data:/data
+      - agentcanvas-backups:/backups
+    expose:
+      - "8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  studio:
+    build:
+      context: .
+      target: studio-runtime
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${AGENTCANVAS_BIND:-127.0.0.1}:${AGENTCANVAS_PORT:-8080}:8080"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  agentcanvas-data:
+  agentcanvas-backups:

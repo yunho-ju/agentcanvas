@@ -1,0 +1,48 @@
+{
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "골라 채우는 시작 글 하나 — 이름표(제목)와 채워질 본문이 전부다.",
+  "properties": {
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "text": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "title": {
+      "$ref": "#/$defs/LocalizedText"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "text"
+  ],
+  "title": "InstructionPresetDef",
+  "type": "object"
+}

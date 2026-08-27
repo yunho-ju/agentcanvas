@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "EventType": {
+      "enum": [
+        "run.started",
+        "node.queued",
+        "node.started",
+        "prompt.compiled",
+        "llm.requested",
+        "llm.completed",
+        "decision.recorded",
+        "tool.policy_checked",
+        "tool.requested",
+        "tool.completed",
+        "state.patch",
+        "checkpoint.created",
+        "human.approval_requested",
+        "run.paused",
+        "run.resumed",
+        "node.completed",
+        "node.failed",
+        "run.completed",
+        "run.failed"
+      ],
+      "title": "EventType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "event_type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "node_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Node Id"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "spec_revision": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Spec Revision",
+      "type": "string"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    }
+  },
+  "required": [
+    "seq",
+    "run_id",
+    "event_type",
+    "timestamp",
+    "spec_revision",
+    "payload"
+  ],
+  "title": "RunEvent",
+  "type": "object"
+}

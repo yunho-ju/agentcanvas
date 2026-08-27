@@ -1,0 +1,294 @@
+[
+  {
+    "seq": 0,
+    "run_id": "run_branching",
+    "event_type": "run.started",
+    "timestamp": "2026-08-01T12:30:00Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "spec_id": "branching-assistant"
+    },
+    "node_id": null
+  },
+  {
+    "seq": 1,
+    "run_id": "run_branching",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:00.400000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 2,
+    "run_id": "run_branching",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:00.800000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 3,
+    "run_id": "run_branching",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:01.200000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 4,
+    "run_id": "run_branching",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:01.600000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "llm.router"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 5,
+    "run_id": "run_branching",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:02Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "llm.router"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 6,
+    "run_id": "run_branching",
+    "event_type": "prompt.compiled",
+    "timestamp": "2026-08-01T12:30:02.400000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "prompt_ref": "prompt://triage@1",
+      "blocks": [
+        {
+          "id": "system-role",
+          "included": true,
+          "token_count": 512
+        }
+      ],
+      "total_tokens": 512
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 7,
+    "run_id": "run_branching",
+    "event_type": "llm.requested",
+    "timestamp": "2026-08-01T12:30:02.800000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "model_ref": "model://default"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 8,
+    "run_id": "run_branching",
+    "event_type": "llm.completed",
+    "timestamp": "2026-08-01T12:30:03.200000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "model_ref": "model://default",
+      "output_tokens": 128
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 9,
+    "run_id": "run_branching",
+    "event_type": "decision.recorded",
+    "timestamp": "2026-08-01T12:30:03.600000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "route": "simple",
+      "ways": [
+        "clinical",
+        "simple"
+      ]
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 10,
+    "run_id": "run_branching",
+    "event_type": "state.patch",
+    "timestamp": "2026-08-01T12:30:04Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "from": "triage",
+      "to": "route",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/route",
+          "value": "simple"
+        }
+      ]
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 11,
+    "run_id": "run_branching",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:04.400000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "llm.router"
+    },
+    "node_id": "triage"
+  },
+  {
+    "seq": 12,
+    "run_id": "run_branching",
+    "event_type": "state.patch",
+    "timestamp": "2026-08-01T12:30:04.800000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "edge_id": "triage-quick",
+      "from": "triage",
+      "to": "quick-answer",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/messages",
+          "value": "result of triage.passthrough"
+        }
+      ]
+    },
+    "node_id": null
+  },
+  {
+    "seq": 13,
+    "run_id": "run_branching",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:05.200000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "llm.agent"
+    },
+    "node_id": "quick-answer"
+  },
+  {
+    "seq": 14,
+    "run_id": "run_branching",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:05.600000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "llm.agent"
+    },
+    "node_id": "quick-answer"
+  },
+  {
+    "seq": 15,
+    "run_id": "run_branching",
+    "event_type": "prompt.compiled",
+    "timestamp": "2026-08-01T12:30:06Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "prompt_ref": "prompt://quick@1",
+      "blocks": [
+        {
+          "id": "system-role",
+          "included": true,
+          "token_count": 512
+        }
+      ],
+      "total_tokens": 512
+    },
+    "node_id": "quick-answer"
+  },
+  {
+    "seq": 16,
+    "run_id": "run_branching",
+    "event_type": "llm.requested",
+    "timestamp": "2026-08-01T12:30:06.400000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "model_ref": "model://default"
+    },
+    "node_id": "quick-answer"
+  },
+  {
+    "seq": 17,
+    "run_id": "run_branching",
+    "event_type": "llm.completed",
+    "timestamp": "2026-08-01T12:30:06.800000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "model_ref": "model://default",
+      "output_tokens": 128
+    },
+    "node_id": "quick-answer"
+  },
+  {
+    "seq": 18,
+    "run_id": "run_branching",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:07.200000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "llm.agent"
+    },
+    "node_id": "quick-answer"
+  },
+  {
+    "seq": 19,
+    "run_id": "run_branching",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:07.600000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "output"
+  },
+  {
+    "seq": 20,
+    "run_id": "run_branching",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:08Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "output"
+  },
+  {
+    "seq": 21,
+    "run_id": "run_branching",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:08.400000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "output"
+  },
+  {
+    "seq": 22,
+    "run_id": "run_branching",
+    "event_type": "run.completed",
+    "timestamp": "2026-08-01T12:30:08.800000Z",
+    "spec_revision": "sha256:e492aabc6324202cfbdaf9e70051ff8ed9e0f851c31163e8444d4f6a72efd18c",
+    "payload": {
+      "node_count": 4
+    },
+    "node_id": null
+  }
+]

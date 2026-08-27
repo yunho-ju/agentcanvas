@@ -1,0 +1,187 @@
+/* AgentCanvas 디자인 토큰 — 값이 사는 유일한 자리 (docs/AGENTCANVAS_DESIGN_LANGUAGE.md §2.2).
+   화면을 만드는 다른 어떤 파일도 색·radius·그림자·글자 크기·모션 시간을 직접 적지 않는다.
+
+   라이트와 다크는 같은 토큰의 두 값이다: light-dark(밝을 때, 어두울 때).
+   어느 쪽을 쓸지는 color-scheme 한 줄이 정한다 — 값이 두 번 적히는 자리는 없다.
+
+   브랜드 램프 Flow Cyan (hue 192°) — 아래 accent 토큰들이 이 램프에서 나온다:
+   50 #F3FAFC · 100 #E2F4F8 · 200 #C4E9F3 · 300 #97DCED · 400 #5ECDE8
+   500 #23BFE7 · 600 #10A2C6 · 700 #0D83A0 · 800 #0E667C · 900 #0D4A59 */
+
+:root {
+  /* 고르기 전에는 시스템을 따른다. */
+  color-scheme: light dark;
+
+  /* 표면 — 정제된 중립. 캔버스에는 브랜드색이 없다. */
+  --bg-canvas: light-dark(#F6F7F9, #0E0F12);
+  --surface: light-dark(#FFFFFF, #17181C);
+  /* 캔버스 위에 떠 있는 것 — 어두운 화면에서 한 단계 밝다. */
+  --surface-raised: light-dark(#FFFFFF, #1D1F24);
+  --surface-sunken: light-dark(#F1F3F5, #131418);
+  --surface-hover: light-dark(#F1F3F5, #202227);
+  --surface-active: light-dark(#E6E9ED, #282B31);
+  --surface-glass: light-dark(rgba(255, 255, 255, 0.78), rgba(29, 31, 36, 0.78));
+
+  /* 정밀한 1px 경계 — 전문적인 인상은 그림자가 아니라 이 선에서 온다. */
+  --hairline: light-dark(#E5E8EC, #2A2D33);
+  --hairline-strong: light-dark(#D3D8DE, #3A3E46);
+
+  /* 글자 */
+  --ink: light-dark(#191F28, #ECEDEF);
+  --ink-soft: light-dark(#6B7684, #8B95A1);
+  --ink-faint: light-dark(#8B95A1, #6E7681);
+  /* 브랜드색 위의 글자 — 밝은 cyan 위에서는 흰 글자가 읽히지 않는다. */
+  --on-accent: light-dark(#FFFFFF, #06222B);
+
+  /* 브랜드 — 주 행동·선택·포커스에만. 캔버스 위 상태에는 쓰지 않는다. */
+  --accent: light-dark(#0D83A0, #23BFE7);
+  --accent-strong: light-dark(#0E667C, #5ECDE8);
+  --accent-hover: light-dark(#0E667C, #5ECDE8);
+  --accent-active: light-dark(#0D4A59, #97DCED);
+  --accent-soft: light-dark(#E2F4F8, #0D4A59);
+  --accent-ring: light-dark(rgba(13, 131, 160, 0.32), rgba(35, 191, 231, 0.4));
+
+  /* 상태 — 캔버스 위에서는 이 색들이 주인이다. 글자로 쓸 때는 -ink 쪽이 AA를 지킨다. */
+  --running: #3B82F6;
+  --running-ink: light-dark(#1D4ED8, #93C5FD);
+  --running-soft: light-dark(rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.22));
+  --running-glow: light-dark(rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0.26));
+  --success: #12B76A;
+  --success-ink: light-dark(#067647, #4ADE95);
+  --success-soft: light-dark(rgba(18, 183, 106, 0.12), rgba(18, 183, 106, 0.2));
+  --warn: #F59E0B;
+  --warn-ink: light-dark(#B45309, #FBBF5B);
+  --warn-soft: light-dark(rgba(245, 158, 11, 0.14), rgba(245, 158, 11, 0.22));
+  --danger: #EF4444;
+  --danger-ink: light-dark(#B42318, #FCA5A5);
+  --danger-hover: light-dark(#DC2626, #F87171);
+  --danger-soft: light-dark(rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.2));
+  --danger-ring: light-dark(rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.36));
+  --idle: var(--hairline-strong);
+
+  /* 노드 타입 칩 — 낮은 채도의 구분색. 상태색·브랜드색과 위상이 다르다. */
+  --type-input: light-dark(#55658A, #97A7C7);
+  --type-output: light-dark(#5E7A66, #99B8A2);
+  --type-agent: light-dark(#6A5FA6, #A99FDC);
+  --type-router: light-dark(#8A5F86, #C79AC2);
+  --type-tool: light-dark(#96674F, #D3A088);
+  --type-gate: light-dark(#5F6B76, #A2ADBA);
+  /* 칩 바탕은 칩 색에서 나온다 — 색을 두 번 적지 않는다. */
+  --type-fill: 12%;
+
+  /* 캔버스 — 점 하나 없는 단색. 깊이는 카드의 표면 대비와 hairline이 만든다. */
+  --edge: light-dark(#C2C9D2, #464C56);
+
+  /* 모양 — 카드는 부드럽되 단정하게, 컨트롤은 조금 덜 */
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --radius-chip: 8px;
+  --radius-pill: 999px;
+
+  /* 그림자 — 낮고 정밀. 그림자만으로 경계를 만들지 않고 hairline과 함께 쓴다. */
+  --shadow-card: 0 1px 2px light-dark(rgba(16, 24, 40, 0.05), rgba(0, 0, 0, 0.4)),
+    0 4px 12px light-dark(rgba(16, 24, 40, 0.06), rgba(0, 0, 0, 0.34));
+  --shadow-float: 0 1px 2px light-dark(rgba(16, 24, 40, 0.06), rgba(0, 0, 0, 0.44)),
+    0 8px 24px light-dark(rgba(16, 24, 40, 0.08), rgba(0, 0, 0, 0.4));
+  --shadow-lift: 0 2px 4px light-dark(rgba(16, 24, 40, 0.07), rgba(0, 0, 0, 0.46)),
+    0 12px 28px light-dark(rgba(16, 24, 40, 0.1), rgba(0, 0, 0, 0.44));
+  --ring-accent: 0 0 0 2px var(--accent-ring);
+  --ring-danger: 0 0 0 2px var(--danger-ring);
+  --ring-focus: 0 0 0 3px var(--accent-ring);
+  --glow-running: 0 0 0 6px var(--running-glow);
+
+  /* 타이포 — 한국어에 맞춘 Pretendard, 번들된 woff2 (main.tsx). 밀도 있는 도구 타이포. */
+  --font-sans: "Pretendard Variable", Pretendard, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --text-title: 14px;
+  --text-heading: 20px;
+  --text-body: 13.5px;
+  --text-label: 12.5px;
+  --text-caption: 11.5px;
+  --leading-body: 1.55;
+  --leading-tight: 1.35;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  /* 숫자는 자리가 흔들리지 않는다 — 실행 시간이 늘어도 글자가 춤추지 않는다. */
+  --numeric: tabular-nums;
+
+  /* 간격 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* 크기 */
+  /* 캔버스 위에 뜨는 것들의 폭 — 좁은 화면에서는 app.css가 한 단계 줄인다. */
+  --dock-button: 36px;
+  --panel-dock: 264px;
+  --panel-inspector: 320px;
+  --panel-inspector-narrow: 280px;
+  --panel-events: 288px;
+  /* 두 실행을 나란히 놓는 자리 — 캔버스를 다 덮지 않는 폭, 목록은 열 안에서 구른다. */
+  --panel-compare: 560px;
+  --compare-steps: 240px;
+  /* 어떤 문서를 열지 고르는 자리 — 한 줄에 이름과 마지막 저장이 들어가는 폭. */
+  --panel-open: 420px;
+  --open-list-height: 320px;
+  /* 피커는 캔버스를 다 가리지 않는다 — 넘치는 목록은 안에서 구른다. */
+  --picker-height: 320px;
+  --node-width: 208px;
+  --rail-width: 3px;
+  --chip-size: 22px;
+  --icon-size: 14px;
+  --handle-size: 8px;
+  --handle-size-hover: 12px;
+  /* 보이는 점보다 잡히는 자리가 넓다 — 작은 점을 정밀 조준하게 하지 않는다 (DESIGN §7). */
+  --handle-hit: 24px;
+  --border-hair: 1px;
+  /* 정렬 안내선은 화면 밖까지 뻗는다 — 어디에 줄이 맞았는지 한눈에 보이도록. */
+  --guide-reach: 40000px;
+  /* 연결이 한 번 그어질 때 쓰는 점선 길이 — 노드 사이 거리와 비슷하게 잡는다. */
+  --edge-dash: 600;
+  --border-thick: 2px;
+  /* 실행 중 데이터가 지나는 연결은 관이 된다 — 나르는 중이 가장 굵고, 지나간 자리는 그 사이다. */
+  --pipe-carrying: 4px;
+  --pipe-carried: 2.5px;
+  /* 관을 지나는 방울 하나의 크기 */
+  --pipe-drop: 3px;
+
+  /* 모션 — 빠르고 탄성 있게, 절대 기다리게 하지 않는다 */
+  --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring-out: cubic-bezier(0.34, 1.32, 0.64, 1);
+  --dur-tap: 100ms;
+  --dur-enter: 240ms;
+  --dur-exit: 160ms;
+  --dur-pulse: 1600ms;
+  /* 스스로 사라지는 안내(§7 connection-hint)가 머무는 시간 — 한 줄을 읽고도 남을 만큼.
+     모션이 아니라 읽을 시간이므로 모션을 줄인 화면에서도 그대로 둔다. */
+  --dur-hint: 5000ms;
+  /* 방울 하나가 관을 끝까지 지나는 데 걸리는 시간 — 재생 속도가 이 값을 나눈다.
+     앞 노드가 마치고 뒤 노드가 시작하기까지의 보통 간격에 맞춘다: 그래야 마지막 방울이
+     도착하는 순간과 뒤 노드가 일을 시작하는 순간이 겹친다. */
+  --dur-pipe: 800ms;
+}
+
+/* 사용자가 직접 고르면 그 선택이 시스템보다 먼저다. */
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* 모션을 원치 않는 사용자에게는 같은 정보를 짧은 fade로만 전한다.
+   시간 토큰 한 곳만 바꾸면 화면 전체의 모션이 함께 잦아든다. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-tap: 120ms;
+    --dur-enter: 120ms;
+    --dur-exit: 120ms;
+    --dur-pulse: 0ms;
+  }
+}
