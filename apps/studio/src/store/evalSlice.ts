@@ -82,6 +82,8 @@ export interface EvalSlice {
   fetchBatch: FetchBatch;
   setPollTimer: SetTimer;
   clearPollTimer: ClearTimer;
+  /** 지금 묶음을 서버에 맡긴다 — 처음이면 짓고(POST), 이미 있으면 고친다(PUT). */
+  persistDataset: (dataset: EvalDataset) => Promise<void>;
 
   /** 시험 모드로 들어온다 — 이 문서의 시험 묶음을 연다 */
   enterEvalMode: () => void;
@@ -127,6 +129,17 @@ export function evalRunBlocked(state: EditorState): Message | null {
 /** 이름 없는 문서도 시험 묶음은 지어야 한다 — doc-card와 같은 말을 쓴다. */
 function fallbackDatasetName(name: string | null | undefined): string {
   return name ?? translate(getLocale(), msg("doc.unnamed"));
+}
+
+/**
+ * 지금 케이스를 담을 묶음 — 이미 연 묶음이거나, 이 문서 이름으로 처음 여는 묶음이다.
+ * 케이스를 손으로 저장할 때와 AI 제안을 담을 때가 같은 묶음을 본다(규칙은 이 한 곳뿐).
+ */
+export function currentOrNewDataset(state: EditorState): EvalDataset {
+  const spec = state.spec!;
+  return (
+    state.dataset ?? newDataset(datasetIdFor(spec.id), fallbackDatasetName(spec.name))
+  );
 }
 
 /** 문서를 놓을 때(abandonEval)·패널을 열 때(evalPanelOpen 제외) 시험 상태가 돌아가는 처음 모습. */
@@ -185,6 +198,7 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
     startBatch: (datasetId, specId, specRevision) =>
       startBatchOnServer(datasetId, specId, specRevision),
     fetchBatch: (batchId) => fetchBatchFromServer(batchId),
+    persistDataset: (dataset) => persist(dataset),
     setPollTimer: (tick, ms) => globalThis.setTimeout(tick, ms),
     clearPollTimer: (handle) => globalThis.clearTimeout(handle as Parameters<typeof clearTimeout>[0]),
 
@@ -197,12 +211,15 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
       // 패널을 떠나면 아직 도는 배치를 배경에서 계속 묻지 않는다 — 다시 열면 새로 알아본다.
       poller.stop();
       set({ evalPanelOpen: false, caseDraft: null, lastDeletedCase: null, evalDatasetSwitching: false, evalDatasetRenaming: false });
+      // 담지 않은 제안은 남지 않는다 — 승인 없이 묶음에 들어가는 길은 어디에도 없다.
+      get().discardSuggestions();
       get().resetEvalBatchHistory();
     },
 
     abandonEval: () => {
       poller.stop();
       set(RESET_EVAL_STATE);
+      get().discardSuggestions();
       get().resetEvalBatchHistory();
       loadDatasetForCurrentDoc();
     },
@@ -233,9 +250,7 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
       // 문서 정체는 graphSlice의 문 하나(ensureDoc)에서만 온다 — addNode·피커와 같은 승격이다
       // (조용히 실패하지 않는다, evalSlice가 spec을 직접 set하지 않는다).
       get().ensureDoc();
-      const spec = get().spec!;
-      const base =
-        get().dataset ?? newDataset(datasetIdFor(spec.id), fallbackDatasetName(spec.name));
+      const base = currentOrNewDataset(get());
       const evalCase = caseFromDraft(draft, caseIds(base));
       if (!evalCase) return;
       const next = withCase(base, evalCase);

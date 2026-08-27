@@ -13,6 +13,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Literal
 
+from agentcanvas_adapters.case_suggester import SuggestedCase
 from agentcanvas_adapters.openai_model import OPENAI_API_KEY_REF
 from agentcanvas_adapters.providers import asks_whoever_serves, nobody_to_ask
 from agentcanvas_adapters.secrets import env_vault
@@ -32,7 +33,7 @@ from agentcanvas_engine.validator import ValidationIssue
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .architect_service import (
     ArchitectPreview,
@@ -65,6 +66,11 @@ from .eval_service import (
     EvalBatchRunning,
     EvalBatchService,
     EvalBatchView,
+)
+from .eval_suggestion_service import (
+    CaseSuggestionRefusal,
+    CaseSuggestionsRefused,
+    EvalCaseSuggestionService,
 )
 from .job_store import DurableJobStore, IdempotencyConflict
 from .job_worker import DurableJobWorker
@@ -167,6 +173,14 @@ EVAL_BATCH_REFUSAL_STATUS: dict[EvalBatchRefusal, int] = {
     "unknown_dataset": 404,
     "unknown_spec": 404,
     "stale_revision": 409,
+}
+
+# 케이스 제안도 저장하지 않는 preview다 — 물을 곳이 없었는가, 쓸 만한 답이 아니었는가로 갈린다.
+CASE_SUGGESTION_REFUSAL_STATUS: dict[CaseSuggestionRefusal, int] = {
+    "unknown_model": 503,
+    "missing_secret": 503,
+    "provider_error": 503,
+    "invalid_cases": 502,
 }
 
 # Architect는 저장하지 않는 preview다 — provider/계약/graph 중 어느 경계에서 멈췄는지 HTTP로 옮긴다.
@@ -282,6 +296,33 @@ class EvalBatchRequest(BaseModel):
 
     spec_id: str
     spec_revision: str
+
+
+class EvalCaseSuggestionRequest(BaseModel):
+    """시험 케이스를 지어 달라는 청 — 지금 보고 있는 그래프와, 몇 개를 어떻게 지을지.
+
+    저장하지 않는 preview다: 이 청은 어떤 dataset도 만들거나 고치지 않는다.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_ref: ModelRef
+    spec: AgentSpec
+    how_many: int = Field(default=5, ge=1, le=20)
+    #: 까다로운 경우도 섞을지 — 끄면 그 요구가 모델이 읽는 말에서 빠진다.
+    include_edge_cases: bool = True
+    #: 이미 지어 둔 케이스 제목들 — 같은 것을 또 짓지 않게 함께 보낸다.
+    existing_titles: list[str] = Field(default_factory=list)
+
+
+class EvalCaseSuggestionResponse(BaseModel):
+    """지어 온 제안들 — 몇 개를 청했는지도 함께 말한다(화면이 '5개 중 3개'를 사실대로 말한다).
+
+    케이스에 이름(id)이 없는 것은 모양의 뜻이다: 담는 쪽이 그 순간 발급한다.
+    """
+
+    asked_for: int
+    cases: list[SuggestedCase]
 
 
 class EvalBatchStartResponse(BaseModel):
@@ -466,6 +507,7 @@ def create_app(
     guided_provider_is_live = model is None
     asks_a_model = model if model is not None else _default_model_call()
     architect = ArchitectService(asks_a_model)
+    case_suggestions = EvalCaseSuggestionService(asks_a_model)
     durable_jobs = job_store
     if durable_jobs is None and durability is not False:
         blockers = _durability_blockers(injected_stores=injected_stores, worker=worker)
@@ -838,6 +880,27 @@ def create_app(
                 detail=outcome.message,
             )
         return outcome
+
+    @app.post("/eval/case-suggestions", response_model=EvalCaseSuggestionResponse)
+    def suggest_eval_cases(
+        asked: EvalCaseSuggestionRequest,
+    ) -> EvalCaseSuggestionResponse:
+        """시험 케이스를 지어 준다 — 사람이 골라 담기 전까지 어떤 dataset도 바뀌지 않는다."""
+        outcome = case_suggestions.suggest(
+            spec=asked.spec,
+            how_many=asked.how_many,
+            include_edge_cases=asked.include_edge_cases,
+            existing_titles=asked.existing_titles,
+            model_ref=asked.model_ref,
+        )
+        if isinstance(outcome, CaseSuggestionsRefused):
+            raise HTTPException(
+                status_code=CASE_SUGGESTION_REFUSAL_STATUS[outcome.reason],
+                detail=outcome.message,
+            )
+        return EvalCaseSuggestionResponse(
+            asked_for=outcome.asked_for, cases=outcome.cases
+        )
 
     @app.post("/eval/datasets", response_model=EvalDataset, status_code=201)
     def create_eval_dataset(dataset: EvalDataset) -> EvalDataset:

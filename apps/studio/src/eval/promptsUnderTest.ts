@@ -25,6 +25,14 @@ function instructionOf(node: SpecNode): string {
   return typeof instruction === "string" ? instruction : "";
 }
 
+/**
+ * 그중 실제로 말이 적힌 것들 — 공백 한 칸은 적은 것이 아니다 (실행기·케이스 제안과 같은 판정).
+ * 카드는 빈 지시문도 그린다("아직 적지 않았어요"): 여기서 거르는 것은 그 판정이 필요한 자리뿐이다.
+ */
+export function writtenInstructions(prompts: PromptUnderTest[]): PromptUnderTest[] {
+  return prompts.filter((prompt) => prompt.instruction.trim() !== "");
+}
+
 /** 이 문서가 지금 시험받는 지시문들 — 지시문을 가질 수 있는 노드가 없으면 빈 목록이다. */
 export function promptsUnderTest(
   spec: AgentSpec,

@@ -469,6 +469,18 @@ describe("시험 패널은 이웃 카드에 눌려 접히지 않는다", () => {
     expect(missing).toEqual([]);
   });
 
+  it("지어 준 제안 카드도 hover/active/focus-visible을 모두 말한다", () => {
+    const missing = [":hover", ":active", ":focus-visible"].filter(
+      (state) => block(`.eval-suggest-card${state}`) === "",
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it("담기로 고른 제안은 색만이 아니라 고리와 상태로도 말한다", () => {
+    expect(appRules).toContain('.eval-suggest-card[aria-pressed="true"]');
+    expect(block('.eval-suggest-card[aria-pressed="true"]')).toContain("var(--ring-accent)");
+  });
+
   // 긴 지시문이 패널을 늘리지 않는다 (DESIGN §7 eval-prompt-card).
   it("긴 지시문은 카드 안에서 구른다", () => {
     expect(block(".eval-prompt-card__instruction")).toContain("overflow-y: auto");
@@ -491,6 +503,8 @@ describe("상호작용과 모션의 품질 게이트", () => {
     ".event-list__what",
     ".eval-panel__run",
     ".eval-case-form__save",
+    ".eval-suggest__ask-action",
+    ".eval-suggest__keep",
   ];
 
   it.each(INTERACTIVE)("%s에 hover/active/focus-visible/disabled가 모두 있다", (base) => {

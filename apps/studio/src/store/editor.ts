@@ -5,6 +5,7 @@ import type { FlowEdge, FlowNode } from "../graph/serialize";
 import { type DetachSlice, createDetachSlice } from "./detachSlice";
 import { type ArchitectSlice, createArchitectSlice } from "./architectSlice";
 import { type EvalSlice, createEvalSlice } from "./evalSlice";
+import { type EvalSuggestSlice, createEvalSuggestSlice } from "./evalSuggestSlice";
 import { type EvalDatasetSlice, createEvalDatasetSlice } from "./evalDatasetSlice";
 import { type EvalHistorySlice, createEvalHistorySlice } from "./evalHistorySlice";
 import { type FirstStepsSlice, createFirstStepsSlice } from "./firstStepsSlice";
@@ -36,6 +37,7 @@ export type EditorState = GraphSlice &
   HintSlice &
   FirstStepsSlice &
   EvalSlice &
+  EvalSuggestSlice &
   EvalDatasetSlice &
   EvalHistorySlice &
   ArchitectSlice;
@@ -64,6 +66,7 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createHintSlice(...args),
   ...createFirstStepsSlice(...args),
   ...createEvalSlice(...args),
+  ...createEvalSuggestSlice(...args),
   ...createEvalDatasetSlice(...args),
   ...createEvalHistorySlice(...args),
   ...createGraphSlice(...args),

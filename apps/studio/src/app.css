@@ -3527,6 +3527,191 @@ button:disabled {
   box-shadow: var(--shadow-card);
 }
 
+/* AI가 지어 준 시험 제안 — 담아야 묶음에 들어간다 (DESIGN §7 eval-suggest-card). */
+.eval-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.eval-suggest__label {
+  margin: 0;
+  font-size: var(--text-label);
+  color: var(--ink-soft);
+}
+
+.eval-suggest__ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.eval-suggest__count,
+.eval-suggest__edge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-label);
+  color: var(--ink);
+}
+
+.eval-suggest__count-input {
+  width: calc(var(--space-6) + var(--space-3));
+}
+
+.eval-suggest__ask-action {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+
+.eval-suggest__ask-action:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.eval-suggest__ask-action:active:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--accent-active);
+}
+
+.eval-suggest__ask-action:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.eval-suggest__ask-action:disabled {
+  opacity: 0.4;
+}
+
+.eval-suggest__note,
+.eval-suggest__count-note {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: var(--leading-tight);
+  color: var(--ink-soft);
+}
+
+.eval-suggest__made {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.eval-suggest-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+
+.eval-suggest-card:hover {
+  background: var(--surface-hover);
+}
+
+.eval-suggest-card:active {
+  transform: scale(0.98);
+  background: var(--surface-active);
+}
+
+.eval-suggest-card:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+/* 고른 카드는 고리와 바탕으로 함께 말한다 — 색만으로 상태를 전하지 않는다 (DESIGN §9). */
+.eval-suggest-card[aria-pressed="true"] {
+  box-shadow: var(--ring-accent);
+  background: var(--accent-soft);
+}
+
+.eval-suggest-card__title {
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.eval-suggest-card__gist {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}
+
+.eval-suggest__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.eval-suggest__keep {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+
+.eval-suggest__keep:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.eval-suggest__keep:active:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--accent-active);
+}
+
+.eval-suggest__keep:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.eval-suggest__keep:disabled {
+  opacity: 0.4;
+}
+
+.eval-suggest__discard {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-label);
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+
+.eval-suggest__discard:hover {
+  background: var(--surface-hover);
+}
+
+.eval-suggest__discard:active {
+  transform: scale(0.98);
+  background: var(--surface-active);
+}
+
+.eval-suggest__discard:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
 .eval-case-card--new {
   padding: var(--space-3);
 }

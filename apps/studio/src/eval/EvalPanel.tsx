@@ -3,6 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import { EvalCaseCard } from "./EvalCaseCard";
 import { EvalCaseForm } from "./EvalCaseForm";
 import { EvalPromptList } from "./EvalPromptList";
+import { EvalSuggestCards } from "./EvalSuggestCards";
 import { EvalSummaryPill } from "./EvalSummaryPill";
 import { useT } from "../i18n/useT";
 import { evalCases, evalRunBlocked } from "../store/evalSlice";
@@ -113,6 +114,8 @@ export function EvalPanel() {
           )}
         </div>
       )}
+      {/* 손으로 짓는 자리 다음에 AI가 지어 주는 자리 — 담아야 묶음에 들어간다 (DESIGN §7 eval-suggest-card). */}
+      <EvalSuggestCards />
       {advanced ? (
         <section className="eval-batch-history" aria-label={t("eval.history.label")}>
           <p className="eval-batch-history__title">{t("eval.history.title")}</p>

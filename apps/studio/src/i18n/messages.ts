@@ -1014,6 +1014,48 @@ const TEXTS = {
     ko: "{name} 단계의 지시문 고치기",
     en: "Edit the instructions for the {name} step",
   },
+  // AI가 시험을 지어 준다 (DESIGN §7 eval-suggest-card, EVAL-2). 담기 전에는 아무것도 저장되지 않는다.
+  "eval.suggest.label": { ko: "시험을 지어 드릴까요", en: "Shall we write some tests for you?" },
+  "eval.suggest.count.label": { ko: "몇 개 지어 볼까요", en: "How many should we write?" },
+  "eval.suggest.count.range": {
+    ko: "한 번에 {min}개부터 {max}개까지 지어 드릴 수 있어요",
+    en: "We can write between {min} and {max} tests at a time",
+  },
+  "eval.suggest.edge.label": { ko: "까다로운 경우도 섞기", en: "Mix in tricky cases" },
+  "eval.suggest.ask": { ko: "지어 줘", en: "Write them" },
+  "eval.suggest.asking": { ko: "지어 보는 중이에요", en: "Writing them now" },
+  "eval.suggest.blocked.noPrompts": {
+    ko: "지시문이 있어야 지어 줄 수 있어요 — 단계에 무엇을 하라고 적어 주세요",
+    en: "We need instructions before we can write tests — tell a step what to do first",
+  },
+  "eval.suggest.blocked.asking": { ko: "지금 지어 보는 중이에요", en: "Already writing them now" },
+  "eval.suggest.made": {
+    ko: "{asked}개 중 {made}개를 지었어요 — 담을 것만 골라요",
+    en: "We wrote {made} of {asked} — pick the ones to keep",
+  },
+  "eval.suggest.failed": {
+    ko: "시험을 지어 오지 못했어요 — 잠시 뒤 다시 해보세요",
+    en: "We could not write the tests — try again in a moment",
+  },
+  "eval.suggest.offline": {
+    ko: "시험을 지어 줄 곳에 닿지 못했어요 — 서버가 켜져 있는지 확인해 주세요",
+    en: "Could not reach the server that writes tests — check that it is running",
+  },
+  "eval.suggest.card.summary": {
+    ko: "넣을 값: {given} → 있어야 할 말: {expected}",
+    en: "Put in: {given} → must contain: {expected}",
+  },
+  "eval.suggest.card.summary.noInput": {
+    ko: "넣을 값 없음 → 있어야 할 말: {expected}",
+    en: "Nothing to put in → must contain: {expected}",
+  },
+  "eval.suggest.card.label": { ko: "이 시험 담기 — {title}", en: "Keep this test — {title}" },
+  "eval.suggest.keep": { ko: "고른 것 담기", en: "Keep the ones I picked" },
+  "eval.suggest.keep.blocked": {
+    ko: "담을 시험을 먼저 골라 주세요",
+    en: "Pick at least one test to keep",
+  },
+  "eval.suggest.discard": { ko: "지은 것 버리기", en: "Throw these away" },
   "eval.case.delete": { ko: "이 시험 지우기", en: "Delete this test" },
   "eval.case.delete.hint": {
     ko: "확인 없이 바로 지운다 — 되돌리기로 되살릴 수 있다",
