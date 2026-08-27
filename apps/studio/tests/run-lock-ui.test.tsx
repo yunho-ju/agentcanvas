@@ -44,7 +44,7 @@ describe("the settings panel while a run is on screen", () => {
 
     expect(screen.getByLabelText(/사용할 모델/)).toBeDisabled();
     expect(screen.getByLabelText(/최대 주고받기 횟수/)).toBeDisabled();
-    expect(screen.getByLabelText(/쓸 수 있는 도구 묶음/)).toBeDisabled();
+    expect(screen.getByLabelText(/쓸 수 있는 연결/)).toBeDisabled();
   });
 
   it("hands the settings back when the run is closed", async () => {
@@ -66,7 +66,7 @@ describe("the settings panel while a run is on screen", () => {
 
   it("shows the stored value again once editing is possible", async () => {
     await watchAgent();
-    const tools = screen.getByLabelText(/쓸 수 있는 도구 묶음/);
+    const tools = screen.getByLabelText(/쓸 수 있는 연결/);
 
     await userEvent.type(tools, "sneaked-in");
     act(() => store().stopRun());

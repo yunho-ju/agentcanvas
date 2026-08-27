@@ -5,11 +5,20 @@ from __future__ import annotations
 import re
 from typing import Annotated
 
-from pydantic import AfterValidator
+from pydantic import AfterValidator, Field
 
-_REF_PATTERN = re.compile(
-    r"^(?P<scheme>[a-z]+)://(?P<name>[A-Za-z0-9._-]+)(?:@(?P<revision>[A-Za-z0-9._-]+))?$"
-)
+_REF_BODY = r"{scheme}://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?"
+
+
+def _json_schema_pattern(scheme: str) -> str:
+    """JSON Schema(ECMA-262)에 실을 표현 — 파이썬 밖에서도 같은 규칙이 지켜진다."""
+    return rf"^{_REF_BODY.format(scheme=scheme)}$"
+
+
+def _compiled_pattern(scheme: str) -> re.Pattern[str]:
+    """같은 규칙의 파이썬 표현 — `\\Z`라야 `$`와 달리 후행 개행을 봐주지 않는다."""
+    return re.compile(rf"\A{_REF_BODY.format(scheme=scheme)}\Z")
+
 
 SECRET_FIELD_PATTERN = re.compile(
     r"secret|api_?key|token|password|credential", re.IGNORECASE
@@ -18,9 +27,10 @@ SECRET_SCHEME = "secret://"
 
 
 def _ref_validator(scheme: str):
+    pattern = _compiled_pattern(scheme)
+
     def validate(value: str) -> str:
-        match = _REF_PATTERN.match(value)
-        if match is None or match.group("scheme") != scheme:
+        if pattern.match(value) is None:
             raise ValueError(
                 f"reference must look like {scheme}://name[@revision], got {value!r}"
             )
@@ -29,11 +39,23 @@ def _ref_validator(scheme: str):
     return validate
 
 
-PromptRef = Annotated[str, AfterValidator(_ref_validator("prompt"))]
-ModelRef = Annotated[str, AfterValidator(_ref_validator("model"))]
-SchemaRef = Annotated[str, AfterValidator(_ref_validator("schema"))]
-McpRef = Annotated[str, AfterValidator(_ref_validator("mcp"))]
-SecretRef = Annotated[str, AfterValidator(_ref_validator("secret"))]
+def _ref_type(scheme: str):
+    """규칙을 지키는 곳은 AfterValidator 한 곳 — 사용자는 정규식 대신 문장을 읽는다.
+
+    같은 규칙을 JSON Schema에도 pattern으로 실어 파이썬 밖 소비자가 알 수 있게 한다.
+    """
+    return Annotated[
+        str,
+        Field(json_schema_extra={"pattern": _json_schema_pattern(scheme)}),
+        AfterValidator(_ref_validator(scheme)),
+    ]
+
+
+PromptRef = _ref_type("prompt")
+ModelRef = _ref_type("model")
+SchemaRef = _ref_type("schema")
+McpRef = _ref_type("mcp")
+SecretRef = _ref_type("secret")
 
 
 def no_raw_secrets[T](value: T, path: str = "", under_secret: bool = False) -> T:

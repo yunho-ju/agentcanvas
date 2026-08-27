@@ -41,6 +41,9 @@ class ResolvedPorts(ContractModel):
 
 INPUT_NODE_TYPE = "core.input"
 
+# config_schema 확장 키워드 — 이 자리에 적는 값은 spec.resources 바인딩의 id다.
+BINDING_REF_MARKER = "x-binding-ref"
+
 
 def _input_bindings(node: Node) -> dict[str, str]:
     """core.input의 유효한 binding만 골라낸다 — 잘못된 config는 여기서 조용히 걸러진다."""
@@ -425,21 +428,24 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                         },
                         "toolset_refs": {
                             "type": "array",
-                            "title": "Tool sets it may use",
+                            "title": "Connections it may use",
                             "description": (
-                                "Write the name of each tool set this agent is "
-                                "allowed to use, one per line."
+                                "Write the name of each connection whose tools this "
+                                "agent may use, one per line. Use the names from this "
+                                "agent's list of connections, not server addresses."
                             ),
                             "x-i18n": {
                                 "ko": {
-                                    "title": "쓸 수 있는 도구 묶음",
+                                    "title": "쓸 수 있는 연결",
                                     "description": (
-                                        "이 에이전트가 사용할 수 있는 도구 묶음의 이름을 "
-                                        "한 줄에 하나씩 적는다."
+                                        "이 에이전트가 도구를 쓸 수 있는 연결의 이름을 "
+                                        "한 줄에 하나씩 적는다. 서버 주소가 아니라 이 "
+                                        "에이전트의 연결 목록에 있는 이름을 적는다."
                                     ),
                                 }
                             },
-                            "items": {"type": "string"},
+                            # 원소 하나하나가 spec.resources 바인딩의 id다.
+                            "items": {"type": "string", BINDING_REF_MARKER: True},
                         },
                         "max_turns": {
                             "type": "integer",
@@ -519,21 +525,25 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                     "properties": {
                         "resource_ref": {
                             "type": "string",
-                            "title": "Tool server to reach",
+                            "title": "Connection to use",
                             "description": (
-                                "The name of the outside server connection that holds "
-                                "the tool you want to run. For example: "
+                                "The name of the connection that holds the tool you "
+                                "want to run. Use a name from this agent's list of "
+                                "connections, not the server address. For example: "
                                 "clinical-reference"
                             ),
                             "x-i18n": {
                                 "ko": {
-                                    "title": "연결할 도구 서버",
+                                    "title": "사용할 연결",
                                     "description": (
-                                        "실행할 도구가 있는 외부 서버 연결의 이름이다. "
-                                        "예: clinical-reference"
+                                        "실행할 도구가 있는 연결의 이름이다. 서버 주소가 "
+                                        "아니라 이 에이전트의 연결 목록에 있는 이름을 "
+                                        "적는다. 예: clinical-reference"
                                     ),
                                 }
                             },
+                            # 이 값은 spec.resources 바인딩의 id다.
+                            BINDING_REF_MARKER: True,
                         },
                         "tool_name": {
                             "type": "string",
@@ -628,6 +638,7 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
 
 
 __all__ = [
+    "BINDING_REF_MARKER",
     "DEFAULT_NODE_TYPES",
     "INPUT_NODE_TYPE",
     "NodeType",

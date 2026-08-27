@@ -197,16 +197,17 @@
           }
         },
         "toolset_refs": {
-          "description": "Write the name of each tool set this agent is allowed to use, one per line.",
+          "description": "Write the name of each connection whose tools this agent may use, one per line. Use the names from this agent's list of connections, not server addresses.",
           "items": {
-            "type": "string"
+            "type": "string",
+            "x-binding-ref": true
           },
-          "title": "Tool sets it may use",
+          "title": "Connections it may use",
           "type": "array",
           "x-i18n": {
             "ko": {
-              "description": "이 에이전트가 사용할 수 있는 도구 묶음의 이름을 한 줄에 하나씩 적는다.",
-              "title": "쓸 수 있는 도구 묶음"
+              "description": "이 에이전트가 도구를 쓸 수 있는 연결의 이름을 한 줄에 하나씩 적는다. 서버 주소가 아니라 이 에이전트의 연결 목록에 있는 이름을 적는다.",
+              "title": "쓸 수 있는 연결"
             }
           }
         }
@@ -381,13 +382,14 @@
     "config_schema": {
       "properties": {
         "resource_ref": {
-          "description": "The name of the outside server connection that holds the tool you want to run. For example: clinical-reference",
-          "title": "Tool server to reach",
+          "description": "The name of the connection that holds the tool you want to run. Use a name from this agent's list of connections, not the server address. For example: clinical-reference",
+          "title": "Connection to use",
           "type": "string",
+          "x-binding-ref": true,
           "x-i18n": {
             "ko": {
-              "description": "실행할 도구가 있는 외부 서버 연결의 이름이다. 예: clinical-reference",
-              "title": "연결할 도구 서버"
+              "description": "실행할 도구가 있는 연결의 이름이다. 서버 주소가 아니라 이 에이전트의 연결 목록에 있는 이름을 적는다. 예: clinical-reference",
+              "title": "사용할 연결"
             }
           }
         },

@@ -52,6 +52,7 @@
       "type": "string"
     },
     "ref": {
+      "pattern": "^model://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?$",
       "title": "Ref",
       "type": "string"
     },

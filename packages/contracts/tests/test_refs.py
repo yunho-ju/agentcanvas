@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from agentcanvas_contracts.refs import (
     McpRef,
@@ -35,10 +37,46 @@ def test_prompt_ref_keeps_name_and_revision():
     assert holder.ref == "prompt://clinical@7"
 
 
-def test_prompt_ref_rejects_wrong_scheme():
+def test_prompt_ref_rejects_wrong_scheme_in_words_a_person_can_act_on():
+    """사용자(HTTP 422 포함)가 보는 말은 raw 정규식이 아니라 형태를 설명하는 문장이다."""
     with pytest.raises(ValidationError) as exc:
         PromptHolder(ref="model://clinical")
-    assert "prompt://" in str(exc.value)
+    assert "must look like prompt://name[@revision]" in str(exc.value)
+
+
+@pytest.mark.parametrize("ref", ["mcp://a\n", "mcp://a ", " mcp://a", "mcp://a\nb"])
+def test_ref_rejects_anything_around_the_reference(ref):
+    """개행·공백이 붙은 값은 ref가 아니다 — 파이썬과 JSON Schema가 같게 판정해야 한다."""
+    with pytest.raises(ValidationError):
+        McpHolder(ref=ref)
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "mcp://a",
+        "mcp://a@1",
+        "mcp://a\n",
+        "mcp://a ",
+        " mcp://a",
+        "clinical-reference",
+        "secret://a",
+        "mcp://",
+    ],
+)
+def test_the_exported_pattern_accepts_exactly_what_the_model_accepts(ref):
+    """JSON Schema에 실은 pattern과 런타임 판정이 같은 집합을 뜻한다."""
+    pattern = McpHolder.model_json_schema()["properties"]["ref"]["pattern"]
+    accepted_by_schema = re.fullmatch(pattern, ref) is not None
+
+    try:
+        McpHolder(ref=ref)
+    except ValidationError:
+        accepted_by_model = False
+    else:
+        accepted_by_model = True
+
+    assert accepted_by_schema is accepted_by_model
 
 
 def test_model_ref_accepts_scheme_without_revision():

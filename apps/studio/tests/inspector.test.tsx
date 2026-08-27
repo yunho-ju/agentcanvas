@@ -86,7 +86,7 @@ describe("a form built from config_schema", () => {
     store().select("node", "clinical-agent");
     render(<Inspector />);
 
-    const list = screen.getByLabelText(/쓸 수 있는 도구 묶음/);
+    const list = screen.getByLabelText(/쓸 수 있는 연결/);
     await userEvent.clear(list);
     await userEvent.type(list, "one{enter}two");
 

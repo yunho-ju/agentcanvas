@@ -1,9 +1,12 @@
 import pytest
 from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.node_registry import DEFAULT_NODE_TYPES
 from agentcanvas_engine.validator import Severity, validate_graph
 
 
-def build_spec(nodes: list[dict], edges: list[dict]) -> AgentSpec:
+def build_spec(
+    nodes: list[dict], edges: list[dict], resources: list[dict] | None = None
+) -> AgentSpec:
     return AgentSpec.model_validate(
         {
             "schema_version": "agent.spec/v1",
@@ -15,6 +18,7 @@ def build_spec(nodes: list[dict], edges: list[dict]) -> AgentSpec:
             "state_schema": {"type": "object"},
             "nodes": nodes,
             "edges": edges,
+            "resources": resources or [],
         }
     )
 
@@ -39,12 +43,34 @@ def output_node(node_id: str = "output") -> dict:
     }
 
 
-def agent_node(node_id: str = "agent") -> dict:
+def agent_node(node_id: str = "agent", **config) -> dict:
     return {
         "id": node_id,
         "type": "llm.agent",
         "position": {"x": 50, "y": 0},
-        "config": {"model_ref": "model://default", "prompt_ref": "prompt://x@1"},
+        "config": {
+            "model_ref": "model://default",
+            "prompt_ref": "prompt://x@1",
+            **config,
+        },
+    }
+
+
+def binding(binding_id: str) -> dict:
+    return {
+        "id": binding_id,
+        "kind": "mcp",
+        "server_ref": f"mcp://{binding_id}",
+        "approval_policy": "ask",
+    }
+
+
+def tool_node(node_id: str = "tool", **config) -> dict:
+    return {
+        "id": node_id,
+        "type": "tool.mcp",
+        "position": {"x": 150, "y": 0},
+        "config": {"tool_name": "lookup", **config},
     }
 
 
@@ -272,6 +298,146 @@ def test_input_port_schema_is_taken_from_the_agent_input_schema():
     assert any(
         "string" in issue.message and "array" in issue.message for issue in issues
     )
+
+
+# 노드 config의 도구 참조는 spec.resources 바인딩의 id를 가리킨다 (설계: API_TOOLS_P0).
+def test_tool_node_pointing_at_an_existing_binding_is_fine():
+    spec = build_spec(
+        [input_node(), tool_node(resource_ref="clinical-reference")],
+        [edge("e1", ("input", "question"), ("tool", "input"))],
+        [binding("clinical-reference")],
+    )
+    assert validate_graph(spec) == []
+
+
+def test_tool_node_pointing_at_a_missing_binding_is_an_error():
+    spec = build_spec(
+        [input_node(), tool_node(resource_ref="ghost")],
+        [edge("e1", ("input", "question"), ("tool", "input"))],
+        [binding("clinical-reference")],
+    )
+    issues = validate_graph(spec)
+    assert codes(issues, Severity.ERROR) == ["node.unknown_binding"]
+    assert issues[0].node_id == "tool"
+    assert "ghost" in issues[0].message
+
+
+def test_a_tool_node_with_no_reference_at_all_is_reported_by_no_rule_today():
+    """빈 참조는 바인딩 규칙의 몫이 아니다 — 그리고 지금 서버에는 그것을 잡는 규칙이 없다.
+
+    필수 값 강제는 studio의 ajv 경로에만 있고, 서버 `config_issues`는 core.input만 본다.
+    서버 쪽 확장은 별도 티켓 — 그때 이 단언이 깨져서 재검토를 강제하는 것이 의도다.
+    """
+    spec = build_spec(
+        [input_node(), tool_node()],
+        [edge("e1", ("input", "question"), ("tool", "input"))],
+        [binding("clinical-reference")],
+    )
+    assert validate_graph(spec) == []
+
+
+def test_each_unknown_toolset_of_an_agent_is_reported_on_its_own():
+    spec = build_spec(
+        [
+            input_node(),
+            agent_node(toolset_refs=["clinical-reference", "ghost", "other-ghost"]),
+        ],
+        [edge("e1", ("input", "question"), ("agent", "messages"))],
+        [binding("clinical-reference")],
+    )
+    issues = validate_graph(spec)
+    assert codes(issues, Severity.ERROR) == [
+        "node.unknown_binding",
+        "node.unknown_binding",
+    ]
+    assert [issue.node_id for issue in issues] == ["agent", "agent"]
+    assert "ghost" in issues[0].message and "other-ghost" in issues[1].message
+
+
+@pytest.mark.parametrize("config", [{}, {"toolset_refs": []}])
+def test_an_agent_that_names_no_toolset_is_fine(config):
+    spec = build_spec(
+        [input_node(), agent_node(**config)],
+        [edge("e1", ("input", "question"), ("agent", "messages"))],
+    )
+    assert validate_graph(spec) == []
+
+
+def test_a_graph_without_bindings_or_tool_nodes_says_nothing_about_bindings():
+    spec = build_spec(
+        [input_node(), output_node()],
+        [edge("e1", ("input", "question"), ("output", "input"))],
+    )
+    assert validate_graph(spec) == []
+
+
+def test_bindings_of_an_unknown_node_type_are_not_checked():
+    spec = build_spec(
+        [
+            input_node(),
+            {
+                "id": "weird",
+                "type": "custom.unknown",
+                "position": {"x": 1, "y": 1},
+                "config": {"resource_ref": "ghost"},
+            },
+        ],
+        [],
+    )
+    issues = validate_graph(spec)
+    assert "node.unknown_type" in codes(issues, Severity.ERROR)
+    assert "node.unknown_binding" not in codes(issues)
+
+
+@pytest.mark.parametrize(
+    ("node", "port"),
+    [
+        (tool_node(resource_ref=5), "input"),
+        (agent_node("tool", toolset_refs="clinical-reference"), "messages"),
+        (agent_node("tool", toolset_refs=[5, None]), "messages"),
+    ],
+)
+def test_a_reference_that_is_not_text_is_reported_by_no_rule_today(node, port):
+    """바인딩 규칙은 글자만 본다 — 그리고 잘못된 타입을 잡는 서버 규칙은 아직 없다.
+
+    (위 케이스와 같은 이유: 서버 `config_issues`는 core.input만 검사한다.)
+    """
+    spec = build_spec(
+        [input_node(), node],
+        [edge("e1", ("input", "question"), ("tool", port))],
+        [binding("clinical-reference")],
+    )
+    assert validate_graph(spec) == []
+
+
+def registry_with_tool_config_schema(config_schema: dict) -> dict:
+    """tool.mcp의 config_schema만 갈아 끼운 registry — 나머지 타입은 그대로 쓴다."""
+    return {
+        **DEFAULT_NODE_TYPES,
+        "tool.mcp": DEFAULT_NODE_TYPES["tool.mcp"].model_copy(
+            update={"config_schema": config_schema}
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    "config_schema",
+    [
+        {"type": "object", "properties": "not an object"},
+        {"type": "object", "properties": {"resource_ref": "not a schema"}},
+        {"type": "object", "properties": {"resource_ref": {"items": "not a schema"}}},
+        {"type": "object"},
+    ],
+)
+def test_a_registry_that_makes_no_sense_is_judged_without_raising(config_schema):
+    """registry가 망가져 있어도 검증기는 예외 대신 판정을 돌려준다."""
+    spec = build_spec(
+        [input_node(), tool_node(resource_ref="ghost")],
+        [edge("e1", ("input", "question"), ("tool", "input"))],
+        [binding("clinical-reference")],
+    )
+    issues = validate_graph(spec, registry_with_tool_config_schema(config_schema))
+    assert "node.unknown_binding" not in codes(issues)
 
 
 def test_long_chain_does_not_exhaust_the_stack():

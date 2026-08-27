@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import jsonschema
@@ -242,6 +243,21 @@ def test_default_node_type_dump_validates_against_committed_schema(name):
     jsonschema.validate(
         instance=DEFAULT_NODE_TYPES[name].model_dump(mode="json"), schema=schema
     )
+
+
+def test_resource_binding_server_ref_carries_its_ref_pattern():
+    """ref 형식 규칙은 파이썬 밖에서도 지켜져야 한다 — JSON Schema에 pattern으로 실린다."""
+    schema = json.loads(
+        (JSON_SCHEMA_DIR / "agent_spec.json").read_text(encoding="utf-8")
+    )
+    server_ref = schema["$defs"]["ResourceBinding"]["properties"]["server_ref"]
+    pattern = server_ref["pattern"]
+    assert re.fullmatch(pattern, "mcp://clinical-reference")
+    assert re.fullmatch(pattern, "mcp://clinical-reference@7")
+    assert not re.fullmatch(pattern, "clinical-reference")
+    assert not re.fullmatch(pattern, "secret://clinical-reference")
+    # 정규식 자체에 개행 자리가 없어야 한다 — 소비자의 엔진이 `$`를 무엇으로 읽든.
+    assert not re.fullmatch(pattern, "mcp://clinical-reference\n")
 
 
 def test_example_agent_spec_validates_against_committed_schema():

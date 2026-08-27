@@ -200,6 +200,42 @@ def test_router_points_its_answer_shape_at_the_schema_catalog():
     assert field["format"] == "schema-ref"
 
 
+def test_tool_node_marks_its_server_field_as_a_binding_reference():
+    """도구 노드는 서버 주소가 아니라 spec.resources 바인딩의 id를 가리킨다."""
+    field = DEFAULT_NODE_TYPES["tool.mcp"].config_schema["properties"]["resource_ref"]
+    assert field["x-binding-ref"] is True
+
+
+def test_agent_node_marks_each_toolset_entry_as_a_binding_reference():
+    """묶음 목록의 원소 하나하나가 바인딩 id다 — 마커는 items에 붙는다."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["toolset_refs"]
+    assert field["items"]["x-binding-ref"] is True
+
+
+@pytest.mark.parametrize(
+    ("node_type", "field_name"),
+    [("tool.mcp", "resource_ref"), ("llm.agent", "toolset_refs")],
+)
+def test_binding_reference_fields_say_they_want_a_binding_id(node_type, field_name):
+    """규약을 설명 문장에도 적는다 — 사용자가 mcp:// 주소를 적지 않도록."""
+    field = DEFAULT_NODE_TYPES[node_type].config_schema["properties"][field_name]
+    assert "connection" in field["description"]
+    assert "연결" in field["x-i18n"]["ko"]["description"]
+
+
+@pytest.mark.parametrize(
+    ("node_type", "field_name"),
+    [("tool.mcp", "resource_ref"), ("llm.agent", "toolset_refs")],
+)
+def test_binding_reference_labels_use_the_same_word_as_their_description(
+    node_type, field_name
+):
+    """라벨과 설명이 다른 말을 쓰면 사용자는 다른 것을 적는다 — 둘 다 '연결'이다."""
+    field = DEFAULT_NODE_TYPES[node_type].config_schema["properties"][field_name]
+    assert "Connection" in field["title"]
+    assert "연결" in field["x-i18n"]["ko"]["title"]
+
+
 def test_default_registry_keys_match_node_type_field():
     assert all(key == entry.type for key, entry in DEFAULT_NODE_TYPES.items())
 
