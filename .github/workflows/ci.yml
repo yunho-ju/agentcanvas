@@ -98,7 +98,11 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --cookie "$cookie_jar" --request POST \
             http://127.0.0.1:18080/api/auth/logout)" = "403"
+          # Sessions are stateless HMAC: logout clears the cookie, it does not
+          # revoke the token server-side. Update the jar so the cleared cookie
+          # takes effect, matching the documented contract.
           curl --fail --silent --show-error --cookie "$cookie_jar" \
+            --cookie-jar "$cookie_jar" \
             --header "X-CSRF-Token: $csrf" --request POST \
             http://127.0.0.1:18080/api/auth/logout > /dev/null
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
