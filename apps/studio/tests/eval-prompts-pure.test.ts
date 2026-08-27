@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { promptsUnderTest } from "../src/eval/promptsUnderTest";
 import { attemptInQuestion } from "../src/eval/caseState";
-import { missingPhrases } from "../src/eval/missingPhrases";
+import { answerSpread } from "../src/eval/answerSpread";
 import type { AgentSpec } from "../src/generated/agent_spec";
 import type { EvalBatch } from "../src/generated/eval_batch";
 import type { NodeType } from "../src/generated/node_type";
@@ -79,66 +79,29 @@ describe("promptsUnderTest — 무엇을 시험하고 있는가", () => {
   });
 });
 
-// 서버 판정(packages/engine/agentcanvas_engine/evaluation/expected_phrases.py)의 미러다.
-// 아래 케이스는 packages/engine/tests/test_evaluation_expected_phrases.py와 같은 케이스다 —
-// 규칙이 갈라지면 "실패인데 빠진 말이 없다"는 모순 화면이 나온다.
-describe("missingPhrases — 서버 판정과 같은 규칙으로 빠진 말을 고른다", () => {
-  it("대소문자 차이는 빠진 것이 아니다", () => {
-    expect(missingPhrases("Nice to meet YOU", ["nice to meet you"])).toEqual([]);
-  });
-
-  it("연속 공백·개행은 1칸으로 좁혀 견준다", () => {
-    expect(missingPhrases("hello,\n\n  nice   to\nmeet   you  world", ["nice to meet you"])).toEqual([]);
-  });
-
-  it("같은 글자의 결합형·분해형은 같은 것으로 본다", () => {
-    const composed = "café".normalize("NFC");
-    const decomposed = "café".normalize("NFD");
-    expect(composed).not.toBe(decomposed);
-
-    expect(missingPhrases(`welcome to the ${decomposed}`, [composed])).toEqual([]);
-  });
-
-  it("둘 중 하나만 들어 있으면 없던 그 말만 골라 낸다 — 적은 그대로 돌려준다", () => {
-    expect(missingPhrases("반갑습니다, 오늘도 좋은 하루예요", ["반갑습니다", "감사합니다"])).toEqual([
-      "감사합니다",
-    ]);
-  });
-
-  it("답이 비어 있으면 기대한 말은 모두 빠진 말이다", () => {
-    expect(missingPhrases("", ["아무 말이나"])).toEqual(["아무 말이나"]);
-  });
-
-  it("서버가 공백으로 보지 않는 글자(U+FEFF)는 우리도 공백으로 보지 않는다", () => {
-    // 파이썬 re의 \s에는 U+FEFF가 없다 — JS의 \s를 그대로 쓰면 서버는 실패인데 화면은 빠진 말 0이 된다.
-    expect(missingPhrases("hello﻿world", ["hello world"])).toEqual(["hello world"]);
-  });
-
-  it("서버가 공백으로 보는 글자(U+00A0·U+3000·U+001C)는 우리도 1칸으로 좁힌다", () => {
-    expect(missingPhrases("hello 　world", ["hello world"])).toEqual([]);
-  });
-});
+/** 서버가 돌려준 배치 한 벌 — 회차의 판정도 근거도 서버가 적어 온 그대로다. */
+function batchWith(
+  attempts: { passed: boolean; output_text: string; missing_phrases?: string[] }[],
+): EvalBatch {
+  return {
+    id: "batch",
+    dataset_id: "ds",
+    spec_id: "spec",
+    spec_revision: "rev",
+    started_at: "2026-08-20T00:00:00.000Z",
+    results: [
+      {
+        case_id: "case-1",
+        evaluator: "expected_phrases",
+        evaluator_version: "v1",
+        passed: false,
+        attempts: attempts.map((attempt, index) => ({ run_id: `r${index}`, ...attempt })),
+      },
+    ],
+  };
+}
 
 describe("attemptInQuestion — 화면이 말하는 그 회차", () => {
-  function batchWith(attempts: { passed: boolean; output_text: string }[]): EvalBatch {
-    return {
-      id: "batch",
-      dataset_id: "ds",
-      spec_id: "spec",
-      spec_revision: "rev",
-      started_at: "2026-08-20T00:00:00.000Z",
-      results: [
-        {
-          case_id: "case-1",
-          evaluator: "expected_phrases",
-          evaluator_version: "v1",
-          passed: false,
-          attempts: attempts.map((attempt, index) => ({ run_id: `r${index}`, ...attempt })),
-        },
-      ],
-    };
-  }
-
   it("돌린 적이 없으면 말할 회차도 없다", () => {
     expect(attemptInQuestion("case-1", null)).toBeUndefined();
   });
@@ -149,7 +112,12 @@ describe("attemptInQuestion — 화면이 말하는 그 회차", () => {
       { passed: true, output_text: "두 번째 답" },
     ]);
 
-    expect(attemptInQuestion("case-1", batch)).toEqual({ round: 1, rounds: 2, output: "첫 번째 답" });
+    expect(attemptInQuestion("case-1", batch)).toEqual({
+      round: 1,
+      rounds: 2,
+      output: "첫 번째 답",
+      missing: [],
+    });
   });
 
   it("실패한 회차가 없으면 마지막 회차를 말한다", () => {
@@ -158,6 +126,65 @@ describe("attemptInQuestion — 화면이 말하는 그 회차", () => {
       { passed: true, output_text: "두 번째 답" },
     ]);
 
-    expect(attemptInQuestion("case-1", batch)).toEqual({ round: 2, rounds: 2, output: "두 번째 답" });
+    expect(attemptInQuestion("case-1", batch)).toEqual({
+      round: 2,
+      rounds: 2,
+      output: "두 번째 답",
+      missing: [],
+    });
+  });
+
+  it("그 회차의 빠진 말은 서버가 실어 준 근거 그대로다 — 화면이 다시 세지 않는다", () => {
+    // 서버(casefold)와 화면(toLowerCase)이 갈리는 독일어 ß도, 화면은 서버가 적은 것만 그린다.
+    const batch = batchWith([
+      { passed: false, output_text: "STRASSE", missing_phrases: ["straße"] },
+    ]);
+
+    expect(attemptInQuestion("case-1", batch)?.missing).toEqual(["straße"]);
+  });
+
+  it("근거를 싣지 않은 옛 배치의 회차는 근거가 빈 목록이다", () => {
+    const batch = batchWith([{ passed: false, output_text: "옛 답" }]);
+
+    expect(attemptInQuestion("case-1", batch)?.missing).toEqual([]);
+  });
+});
+
+// 안정성 신호 — 판정이 아니라 관찰이다 (DESIGN §7 eval-case-card 주의 신호 한 줄).
+describe("answerSpread — 회차마다 답이 갈렸는가", () => {
+  it("회차 답이 갈리면 몇 번 중 몇 가지였는지 센다", () => {
+    const batch = batchWith([
+      { passed: true, output_text: "반갑습니다" },
+      { passed: true, output_text: "안녕하세요" },
+      { passed: true, output_text: "반갑습니다" },
+    ]);
+
+    expect(answerSpread("case-1", batch)).toEqual({ rounds: 3, answers: 2 });
+  });
+
+  it("회차 답이 모두 같으면 할 말이 없다", () => {
+    const batch = batchWith([
+      { passed: true, output_text: "반갑습니다" },
+      { passed: true, output_text: "반갑습니다" },
+    ]);
+
+    expect(answerSpread("case-1", batch)).toBeUndefined();
+  });
+
+  it("한 번만 돌린 케이스는 갈릴 자리가 없다", () => {
+    expect(answerSpread("case-1", batchWith([{ passed: true, output_text: "반갑습니다" }]))).toBeUndefined();
+  });
+
+  it("돌린 적이 없으면 할 말이 없다", () => {
+    expect(answerSpread("case-1", null)).toBeUndefined();
+  });
+
+  it("답 글자 그대로 견준다 — 공백 한 칸이 다르면 다른 답이다", () => {
+    const batch = batchWith([
+      { passed: true, output_text: "반갑 습니다" },
+      { passed: true, output_text: "반갑습니다" },
+    ]);
+
+    expect(answerSpread("case-1", batch)).toEqual({ rounds: 2, answers: 2 });
   });
 });

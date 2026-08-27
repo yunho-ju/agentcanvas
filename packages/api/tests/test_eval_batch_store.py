@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -106,6 +108,45 @@ def test_a_batch_summary_counts_cases_and_passes_without_the_output_text():
     assert summary.case_count == 2
     assert summary.passed_count == 1
     assert "output_text" not in EvalBatchSummary.model_fields
+
+
+def test_a_batch_saved_before_missing_phrases_existed_still_reads(tmp_path: Path):
+    """C5: 이미 파일에 들어 있는 옛 배치 JSON은 마이그레이션 없이 그대로 읽힌다.
+
+    missing_phrases는 나중에 생긴 자리라 옛 저장분에는 없다 — 없는 근거는 빈 근거다.
+    """
+    path = tmp_path / "eval.db"
+    store = SqliteEvalBatchStore(path)
+    store.save(a_batch())  # 표를 만들어 두고, 그 안에 옛 모양의 줄을 직접 넣는다
+    old_json = {
+        "id": "batch-old",
+        "dataset_id": "greetings",
+        "spec_id": "clinical-assistant",
+        "spec_revision": REVISION,
+        "started_at": "2026-08-01T12:30:00Z",
+        "results": [
+            {
+                "case_id": "case-1",
+                "attempts": [
+                    {"run_id": "run-1", "passed": False, "output_text": "반갑습니다"}
+                ],
+                "passed": False,
+                "evaluator": "expected_phrases",
+                "evaluator_version": "v1",
+            }
+        ],
+    }
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "INSERT INTO eval_batches (batch_id, dataset_id, batch_json)"
+            " VALUES (?, ?, ?)",
+            ("batch-old", "greetings", json.dumps(old_json, ensure_ascii=False)),
+        )
+
+    found = store.get("batch-old")
+
+    assert found is not None
+    assert found.results[0].attempts[0].missing_phrases == []
 
 
 def test_constructing_the_sqlite_store_does_not_touch_the_filesystem(tmp_path: Path):

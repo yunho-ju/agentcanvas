@@ -18,6 +18,9 @@ class EvalAttempt(ContractModel):
     passed: bool
     #: 판정 대상이 된 최종 출력 원문 — 정규화 전 그대로다.
     output_text: str
+    #: 판정이 남긴 근거 — 기대한 말 중 이 답에 없던 것(사람이 적은 그대로).
+    #: 나중에 생긴 자리라 기본은 비어 있다: 이 자리가 없는 옛 저장분도 그대로 읽힌다.
+    missing_phrases: list[str] = Field(default_factory=list)
 
 
 class EvalCaseResult(ContractModel):

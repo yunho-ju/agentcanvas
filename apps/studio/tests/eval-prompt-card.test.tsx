@@ -121,7 +121,7 @@ describe("eval-prompt-card — 지금 무엇을 시험하는가", () => {
   });
 });
 
-describe("빠진 말 토막 — 실패의 까닭을 이름으로 말한다", () => {
+describe("빠진 말 토막 — 실패의 까닭은 서버가 적어 준 근거 그대로", () => {
   const evalCase: EvalCase = {
     id: "case-missing",
     title: "인사에 두 마디가 있는가",
@@ -129,9 +129,11 @@ describe("빠진 말 토막 — 실패의 까닭을 이름으로 말한다", () 
     expected_phrases: ["반갑습니다", "감사합니다"],
   };
 
-  async function failedCase(
-    attempts: { passed: boolean; output_text: string }[],
-    expectedPhrases: string[] = evalCase.expected_phrases,
+  type GivenAttempt = { passed: boolean; output_text: string; missing_phrases?: string[] };
+
+  async function shownCase(
+    attempts: GivenAttempt[],
+    { passed = false, expectedPhrases = evalCase.expected_phrases } = {},
   ) {
     await openPanel(specWith({ "clinical-agent": "환자에게 쉬운 말로 답해요" }));
     const batch: EvalBatch = {
@@ -145,7 +147,7 @@ describe("빠진 말 토막 — 실패의 까닭을 이름으로 말한다", () 
           case_id: evalCase.id,
           evaluator: "expected_phrases",
           evaluator_version: "v1",
-          passed: false,
+          passed,
           attempts: attempts.map((attempt, index) => ({ run_id: `run-${index}`, ...attempt })),
         },
       ],
@@ -164,19 +166,21 @@ describe("빠진 말 토막 — 실패의 까닭을 이름으로 말한다", () 
     await userEvent.click(screen.getByText(evalCase.title));
   }
 
-  it("실패한 케이스를 펼치면 답에 없던 말만 골라 보여 준다", async () => {
-    await failedCase([{ passed: false, output_text: "반갑습니다, 오늘도 좋은 하루예요" }]);
+  it("실패한 케이스를 펼치면 서버가 그 회차에 실어 준 빠진 말을 보여 준다", async () => {
+    await shownCase([
+      { passed: false, output_text: "반갑습니다, 오늘도 좋은 하루예요", missing_phrases: ["감사합니다"] },
+    ]);
 
     expect(screen.getByText("답에 없던 말")).toBeInTheDocument();
     expect(screen.getByText("감사합니다")).toBeInTheDocument();
     expect(screen.queryByText("반갑습니다")).not.toBeInTheDocument();
   });
 
-  // 마지막 회차가 통과해도 케이스는 집계로 실패할 수 있다 — 빠진 말은 실패한 그 회차에서 나온다.
-  it("여러 번 돌렸으면 가장 최근 실패한 회차의 답과 그 회차의 빠진 말을 함께 보여 준다", async () => {
-    await failedCase([
-      { passed: false, output_text: "반갑습니다" },
-      { passed: true, output_text: "반갑습니다, 감사합니다" },
+  // 마지막 회차가 통과해도 케이스는 집계로 실패할 수 있다 — 빠진 말은 실패한 그 회차의 근거에서 나온다.
+  it("여러 번 돌렸으면 가장 최근 실패한 회차의 답과 그 회차의 근거를 함께 보여 준다", async () => {
+    await shownCase([
+      { passed: false, output_text: "반갑습니다", missing_phrases: ["감사합니다"] },
+      { passed: true, output_text: "반갑습니다, 감사합니다", missing_phrases: [] },
     ]);
 
     expect(screen.getByText("1번째 돌림의 답")).toBeInTheDocument();
@@ -184,25 +188,84 @@ describe("빠진 말 토막 — 실패의 까닭을 이름으로 말한다", () 
     expect(screen.getByText("감사합니다")).toBeInTheDocument();
   });
 
-  it("규칙대로는 빠진 말이 없는데 실패했다면, 어디를 보면 되는지까지 말한다", async () => {
-    await failedCase([{ passed: false, output_text: "반갑습니다,\n\n  감사합니다" }]);
+  it("서버 근거를 그대로 그린다 — 화면이 규칙을 다시 세어 뒤집지 않는다", async () => {
+    // 화면이 미러 계산을 하면 JS toLowerCase는 STRASSE에서 straße를 찾지 못해 서버와 갈린다.
+    // 판정한 쪽이 근거도 적으므로, 화면은 '빠진 말 없음'이라는 서버의 말을 그대로 받는다.
+    await shownCase(
+      [{ passed: false, output_text: "STRASSE", missing_phrases: [] }],
+      { expectedPhrases: ["straße"] },
+    );
 
     expect(
       screen.getByText("어느 말이 빠졌는지 찾지 못했어요 — '자세히 보기'를 켜면 회차마다 무엇이 나왔는지 볼 수 있어요"),
     ).toBeInTheDocument();
   });
 
-  it("같은 말을 두 번 적어 둔 케이스도 두 칩을 그대로 보여 준다", async () => {
+  it("근거를 싣지 않은 옛 배치의 실패에도 침묵하지 않는다 — 어디를 보면 되는지 말한다", async () => {
+    await shownCase([{ passed: false, output_text: "반갑습니다,\n\n  감사합니다" }]);
+
+    expect(
+      screen.getByText("어느 말이 빠졌는지 찾지 못했어요 — '자세히 보기'를 켜면 회차마다 무엇이 나왔는지 볼 수 있어요"),
+    ).toBeInTheDocument();
+  });
+
+  it("서버가 같은 말을 두 번 실어 주면 두 칩을 그대로 보여 준다", async () => {
     const errors: unknown[] = [];
     const original = console.error;
     console.error = (...args: unknown[]) => errors.push(args[0]);
     try {
-      await failedCase([{ passed: false, output_text: "" }], ["감사합니다", "감사합니다"]);
+      await shownCase(
+        [{ passed: false, output_text: "", missing_phrases: ["감사합니다", "감사합니다"] }],
+        { expectedPhrases: ["감사합니다", "감사합니다"] },
+      );
 
       expect(screen.getAllByText("감사합니다")).toHaveLength(2);
       expect(errors).toEqual([]);
     } finally {
       console.error = original;
     }
+  });
+
+  describe("주의 신호 — 통과했어도 답이 갈렸다는 관찰", () => {
+    it("통과한 케이스의 회차 답이 갈리면 몇 번 중 몇 가지였는지 말한다", async () => {
+      await shownCase(
+        [
+          { passed: true, output_text: "반갑습니다", missing_phrases: [] },
+          { passed: true, output_text: "반갑습니다!", missing_phrases: [] },
+          { passed: true, output_text: "반갑습니다", missing_phrases: [] },
+        ],
+        { passed: true },
+      );
+
+      expect(screen.getByText("3번 중 답이 2가지로 갈렸어요")).toBeInTheDocument();
+    });
+
+    it("회차 답이 모두 같으면 없는 주의를 만들지 않는다", async () => {
+      await shownCase(
+        [
+          { passed: true, output_text: "반갑습니다", missing_phrases: [] },
+          { passed: true, output_text: "반갑습니다", missing_phrases: [] },
+        ],
+        { passed: true },
+      );
+
+      expect(screen.queryByText(/갈렸어요/)).not.toBeInTheDocument();
+    });
+
+    it("한 번만 돌린 케이스에는 갈릴 자리가 없다", async () => {
+      await shownCase([{ passed: true, output_text: "반갑습니다", missing_phrases: [] }], { passed: true });
+
+      expect(screen.queryByText(/갈렸어요/)).not.toBeInTheDocument();
+    });
+
+    it("실패한 케이스에는 주의를 겹쳐 그리지 않는다 — 실패의 까닭이 먼저다", async () => {
+      await shownCase([
+        { passed: false, output_text: "반갑습니다", missing_phrases: ["감사합니다"] },
+        { passed: false, output_text: "안녕하세요", missing_phrases: ["감사합니다"] },
+      ]);
+
+      expect(screen.getByText("답에 없던 말")).toBeInTheDocument();
+      expect(screen.queryByText(/갈렸어요/)).not.toBeInTheDocument();
+    });
   });
 });

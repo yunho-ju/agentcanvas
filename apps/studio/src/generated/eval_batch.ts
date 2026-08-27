@@ -6,6 +6,7 @@
 
 export type DatasetId = string;
 export type Id = string;
+export type MissingPhrases = string[];
 export type OutputText = string;
 export type Passed = boolean;
 export type RunId = string;
@@ -47,6 +48,7 @@ export interface EvalCaseResult {
  * 케이스 하나를 한 번 돌린 시도 — 어느 실행이었고, 통과했는가, 무엇을 답했는가.
  */
 export interface EvalAttempt {
+  missing_phrases?: MissingPhrases;
   output_text: OutputText;
   passed: Passed;
   run_id: RunId;

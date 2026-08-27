@@ -27,6 +27,8 @@ export interface AttemptInQuestion {
   rounds: number;
   /** 빈 문자열은 "돌았지만 답이 없었다"는 사실이다: 없음과 다르다(DESIGN §7 eval-case-card). */
   output: string;
+  /** 그 회차에 없던 말 — 판정한 쪽(서버)이 적어 준 근거 그대로다. 옛 배치에는 없어 빈 목록이다. */
+  missing: string[];
 }
 
 /**
@@ -48,5 +50,11 @@ export function attemptInQuestion(
     }
   }
   if (index < 0) return undefined;
-  return { round: index + 1, rounds: attempts.length, output: attempts[index].output_text };
+  const attempt = attempts[index];
+  return {
+    round: index + 1,
+    rounds: attempts.length,
+    output: attempt.output_text,
+    missing: attempt.missing_phrases ?? [],
+  };
 }

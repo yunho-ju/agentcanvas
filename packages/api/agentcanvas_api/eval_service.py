@@ -3,7 +3,8 @@
 RunService와 같은 결을 따른다: 실행은 배경에서 흐르고, 일꾼·모델·시계·이름은 밖에서 받는다.
 배경에서 죽으면 기다리는 사람에게도 소식이 가야 한다(run_service.py `_gives_up`과 같은 규율) —
 실패한 배치는 in-flight에서 내려가고, 조회가 그 실패를 말한다.
-판정(무엇이 통과인가)은 engine의 순수 함수가 안다 — 여기는 그것을 케이스마다 불러 모을 뿐이다.
+판정(무엇이 통과인가)은 engine의 판정기가 안다 — 어느 판정기로 돌지는 밖에서 받은 매핑에서
+고르고(evaluator_named), 여기는 그것을 케이스마다 불러 모을 뿐이다: 새 층을 얹는 데 이 파일을 고치지 않는다.
 v1 배치는 spec을 그대로 돈다: 모델 이름은 요청에도 결과 계약에도 없다(모델 비교는 v2).
 시도가 예외로 어그러지거나 게이트에서 멈추면 그 출력은 빈 문자열이 된다: 기대하는 문구가
 빈 문자열에 담겨 있을 수는 없으므로, 판정은 저절로 불통과가 된다 — 따로 갈래를 타지 않는다.
@@ -21,13 +22,10 @@ from uuid import uuid4
 from agentcanvas_contracts.agent_spec import AgentSpec
 from agentcanvas_contracts.eval_case import EvalCase
 from agentcanvas_contracts.eval_result import EvalAttempt, EvalBatch, EvalCaseResult
-from agentcanvas_contracts.evaluator_catalog import DEFAULT_EVALUATOR_CATALOG
 from agentcanvas_contracts.run_events import EventType, RunEvent
-from agentcanvas_engine.evaluation.expected_phrases import (
-    EVALUATOR_NAME,
-    judge_expected_phrases,
-    passes,
-)
+from agentcanvas_engine.evaluation.evaluator import Evaluator
+from agentcanvas_engine.evaluation.expected_phrases import EVALUATOR_NAME, passes
+from agentcanvas_engine.evaluation.registry import DEFAULT_EVALUATORS, evaluator_named
 from agentcanvas_engine.model_call import ModelCall, says_the_first_way
 from agentcanvas_engine.routed_runtime import routed_run, spoken_llm_texts
 from pydantic import BaseModel
@@ -45,10 +43,6 @@ from .job_store import (
 from .run_service import Work, Worker, in_the_background
 from .service import LIST_LIMIT, Clock, utc_now
 from .store import SpecStore
-
-#: 이 판정기(v1 유일)를 카탈로그에서 한 번만 찾아 둔다 — 매 케이스마다 되찾지 않는다.
-#: 카탈로그에 없으면 여기서 KeyError로 서버가 뜨는 순간 멈춘다: assert로 숨기지 않는다.
-_EXPECTED_PHRASES_EVALUATOR = DEFAULT_EVALUATOR_CATALOG[EVALUATOR_NAME]
 
 #: 이름 하나를 새로 발급하는 것 — 시험은 언제나 같은 이름을 내주는 것을 넣는다.
 IdMaker = Callable[[], str]
@@ -142,6 +136,7 @@ class EvalBatchService:
         run_case: RunsAnAttempt = routed_run,
         jobs: DurableJobStore | None = None,
         wake_worker: Callable[[], None] | None = None,
+        evaluators: Mapping[str, Evaluator] = DEFAULT_EVALUATORS,
     ) -> None:
         self._datasets = datasets
         self._specs = specs
@@ -154,6 +149,12 @@ class EvalBatchService:
         self._run_case = run_case
         self._jobs = jobs
         self._wake_worker = wake_worker or (lambda: None)
+        # 어느 판정기로 돌지는 밖에서 받은 매핑에서 고른다 — 이름은 v1 하나뿐이고(사다리 순서는 EVAL-4),
+        # 그 이름이 매핑에 없으면 배치를 돌려 놓고 뒤늦게 어그러지는 대신 만드는 자리에서 말한다.
+        evaluator = evaluator_named(EVALUATOR_NAME, evaluators)
+        if evaluator is None:
+            raise ValueError(f"no evaluator named {EVALUATOR_NAME} was handed in")
+        self._evaluator = evaluator
         # 아직 완결되지 않은 배치들 — 서버가 다시 뜨면 잊힌다(v1 알려진 한계).
         self._in_flight: set[str] = set()
         # 배경에서 죽은 배치들 — 조회가 running인 척 영영 기다리게 하지 않는다.
@@ -277,8 +278,8 @@ class EvalBatchService:
             case_id=case.id,
             attempts=attempts,
             passed=_case_passed(case, attempts),
-            evaluator=_EXPECTED_PHRASES_EVALUATOR.name,
-            evaluator_version=_EXPECTED_PHRASES_EVALUATOR.version,
+            evaluator=self._evaluator.definition.name,
+            evaluator_version=self._evaluator.definition.version,
         )
 
     def _runs_attempt(
@@ -292,10 +293,12 @@ class EvalBatchService:
         except Exception:  # noqa: BLE001 — 남의 사정으로 배치를 멈추지 않는다: 이 시도만 불통과로 적는다.
             events = []
         output_text = _final_output_text(spec, events)
+        judgement = self._evaluator.judge(case.expected_phrases, output_text)
         return EvalAttempt(
             run_id=run_id,
-            passed=judge_expected_phrases(output_text, case.expected_phrases),
+            passed=judgement.passed,
             output_text=output_text,
+            missing_phrases=judgement.missing_phrases,
         )
 
     def view(self, batch_id: str) -> EvalBatchView:
@@ -370,8 +373,8 @@ class EvalBatchService:
                     case_id=case.id,
                     attempts=attempts,
                     passed=_case_passed(case, attempts),
-                    evaluator=_EXPECTED_PHRASES_EVALUATOR.name,
-                    evaluator_version=_EXPECTED_PHRASES_EVALUATOR.version,
+                    evaluator=self._evaluator.definition.name,
+                    evaluator_version=self._evaluator.definition.version,
                 )
             )
         require_active_lease()

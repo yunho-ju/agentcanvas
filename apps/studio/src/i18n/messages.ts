@@ -1000,6 +1000,12 @@ const TEXTS = {
     ko: "어느 말이 빠졌는지 찾지 못했어요 — '자세히 보기'를 켜면 회차마다 무엇이 나왔는지 볼 수 있어요",
     en: "We could not tell which words were missing — turn on 'Show details' to see what came back each run",
   },
+  // 주의 신호 한 줄 — 통과했어도 회차마다 답이 갈렸다는 관찰이다 (DESIGN §7 eval-case-card).
+  // 판정이 아니므로 '틀렸다'고 말하지 않는다: 본 것만 말한다.
+  "eval.case.spread": {
+    ko: "{rounds}번 중 답이 {answers}가지로 갈렸어요",
+    en: "Across {rounds} runs the answer came back {answers} different ways",
+  },
   // 지금 시험받는 지시문 (DESIGN §7 eval-prompt-card).
   "eval.prompt.label": { ko: "지금 시험하는 지시문", en: "The instructions being tested" },
   "eval.prompt.empty": {

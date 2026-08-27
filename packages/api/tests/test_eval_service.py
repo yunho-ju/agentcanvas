@@ -8,6 +8,7 @@ v1 배치는 spec을 그대로 돈다 — model은 요청에도 결과 계약에
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from itertools import count
 
@@ -35,7 +36,12 @@ from agentcanvas_contracts.agent_spec import (
 )
 from agentcanvas_contracts.eval_case import EvalCase, EvalDataset
 from agentcanvas_contracts.eval_result import EvalBatch
-from agentcanvas_engine.evaluation.expected_phrases import judge_expected_phrases
+from agentcanvas_contracts.evaluator_catalog import EvaluatorDef
+from agentcanvas_engine.evaluation.evaluator import Evaluator, Judgement
+from agentcanvas_engine.evaluation.expected_phrases import (
+    EVALUATOR_NAME,
+    judge_expected_phrases,
+)
 from agentcanvas_engine.model_call import ModelAsk, ModelSaid
 
 STARTED_AT = datetime(2026, 8, 1, 12, 30, tzinfo=UTC)
@@ -179,6 +185,7 @@ def a_service(
     datasets: InMemoryEvalDatasetStore,
     batches: EvalBatchStore,
     model=None,
+    evaluators: Mapping[str, Evaluator] | None = None,
 ) -> EvalBatchService:
     return EvalBatchService(
         datasets=datasets,
@@ -189,6 +196,31 @@ def a_service(
         new_run_id=counting_ids("run"),
         new_batch_id=counting_ids("batch"),
         worker=right_here,
+        **({} if evaluators is None else {"evaluators": evaluators}),
+    )
+
+
+def a_stand_in_evaluator(name: str) -> Evaluator:
+    """이 시험 파일에만 있는 판정기 — engine·api 어느 파일도 이 이름을 알지 못한다.
+
+    답의 글자 수만 세는 판정이라, expected_phrases와는 다른 답을 낸다: 판정이 정말
+    이 자리에서 나왔는지 결과만 보고도 알 수 있다.
+    """
+    return Evaluator(
+        definition=EvaluatorDef.model_validate(
+            {
+                "name": name,
+                "version": "v9",
+                "plain_description": {
+                    "ko": "언제나 틀렸다고 해요",
+                    "en": "Always says no",
+                },
+                "example": {"ko": "무슨 답이든 불통과예요", "en": "Any answer fails"},
+            }
+        ),
+        judge=lambda expected_phrases, output_text: Judgement(
+            passed=False, missing_phrases=["이 판정기가 적은 까닭"]
+        ),
     )
 
 
@@ -291,7 +323,82 @@ def test_an_empty_output_text_is_always_unpassed(
     EvalCase.expected_phrases는 min_length=1이라, 빈 문자열은 그 어떤 기대 문구도 담을 수
     없다(엔진 쪽 증명은 packages/engine/tests/test_evaluation_expected_phrases.py).
     """
-    assert judge_expected_phrases("", a_case().expected_phrases) is False
+    assert judge_expected_phrases(a_case().expected_phrases, "").passed is False
+
+
+def test_a_failed_attempt_carries_the_words_the_answer_was_missing(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C7: 실패한 회차의 까닭은 서버가 적어 저장한다 — 화면이 다시 세지 않는다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(
+        EvalDataset(
+            id="greetings",
+            name="인사",
+            cases=[a_case(expected_phrases=["반갑습니다", "감사합니다"])],
+        )
+    )
+    service = a_service(specs, datasets, batches, model=Says("반갑습니다"))
+
+    outcome = service.start("greetings", SPEC_ID, spec.revision)
+    assert isinstance(outcome, EvalBatchStarted)
+    batch = batches.get(outcome.batch_id)
+
+    assert batch is not None
+    attempt = batch.results[0].attempts[0]
+    assert attempt.passed is False
+    assert attempt.missing_phrases == ["감사합니다"]
+
+
+def test_a_passing_attempt_carries_no_missing_words(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C8: 통과한 회차에는 빠진 말이 없다 — 통과 옆에 까닭을 붙이지 않는다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(EvalDataset(id="greetings", name="인사", cases=[a_case()]))
+    service = a_service(specs, datasets, batches, model=Says("반갑습니다"))
+
+    outcome = service.start("greetings", SPEC_ID, spec.revision)
+    assert isinstance(outcome, EvalBatchStarted)
+    batch = batches.get(outcome.batch_id)
+
+    assert batch is not None
+    attempt = batch.results[0].attempts[0]
+    assert attempt.passed is True
+    assert attempt.missing_phrases == []
+
+
+def test_an_attempt_that_never_ran_misses_every_expected_phrase(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C7: 모델이 어그러져 답이 없던 회차도 침묵하지 않는다 — 기대한 말 전부가 근거다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(
+        EvalDataset(
+            id="greetings",
+            name="인사",
+            cases=[a_case(expected_phrases=["반갑습니다", "감사합니다"])],
+        )
+    )
+    service = a_service(
+        specs, datasets, batches, model=RaisesOnceThenSays("반갑습니다")
+    )
+
+    outcome = service.start("greetings", SPEC_ID, spec.revision)
+    assert isinstance(outcome, EvalBatchStarted)
+    batch = batches.get(outcome.batch_id)
+
+    assert batch is not None
+    assert batch.results[0].attempts[0].missing_phrases == ["반갑습니다", "감사합니다"]
 
 
 def test_a_stale_spec_revision_is_refused(
@@ -540,3 +647,47 @@ def test_listing_batches_for_an_unknown_dataset_is_none(
     service = a_service(specs, datasets, batches)
 
     assert service.list_for_dataset("nobody-here") is None
+
+
+def test_an_evaluator_handed_in_from_outside_is_the_one_that_runs(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C2: 새 판정기는 이 파일들을 고치지 않고 실행에 편입된다(OCP).
+
+    아래 판정기는 시험 파일에서만 만들어졌는데도, 넘겨주기만 하면 배치가 그것으로 돈다 —
+    저장된 결과의 이름·판·판정·근거가 전부 그 판정기의 것이다.
+    """
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(EvalDataset(id="greetings", name="인사", cases=[a_case()]))
+    stand_in = a_stand_in_evaluator(EVALUATOR_NAME)
+    service = a_service(
+        specs,
+        datasets,
+        batches,
+        model=Says("반갑습니다"),  # expected_phrases였다면 통과했을 답이다
+        evaluators={EVALUATOR_NAME: stand_in},
+    )
+
+    outcome = service.start("greetings", SPEC_ID, spec.revision)
+    assert isinstance(outcome, EvalBatchStarted)
+    batch = batches.get(outcome.batch_id)
+
+    assert batch is not None
+    result = batch.results[0]
+    assert result.evaluator_version == "v9"
+    assert result.passed is False
+    assert result.attempts[0].passed is False
+    assert result.attempts[0].missing_phrases == ["이 판정기가 적은 까닭"]
+
+
+def test_a_service_without_the_evaluator_it_needs_says_so_at_once(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C2: 고를 판정기가 없으면 배치를 돌려 놓고 뒤늦게 어그러지지 않는다 — 만드는 그 자리에서 말한다."""
+    with pytest.raises(ValueError, match=EVALUATOR_NAME):
+        a_service(specs, datasets, batches, evaluators={})

@@ -4,6 +4,13 @@
       "additionalProperties": false,
       "description": "케이스 하나를 한 번 돌린 시도 — 어느 실행이었고, 통과했는가, 무엇을 답했는가.",
       "properties": {
+        "missing_phrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Phrases",
+          "type": "array"
+        },
         "output_text": {
           "title": "Output Text",
           "type": "string"

@@ -1,6 +1,6 @@
 // 시험 한 줄 — node-card 문법 준용 (DESIGN §7 eval-case-card).
 import { type AttemptInQuestion, attemptInQuestion, caseCardState } from "./caseState";
-import { missingPhrases } from "./missingPhrases";
+import { answerSpread } from "./answerSpread";
 import { EvalCaseForm } from "./EvalCaseForm";
 import type { EvalCase } from "../generated/eval_case";
 import type { EvalBatch } from "../generated/eval_batch";
@@ -34,13 +34,13 @@ function EvalCaseResult({ shown }: { shown: AttemptInQuestion }) {
 }
 
 /**
- * 빠진 말 토막 — 기대한 말 중 그 회차의 답에 없던 것만 (DESIGN §7 eval-case-card).
- * 서버 판정과 같은 규칙(missingPhrases)으로 고른다. 규칙대로 빠진 말이 없는데 실패했다면
- * 그 모순도 말하고, 어디를 보면 되는지까지 말한다 — ✕만 보여 주고 침묵하지 않는다.
+ * 빠진 말 토막 — 그 회차에 없던 말을 서버가 적어 준 그대로 (DESIGN §7 eval-case-card).
+ * 판정한 쪽이 근거도 적는다: 화면은 판정 규칙을 다시 구현하지 않는다(미러가 갈리면 모순 화면이 된다).
+ * 근거가 비어 있는데 실패했다면(옛 배치) 그것도 말하고, 어디를 보면 되는지까지 말한다 —
+ * ✕만 보여 주고 침묵하지 않는다.
  */
-function EvalCaseMissing({ evalCase, output }: { evalCase: EvalCase; output: string }) {
+function EvalCaseMissing({ missing }: { missing: string[] }) {
   const t = useT();
-  const missing = missingPhrases(output, evalCase.expected_phrases);
   return (
     <div className="eval-case-card__missing">
       <p className="eval-case-card__missing-label">{t("eval.case.missing.label")}</p>
@@ -92,6 +92,7 @@ export function EvalCaseCard({ evalCase }: { evalCase: EvalCase }) {
   const expanded = draft?.id === evalCase.id;
   const state = caseCardState(evalCase.id, { running, batch });
   const shown = attemptInQuestion(evalCase.id, batch);
+  const spread = answerSpread(evalCase.id, batch);
 
   return (
     <div
@@ -125,7 +126,13 @@ export function EvalCaseCard({ evalCase }: { evalCase: EvalCase }) {
       {expanded && shown ? <EvalCaseResult shown={shown} /> : null}
       {/* 빠진 말은 결과 토막이 보여 주는 바로 그 회차의 답에서 나온다 — 답 A를 보여 주며 답 B를 따지지 않는다. */}
       {expanded && shown && state.kind === "failed" ? (
-        <EvalCaseMissing evalCase={evalCase} output={shown.output} />
+        <EvalCaseMissing missing={shown.missing} />
+      ) : null}
+      {/* 주의 신호는 판정이 아니라 관찰이다 — 통과한 케이스에만, 실패의 까닭 위에 겹쳐 놓지 않는다. */}
+      {expanded && state.kind === "passed" && spread ? (
+        <p className="eval-case-card__spread">
+          {t("eval.case.spread", { rounds: spread.rounds, answers: spread.answers })}
+        </p>
       ) : null}
       {expanded ? <EvalAttemptList evalCase={evalCase} batch={batch} /> : null}
       {expanded ? <EvalCaseForm /> : null}
