@@ -4,7 +4,7 @@
 
 AgentCanvas는 자연어와 비주얼 캔버스로 AI 에이전트를 설계하고, 실행을 관찰하며, 반복 평가할 수 있는 셀프호스트 도구입니다. 캔버스의 그래프는 실행 계약인 `AgentSpec`으로 저장됩니다.
 
-![AgentCanvas 데모 — 로그인부터 AI 초안 생성, 노드 설정, 실행 관찰까지](docs/media/agentcanvas-demo.gif)
+![AgentCanvas 데모 — 로그인부터 AI 초안 생성, 노드 설정, 실행 관찰까지](docs/media/agentcanvas-demo-ko.gif)
 
 > 위 데모: 관리자 로그인 → 자연어 요청("고객 문의 이메일을 읽고 정중한 한국어 답장을 써 줘") → AI 설계 도우미가 초안 생성(계약·흐름·가짜 실행 검토) → 캔버스에 적용 → 노드 설정 → 실제 provider로 실행하고 이벤트 타임라인 관찰.
 

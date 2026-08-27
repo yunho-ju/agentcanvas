@@ -6,7 +6,7 @@ AgentCanvas is a self-hosted tool for designing AI agents with natural language 
 
 ![AgentCanvas demo — from login through AI drafting, node configuration, and run observation](docs/media/agentcanvas-demo.gif)
 
-> The demo above: admin login → a natural-language request ("read a customer inquiry email and write a polite reply in Korean") → the AI design assistant drafts a graph (contract, flow, and dry-run review) → apply to canvas → configure nodes → execute against a real provider and watch the event timeline.
+> The demo above: admin login → a natural-language request ("Read a customer inquiry email and write a polite reply") → the AI Architect drafts a graph (contract, flow, and dry-run review) → apply to canvas → configure nodes → execute against a real provider and watch the event timeline.
 
 > **Alpha software:** the current source metadata targets `v0.1.0-alpha.1`. This is an evaluation release for a single trusted administrator and one implicit workspace — not production-ready and not a multi-tenant service. See [`CHANGELOG.md`](CHANGELOG.md) for the versioning policy and scope of changes.
 
