@@ -460,6 +460,19 @@ describe("시험 패널은 이웃 카드에 눌려 접히지 않는다", () => {
     expect(panel).toContain("overflow-y: auto");
     expect(panel).toMatch(/min-height:\s*calc\(var\(--space-6\)/);
   });
+
+  // 지시문 카드는 언제나 고를 수 있다(disabled 없음) — 나머지 세 상태는 손이 있는 자리마다 있어야 한다.
+  it("지시문 카드는 hover/active/focus-visible을 모두 말한다", () => {
+    const missing = [":hover", ":active", ":focus-visible"].filter(
+      (state) => block(`.eval-prompt-card${state}`) === "",
+    );
+    expect(missing).toEqual([]);
+  });
+
+  // 긴 지시문이 패널을 늘리지 않는다 (DESIGN §7 eval-prompt-card).
+  it("긴 지시문은 카드 안에서 구른다", () => {
+    expect(block(".eval-prompt-card__instruction")).toContain("overflow-y: auto");
+  });
 });
 
 describe("상호작용과 모션의 품질 게이트", () => {

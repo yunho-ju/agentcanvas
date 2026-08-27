@@ -3453,6 +3453,73 @@ button:disabled {
 }
 
 /* 시험 한 줄 — node-card 문법 준용. */
+/* 지금 시험받는 지시문 — 읽기 전용 투영, 누르면 그 노드를 고른다 (DESIGN §7 eval-prompt-card). */
+.eval-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.eval-prompts__label {
+  margin: 0;
+  font-size: var(--text-label);
+  color: var(--ink-soft);
+}
+
+.eval-prompt-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+
+.eval-prompt-card:hover {
+  background: var(--surface-hover);
+}
+
+.eval-prompt-card:active {
+  background: var(--surface-active);
+}
+
+.eval-prompt-card:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.eval-prompt-card__name {
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.eval-prompt-card__node {
+  font-size: var(--text-caption);
+  font-family: var(--font-mono);
+  color: var(--ink-soft);
+}
+
+/* 긴 지시문은 카드 안에서 구른다 — 패널을 늘리지 않는다. */
+.eval-prompt-card__instruction {
+  max-height: calc(var(--space-6) * 2);
+  overflow-y: auto;
+  font-size: var(--text-caption);
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.eval-prompt-card__instruction[data-empty="true"] {
+  color: var(--ink-soft);
+}
+
 .eval-case-card {
   border: var(--border-hair) solid var(--hairline);
   border-radius: var(--radius-card);
@@ -3577,6 +3644,14 @@ button:disabled {
   color: var(--ink);
 }
 
+/* 여러 번 돌린 케이스는 어느 회차의 답인지 라벨 옆에서 말한다 (DESIGN §7 eval-case-card). */
+.eval-case-card__result-round {
+  margin-left: var(--space-2);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-regular);
+  color: var(--ink-soft);
+}
+
 .eval-case-card__result-output {
   margin: 0;
   max-height: calc(var(--space-6) * 3);
@@ -3585,6 +3660,44 @@ button:disabled {
   font-family: var(--font-mono);
   color: var(--ink-soft);
   white-space: pre-wrap;
+}
+
+/* 빠진 말 토막 — 실패의 까닭을 이름으로 (DESIGN §7 eval-case-card). */
+.eval-case-card__missing {
+  margin: 0 var(--space-3) var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--danger-soft);
+}
+
+.eval-case-card__missing-label {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--danger-ink);
+}
+
+.eval-case-card__missing-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-case-card__missing-phrase {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: var(--text-caption);
+  color: var(--danger-ink);
+}
+
+.eval-case-card__missing-none {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
 }
 
 .eval-case-form {

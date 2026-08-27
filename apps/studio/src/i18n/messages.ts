@@ -992,6 +992,28 @@ const TEXTS = {
   // 펼친 카드의 결과 토막 — 마지막 회차의 실제 답 (DESIGN §7 eval-case-card 갱신본).
   "eval.case.result.label": { ko: "실제로 나온 답", en: "What actually came back" },
   "eval.case.result.empty": { ko: "답이 없었어요", en: "There was no answer" },
+  // 여러 번 돌린 케이스는 어느 회차의 답을 보고 있는지 말한다 (DESIGN §7 eval-case-card).
+  "eval.case.result.round": { ko: "{round}번째 돌림의 답", en: "The answer from run {round}" },
+  // 빠진 말 토막 — 실패한 케이스가 무엇을 놓쳤는지 (DESIGN §7 eval-case-card).
+  "eval.case.missing.label": { ko: "답에 없던 말", en: "Words the answer was missing" },
+  "eval.case.missing.none": {
+    ko: "어느 말이 빠졌는지 찾지 못했어요 — '자세히 보기'를 켜면 회차마다 무엇이 나왔는지 볼 수 있어요",
+    en: "We could not tell which words were missing — turn on 'Show details' to see what came back each run",
+  },
+  // 지금 시험받는 지시문 (DESIGN §7 eval-prompt-card).
+  "eval.prompt.label": { ko: "지금 시험하는 지시문", en: "The instructions being tested" },
+  "eval.prompt.empty": {
+    ko: "아직 지시문이 없어요 — 눌러서 적어요",
+    en: "No instructions yet — click here to write them",
+  },
+  "eval.prompt.hint": {
+    ko: "눌러서 이 지시문을 고쳐요",
+    en: "Click to edit these instructions",
+  },
+  "eval.prompt.card.label": {
+    ko: "{name} 단계의 지시문 고치기",
+    en: "Edit the instructions for the {name} step",
+  },
   "eval.case.delete": { ko: "이 시험 지우기", en: "Delete this test" },
   "eval.case.delete.hint": {
     ko: "확인 없이 바로 지운다 — 되돌리기로 되살릴 수 있다",

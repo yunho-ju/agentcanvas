@@ -2,6 +2,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { EvalCaseCard } from "./EvalCaseCard";
 import { EvalCaseForm } from "./EvalCaseForm";
+import { EvalPromptList } from "./EvalPromptList";
 import { EvalSummaryPill } from "./EvalSummaryPill";
 import { useT } from "../i18n/useT";
 import { evalCases, evalRunBlocked } from "../store/evalSlice";
@@ -64,6 +65,8 @@ export function EvalPanel() {
         </button>
       </div>
       <EvalDatasetPicker />
+      {/* 시험받는 지시문이 결과보다 먼저 — 무엇을 고칠지가 같은 화면에서 읽힌다 (DESIGN §7 eval-prompt-card). */}
+      <EvalPromptList />
       <EvalSummaryPill />
       <button
         type="button"
