@@ -153,10 +153,6 @@ Product scope lives in [`PRODUCT.md`](PRODUCT.md), the current UI contract in [`
 - Release/Investigate, a real MCP executor, a LangGraph adapter, the 3D Runtime World, and workspace collaboration are vision-stage only.
 - The current public scope is source and source-built Docker Compose. Prebuilt artifacts would need their own SBOM, digests/signatures, and a complete license/NOTICE bundle.
 
-## Contributing, security, and support
-
-Follow [`CONTRIBUTING.md`](CONTRIBUTING.md) for the contribution process and DCO sign-off, [`SECURITY.md`](SECURITY.md) for vulnerability reports, and [`SUPPORT.md`](SUPPORT.md) for the support scope. All participants must follow [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
-
 ## License
 
 AgentCanvas is provided under the [Apache License 2.0](LICENSE). Third-party component notices are maintained in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

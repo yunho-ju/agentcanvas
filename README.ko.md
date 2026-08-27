@@ -153,10 +153,6 @@ GitHub Actions workflow는 Python, Studio, generated type drift, container build
 - Release/Investigate, 실제 MCP executor, LangGraph adapter, 3D Runtime World와 workspace collaboration은 비전 단계입니다.
 - 현재 공개 범위는 source와 source-built Docker Compose입니다. Prebuilt artifact에는 별도 SBOM, digest/signature와 완전한 license/NOTICE bundle이 필요합니다.
 
-## 기여·보안·지원
-
-기여 절차와 DCO sign-off는 [`CONTRIBUTING.md`](CONTRIBUTING.md), 취약점 신고는 [`SECURITY.md`](SECURITY.md), 지원 범위는 [`SUPPORT.md`](SUPPORT.md)를 따릅니다. 모든 참여자는 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)를 준수해야 합니다.
-
 ## 라이선스
 
 AgentCanvas는 [Apache License 2.0](LICENSE)에 따라 제공됩니다. 제3자 구성요소 고지는 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)에서 관리합니다.
