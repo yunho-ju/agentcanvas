@@ -1,0 +1,140 @@
+# API Tools Vision
+
+*Proposal — not a current capability. See [`../AGENTCANVAS_DESIGN.md`](../AGENTCANVAS_DESIGN.md) §10.*
+
+이미 운영 중인 HTTP API를 MCP 서버 없이 "도구"로 감싸서 캔버스 파이프라인에 꽂는다.
+쉬운 말로: **"우리 회사가 이미 쓰는 웹 주소(API)를 붙여 넣으면, AI가 그것을 도구로
+바꿔 주고, 그래프의 노드로 끌어다 쓸 수 있다."**
+
+## Why
+
+- MCP executor(별도 프로세스·프로토콜)보다 훨씬 작은 표면으로 "진짜 도구 실행"에
+  먼저 도달한다. 예약만 되어 있는 `tool.requested / tool.policy_checked /
+  tool.completed` 이벤트의 첫 실제 소비자가 된다.
+- 대부분의 조직에서 내부 도구의 실체는 이미 HTTP API다. MCP 서버를 세우라고
+  요구하는 것은 "누구나 만들 수 있게"라는 제품 원칙에 어긋난다.
+
+## Contract
+
+### 관점: MCP도 결국 도구다
+
+계약의 1급 개념은 **Tool(=ToolDef) 하나**다. 노드·validator·정책 집행·`tool.*`
+이벤트·팔레트는 전부 ToolDef만 본다. MCP는 도구의 "종류"가 아니라 도구를
+**얻어오고(import) 실행하는(adapter) 방법 중 하나**로 내려간다. 갈리는 곳은
+가장자리 두 군데뿐이다:
+
+1. **Import** — 어디서 ToolDef를 얻는가: MCP `list_tools` / OpenAPI·curl에서
+   AI 추출 / 산문 설명에서 AI 생성. 출력은 셋 다 동일한 ToolDef 목록.
+2. **실행** — 어떻게 부르는가: 바인딩 `kind`로 어댑터가 갈린다.
+
+MCP 바인딩도 import 시점에 ToolDef를 **spec에 스냅샷**한다. 서버가 런타임에
+알려주는 동적 목록에 기대지 않으므로 (a) spec이 서버 없이 자급자족해 리플레이·
+검증이 성립하고, (b) 사람이 승인한 도구 스키마가 고정되어, 서버가 도구를 바꾸면
+실행 시점 `tool.policy_checked`에서 드리프트로 검출된다. 서버가 바뀌면 재-import가
+필요하다는 비용은, 승인 게이트가 있는 제품에서는 버그가 아니라 기능이다.
+
+### ResourceBinding 확장 (기존 계약 재사용)
+
+`ResourceBinding.kind`에 `"http.api"`를 추가한다. 모든 바인딩이 도구 정의
+목록을 갖는다:
+
+```
+ResourceBinding
+  id: "clinical-reference"          # 노드가 가리키는 이름 (규약: 노드 → 바인딩 id)
+  kind: "http.api"                  # 어댑터를 고르는 열쇠 ("mcp" | "http.api")
+  server_ref: api://clinical-ref    # scheme은 kind와 짝 (mcp:// | api://)
+  allowed_tools: [...]              # 기존 필드 그대로 — 집행 지점은 어댑터
+  approval_policy: "..."            # 기존 필드 그대로
+  tools: list[ToolDef]              # NEW — kind와 무관하게 모든 바인딩이 채운다
+```
+
+### ToolDef (신규 계약)
+
+OpenAPI 문서(또는 MCP 서버의 도구 목록) 전체를 spec에 넣지 않는다 — import가
+추출한, 실행에 필요한 subset만 계약으로 남긴다. spec은 외부 문서 없이
+자급자족해야 리플레이가 성립한다.
+
+ToolDef는 **인터페이스**(모든 도구가 같음)와 **호출 방법**(kind마다 다름)을
+나눈다. 노드·validator·화면은 인터페이스만 읽고, 호출 방법은 어댑터만 읽는다:
+
+```
+ToolDef                             # 인터페이스 — 모든 kind 공통
+  name: str                         # 바인딩 안에서 유일
+  plain_description: LocalizedText  # 용어 원칙 — 쉬운 말 설명 필수
+  input_schema: JsonSchema          # 노드 input 포트가 이 schema로 resolve된다
+  output_schema: JsonSchema         # 노드 result 포트가 이 schema로 resolve된다
+  timeout_ms: int
+  call: HttpCall | McpCall          # 호출 방법 — 어댑터만 읽는다 (discriminated union)
+
+HttpCall                            # kind="http.api"의 호출 방법
+  method: "GET" | "POST" | ...
+  url_template: str                 # 예: https://api.example.com/patients/{id}
+  auth: SecretRef | None            # raw 키 금지 — secret:// ref만 (기존 guard 재사용)
+
+McpCall                             # kind="mcp"의 호출 방법
+  remote_name: str                  # 서버가 아는 도구 이름 (import 시점에 스냅샷)
+```
+
+### 노드는 하나로 통일
+
+`tool.http` 노드 타입을 새로 만들지 않는다. 노드가 transport(MCP냐 HTTP냐)를 알면
+실행 방식이 화면 계약으로 새는 것이다. 기존 `tool.mcp` 노드를 `tool.call`(가칭,
+"도구 실행")로 일반화하고, `resource_ref`(바인딩 id) + `tool_name`만 갖는다.
+바인딩의 `kind`가 어댑터를 고른다 (Adapter 패턴, 분기 대신 registry).
+
+포트 schema는 정적 `{type: object}`가 아니라 참조된 ToolDef의
+`input_schema`/`output_schema`로 동적 resolve한다 — `input.source`가
+`spec.input_schema`로 포트를 만드는 것과 같은 기법. 이때부터 validator의
+`port.schema_mismatch`가 도구 노드에도 실제로 물린다.
+
+### AgentSpecPatch 확장
+
+architect와 도구 생성기가 바인딩을 만들 수 있도록 `add_resource` /
+`replace_resource` / `remove_resource` operation을 추가한다.
+(현재 resources를 채울 경로가 전무한 gap의 해소이기도 하다.)
+
+## AI 자동 생성 (Tool Wrapper)
+
+architect와 동일한 골격의 별도 서비스: **입력 → 검증된 제안 → 미리보기 → 사람
+승인 → spec 반영**. 승인 전에 spec을 건드리지 않는다.
+
+- 입력 3종: OpenAPI/Swagger 문서 붙여넣기, curl 예시, 산문 설명
+  ("환자 번호를 주면 진료 기록을 돌려주는 우리 API가 있어").
+- 출력: `ResourceBinding(kind="http.api") + ToolDef[]` 패치 제안.
+  pydantic 검증 실패는 architect처럼 balk — 조용히 고쳐 쓰지 않는다.
+- 미리보기 화면: 도구마다 "이름 / 쉬운 설명 / 무엇을 주면 무엇을 받는가"를
+  비개발자가 읽을 수 있는 카드로 보여 준다. 승인 시 바인딩이 생기고,
+  팔레트에 그 도구들이 끌어다 놓을 수 있는 항목으로 나타난다.
+- 인증 키는 생성기가 절대 받지 않는다 — `secret://` 이름만 제안하고,
+  실제 값 등록은 기존 secrets 경로를 따른다.
+
+## Execution
+
+`packages/adapters`에 `HttpToolAdapter`:
+
+- `url_template` + input 값으로 요청을 만들고, `timeout_ms`를 지킨다.
+- 실행 전 `allowed_tools` 검사 → `tool.policy_checked` 발행.
+- 호출 → `tool.requested` / `tool.completed` 발행. 실패는 `error` 포트로 —
+  예외를 던지지 않고 결과로 돌려주는 기존 순수함수 규율 그대로.
+- `approval_policy`가 사람 확인을 요구하면 human gate와 같은 hold 메커니즘을 탄다.
+
+엔진 쪽은 `KIND_BY_NODE_TYPE`에 도구 노드 한 줄을 더하는 것으로 끝난다
+(표에 한 줄 — 기존 설계 그대로).
+
+## Prerequisites (선행 정리)
+
+이 기능 이전에 닫아야 할 기존 gap — 별도 브리프로 먼저 진행한다:
+
+1. validator에 ref 정합성 규칙 (`resource_ref` → 존재하는 바인딩 id인가)
+2. ref 규약 확정: 노드의 `resource_ref`는 바인딩 **id**를 가리킨다 (mcp:// 직접 참조 금지)
+3. `McpRef` 등 ref pattern을 JSON Schema에 싣기 (`Field(pattern=...)`)
+
+## Phasing
+
+1. **P0** — 선행 정리 3건 (위)
+2. **P1** — 계약: ToolDef, ResourceBinding.tools, patch op 3종, 노드 일반화 + 동적 포트
+3. **P2** — Tool Wrapper 생성 서비스 + 미리보기/승인 UI + 팔레트 노출
+4. **P3** — HttpToolAdapter 실행 + tool.* 이벤트 + 정책 집행
+
+P3까지 가면 "도구 실행" 노드가 아무 일 없이 초록불이 되는 현재의 거짓 성공도
+사라진다. MCP executor는 그 뒤에 같은 어댑터 자리(`kind: "mcp"`)로 들어온다.

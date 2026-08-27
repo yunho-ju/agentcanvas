@@ -99,3 +99,4 @@ SQLite remains appropriate for the current single-node profile. A PostgreSQL tra
 - [`workspace-canvas.md`](workspace-canvas.md)
 - [`prompt-eval-release.md`](prompt-eval-release.md)
 - [`investigation-mode.md`](investigation-mode.md)
+- [`api-tools.md`](api-tools.md)
