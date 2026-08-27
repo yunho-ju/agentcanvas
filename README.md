@@ -1,27 +1,29 @@
 # AgentCanvas
 
-AgentCanvas는 자연어와 비주얼 캔버스로 AI 에이전트를 설계하고, 실행을 관찰하며, 반복 평가할 수 있는 셀프호스트 도구입니다. 캔버스의 그래프는 실행 계약인 `AgentSpec`으로 저장됩니다.
+**English** | [한국어](README.ko.md)
 
-![AgentCanvas 데모 — 로그인부터 AI 초안 생성, 노드 설정, 실행 관찰까지](docs/media/agentcanvas-demo.gif)
+AgentCanvas is a self-hosted tool for designing AI agents with natural language on a visual canvas, observing their runs, and evaluating them repeatedly. The graph on the canvas is stored as `AgentSpec`, an execution contract.
 
-> 위 데모: 관리자 로그인 → 자연어 요청("고객 문의 이메일을 읽고 정중한 한국어 답장을 써 줘") → AI 설계 도우미가 초안 생성(계약·흐름·가짜 실행 검토) → 캔버스에 적용 → 노드 설정 → 실제 provider로 실행하고 이벤트 타임라인 관찰.
+![AgentCanvas demo — from login through AI drafting, node configuration, and run observation](docs/media/agentcanvas-demo.gif)
 
-> **Alpha software:** 현재 소스 metadata는 `v0.1.0-alpha.1`을 대상으로 합니다. 단일 신뢰 관리자와 하나의 암묵적 workspace를 위한 평가용 릴리스이며 production-ready 또는 multi-tenant 서비스가 아닙니다. 버전 정책과 변경 범위는 [`CHANGELOG.md`](CHANGELOG.md)를 참고하세요.
+> The demo above: admin login → a natural-language request ("read a customer inquiry email and write a polite reply in Korean") → the AI design assistant drafts a graph (contract, flow, and dry-run review) → apply to canvas → configure nodes → execute against a real provider and watch the event timeline.
 
-## 현재 제공하는 기능
+> **Alpha software:** the current source metadata targets `v0.1.0-alpha.1`. This is an evaluation release for a single trusted administrator and one implicit workspace — not production-ready and not a multi-tenant service. See [`CHANGELOG.md`](CHANGELOG.md) for the versioning policy and scope of changes.
 
-- **Build:** 노드·edge 편집, schema/graph 검증, inspector, undo/redo, Impact Preview, 파일 및 서버 저장, revision history
-- **Guided:** 빈 캔버스에서 자연어 요구를 제한된 `agent.patch/v1` 후보로 만들고 schema·graph·dry-run 검토 후 사용자가 승인할 때만 적용
-- **Run:** routed execution, SSE event stream과 재연결, human approval gate, 취소, timeline/history, 두 실행의 정적 비교
-- **Evaluate:** dataset/case 관리, 반복 실행과 필요한 통과 횟수, batch history/detail/comparison, 결정론적 `expected_phrases` 판정
-- **Persistence:** SQLite v2 schema, 순방향 migration, migration 전 검증된 backup, durable run/eval queue, lease와 restart recovery
-- **Deployment:** 단일 관리자 session 인증, CSRF, exact-origin CORS, liveness/readiness, same-origin Docker Compose
+## What it does today
 
-`ReleaseManifest`는 Python/JSON Schema 데이터 계약만 존재합니다. Release 저장·승인·배포·rollback UI는 아직 제공하지 않습니다.
+- **Build:** node/edge editing, schema and graph validation, inspector, undo/redo, Impact Preview, file and server persistence, revision history
+- **Guided:** turns a natural-language request on a blank canvas into a constrained `agent.patch/v1` candidate; applied only after schema, graph, and dry-run review and explicit user approval
+- **Run:** routed execution, SSE event stream with reconnection, human approval gate, cancellation, timeline/history, static comparison of two runs
+- **Evaluate:** dataset/case management, repeated runs with a required pass count, batch history/detail/comparison, deterministic `expected_phrases` judgment
+- **Persistence:** SQLite v2 schema, forward migrations, verified pre-migration backups, durable run/eval queue, leases and restart recovery
+- **Deployment:** single-admin session authentication, CSRF, exact-origin CORS, liveness/readiness, same-origin Docker Compose
 
-## 가장 빠른 실행
+`ReleaseManifest` exists only as a Python/JSON Schema data contract. There is no release storage, approval, deployment, or rollback UI yet.
 
-필요 조건: Docker Engine 24+와 Docker Compose v2+.
+## Fastest way to run
+
+Requirements: Docker Engine 24+ and Docker Compose v2+.
 
 ```bash
 if [ ! -f .env ]; then
@@ -33,14 +35,14 @@ python -c 'import secrets; print(secrets.token_urlsafe(32))'
 python -c 'import secrets; print(secrets.token_urlsafe(48))'
 ```
 
-출력된 서로 다른 값을 `.env`의 `AGENTCANVAS_ADMIN_PASSWORD`와 `AGENTCANVAS_SESSION_SECRET`에 넣습니다. Provider를 사용할 때는 provider secret과 model ID도 `.env`에만 설정하고 커밋하지 마세요.
+Put the two different generated values into `AGENTCANVAS_ADMIN_PASSWORD` and `AGENTCANVAS_SESSION_SECRET` in `.env`. When using a provider, keep the provider secret and model ID in `.env` only — never commit them.
 
 ```bash
 docker compose up --build -d
 docker compose ps
 ```
 
-브라우저에서 <http://localhost:8080>을 엽니다. 기본 Compose는 Studio만 `127.0.0.1:8080`에 공개하고 API는 내부 network에 둡니다.
+Open <http://localhost:8080> in a browser. The default Compose profile exposes only Studio on `127.0.0.1:8080` and keeps the API on the internal network.
 
 ```bash
 curl --fail http://localhost:8080/api/health/live
@@ -48,52 +50,52 @@ curl --fail http://localhost:8080/api/health/ready
 docker compose down
 ```
 
-`docker compose down -v`는 저장된 spec, run, eval과 backup volume을 삭제하므로 데이터 폐기가 목적일 때만 사용하세요.
+`docker compose down -v` deletes the stored specs, runs, evals, and backup volumes — use it only when you intend to discard data.
 
-## 구성
+## Configuration
 
-| 변수 | 기본값 | 의미 |
+| Variable | Default | Meaning |
 |---|---|---|
-| `AGENTCANVAS_BIND` | `127.0.0.1` | Studio bind 주소 |
-| `AGENTCANVAS_PORT` | `8080` | Studio 공개 port |
-| `AGENTCANVAS_DB` | `/data/agentcanvas.db` | API SQLite 경로 |
-| `AGENTCANVAS_BACKUP_DIR` | `/backups` in Compose | migration backup 경로 |
-| `AGENTCANVAS_BACKUP_RETENTION` | `10` | DB별 migration backup 보존 수(1~1000) |
-| `AGENTCANVAS_ALLOWED_ORIGINS` | `http://localhost:8080` | exact CORS origin 목록. `*`는 거부됩니다. |
-| `AGENTCANVAS_ADMIN_PASSWORD` | 필수 | 단일 관리자 비밀번호(12자 이상) |
-| `AGENTCANVAS_SESSION_SECRET` | 필수 | 별도 HMAC session secret(32 UTF-8 bytes 이상) |
-| `AGENTCANVAS_SESSION_TTL_SECONDS` | `28800` | 고정 session 만료(60초~7일) |
-| `AGENTCANVAS_COOKIE_SECURE` | `false` | HTTPS 배포에서는 반드시 `true` |
+| `AGENTCANVAS_BIND` | `127.0.0.1` | Studio bind address |
+| `AGENTCANVAS_PORT` | `8080` | Studio published port |
+| `AGENTCANVAS_DB` | `/data/agentcanvas.db` | API SQLite path |
+| `AGENTCANVAS_BACKUP_DIR` | `/backups` in Compose | Migration backup path |
+| `AGENTCANVAS_BACKUP_RETENTION` | `10` | Migration backups retained per DB (1–1000) |
+| `AGENTCANVAS_ALLOWED_ORIGINS` | `http://localhost:8080` | Exact CORS origin list. `*` is rejected. |
+| `AGENTCANVAS_ADMIN_PASSWORD` | required | Single admin password (12+ characters) |
+| `AGENTCANVAS_SESSION_SECRET` | required | Separate HMAC session secret (32+ UTF-8 bytes) |
+| `AGENTCANVAS_SESSION_TTL_SECONDS` | `28800` | Fixed session expiry (60 seconds–7 days) |
+| `AGENTCANVAS_COOKIE_SECURE` | `false` | Must be `true` for HTTPS deployments |
 | `VITE_API_URL` | `/api` | Studio build-time API URL |
-| `AGENTCANVAS_OPENAI_MODEL` | 비어 있음 | 명시적으로 선택한 OpenAI model ID |
-| `AGENTCANVAS_SECRET_OPENAI_API_KEY` | 비어 있음 | OpenAI secret |
-| `AGENTCANVAS_SECRET_ANTHROPIC_API_KEY` | 비어 있음 | Anthropic catalog와 실행 secret |
-| `AGENTCANVAS_LOCAL_MODEL` | 비어 있음 | OpenAI-compatible local model ID |
-| `AGENTCANVAS_LOCAL_BASE_URL` | `http://host.docker.internal:11434/v1` | local model endpoint |
+| `AGENTCANVAS_OPENAI_MODEL` | empty | Explicitly chosen OpenAI model ID |
+| `AGENTCANVAS_SECRET_OPENAI_API_KEY` | empty | OpenAI secret |
+| `AGENTCANVAS_SECRET_ANTHROPIC_API_KEY` | empty | Anthropic catalog and execution secret |
+| `AGENTCANVAS_LOCAL_MODEL` | empty | OpenAI-compatible local model ID |
+| `AGENTCANVAS_LOCAL_BASE_URL` | `http://host.docker.internal:11434/v1` | Local model endpoint |
 
-OpenAI 경로는 key와 model ID가 모두 있을 때만 활성화됩니다. 외부 provider의 가격·가용성이 변하므로 AgentCanvas는 OpenAI model 기본값을 선택하지 않습니다. Guided 초안 생성은 현재 명시적인 OpenAI 설정이 없으면 503으로 fail closed합니다. 일반 run/eval은 Anthropic 또는 OpenAI-compatible provider를 사용할 수 있고, provider가 없으면 결정론적 fallback을 사용할 수 있습니다.
+The OpenAI path is enabled only when both the key and the model ID are present. Because external providers change pricing and availability, AgentCanvas does not pick an OpenAI model default for you. Guided drafting currently fails closed with a 503 unless OpenAI is explicitly configured. Regular runs and evals can use Anthropic or an OpenAI-compatible provider, and fall back to a deterministic stand-in when no provider is configured.
 
-`VITE_API_URL`은 bundle build 시 삽입됩니다. 값을 바꾼 뒤에는 Studio image를 다시 빌드해야 합니다.
+`VITE_API_URL` is baked in at bundle build time. Rebuild the Studio image after changing it.
 
-## 보안 경계
+## Security boundary
 
-Compose는 인증을 항상 required로 고정합니다. Health와 login 이외의 HTTP route는 default-deny이고, unsafe method는 session cookie와 `X-CSRF-Token`을 모두 요구합니다. 정확한 session·cookie·CORS·logout 계약과 비보장 범위는 [`docs/security/authentication.md`](docs/security/authentication.md)에 있습니다.
+Compose pins authentication to always-required. Every HTTP route except health and login is default-deny, and unsafe methods require both the session cookie and an `X-CSRF-Token` header. The exact session, cookie, CORS, and logout contract — and what is explicitly not guaranteed — is in [`docs/security/authentication.md`](docs/security/authentication.md).
 
-기본 profile은 loopback HTTP이므로 cookie의 `Secure`가 꺼져 있습니다. 원격 배포는 운영자가 TLS/reverse proxy를 제공하고 `AGENTCANVAS_COOKIE_SECURE=true`를 설정해야 합니다. 내장 TLS, OIDC, MFA, 사용자/role/tenant 격리는 없습니다.
+The default profile is loopback HTTP, so the cookie's `Secure` flag is off. Remote deployments must provide TLS or a reverse proxy and set `AGENTCANVAS_COOKIE_SECURE=true`. There is no built-in TLS, OIDC, MFA, or user/role/tenant isolation.
 
-## 데이터, upgrade와 복구
+## Data, upgrades, and recovery
 
-Compose는 DB와 `-wal`/`-shm`을 `agentcanvas-data` volume에, migration backup을 별도 `agentcanvas-backups` volume에 둡니다. API는 v0/v1 DB를 v2로 순방향 migration하며 application table이 있는 DB는 변경 전에 SQLite backup API로 snapshot을 생성하고 검증합니다. 알 수 없는 또는 비정규 schema는 추측해 고치지 않고 startup을 중단합니다.
+Compose keeps the DB and its `-wal`/`-shm` files in the `agentcanvas-data` volume and migration backups in a separate `agentcanvas-backups` volume. The API migrates v0/v1 databases forward to v2; when a database contains application tables, it snapshots and verifies a backup via the SQLite backup API before changing anything. Unknown or non-conforming schemas abort startup instead of being guessed at.
 
-한 번에 API instance 하나만 migration해야 합니다. 자동 backup은 로컬 rollback material이며 off-host disaster recovery가 아닙니다.
+Only one API instance may run a migration at a time. Automatic backups are local rollback material, not off-host disaster recovery.
 
-- schema·queue·idempotency·recovery: [`docs/operations/durability.md`](docs/operations/durability.md)
-- backup 검증과 수동 restore: [`docs/operations/backup-and-restore.md`](docs/operations/backup-and-restore.md)
-- Compose topology와 health: [`docs/operations/deployment.md`](docs/operations/deployment.md)
+- Schema, queue, idempotency, and recovery: [`docs/operations/durability.md`](docs/operations/durability.md)
+- Backup verification and manual restore: [`docs/operations/backup-and-restore.md`](docs/operations/backup-and-restore.md)
+- Compose topology and health: [`docs/operations/deployment.md`](docs/operations/deployment.md)
 
-## 로컬 개발
+## Local development
 
-필요 조건: Python 3.12+, uv 0.8.15, Node.js 22.20+, pnpm 10.15.1.
+Requirements: Python 3.12+, uv 0.8.15, Node.js 22.20+, pnpm 10.15.1.
 
 ```bash
 uv sync --frozen
@@ -104,15 +106,15 @@ export AGENTCANVAS_SESSION_SECRET="$(python -c 'import secrets; print(secrets.to
 uv run --frozen uvicorn agentcanvas_api.app:create_app --factory --reload
 ```
 
-다른 terminal에서:
+In another terminal:
 
 ```bash
 pnpm dev
 ```
 
-기본 API DB는 저장소 root의 `agentcanvas.db`입니다. 다른 경로는 `AGENTCANVAS_DB`로 지정합니다.
+The default API database is `agentcanvas.db` at the repository root; point `AGENTCANVAS_DB` elsewhere to change it.
 
-## 검증
+## Verification
 
 ```bash
 uv run --frozen ruff check packages
@@ -125,36 +127,36 @@ git diff --exit-code -- apps/studio/src/generated
 docker compose --env-file .env.example config --quiet
 ```
 
-GitHub Actions workflow는 Python, Studio, generated type drift, container build, auth fail-closed와 격리 Compose smoke를 검증하도록 정의돼 있습니다. CI 상태는 각 commit과 pull request의 Checks에서 확인하세요.
+The GitHub Actions workflow verifies Python, Studio, generated-type drift, container builds, auth fail-closed startup, and an isolated Compose smoke test. Check CI status on each commit and pull request under Checks.
 
-## 구조와 문서
+## Structure and documentation
 
-- `packages/contracts`: AgentSpec, RunEvent, Eval, Architect와 ReleaseManifest 계약
-- `packages/engine`: graph validation, routed runtime, evaluator
-- `packages/adapters`: Anthropic/OpenAI-compatible provider 경계
+- `packages/contracts`: AgentSpec, RunEvent, Eval, Architect, and ReleaseManifest contracts
+- `packages/engine`: graph validation, routed runtime, evaluators
+- `packages/adapters`: Anthropic/OpenAI-compatible provider boundary
 - `packages/api`: FastAPI, auth, SQLite stores, SSE, durable worker
 - `apps/studio`: React/TypeScript/Vite visual Studio
 - `examples`: versioned contract examples
-- `docs/security`, `docs/operations`: 지원되는 공개 운영 계약
-- `docs/design`: Studio 디자인 언어와 원칙
-- `docs/vision`: 현재 기능이 아닌 장기 제안
+- `docs/security`, `docs/operations`: supported public operating contracts
+- `docs/design`: Studio design language and principles
+- `docs/vision`: long-term proposals, not current capabilities
 
-제품 범위는 [`PRODUCT.md`](PRODUCT.md), 현재 UI 계약은 [`DESIGN.md`](DESIGN.md), 구현 아키텍처는 [`docs/AGENTCANVAS_DESIGN.md`](docs/AGENTCANVAS_DESIGN.md)를 참고하세요.
+Product scope lives in [`PRODUCT.md`](PRODUCT.md), the current UI contract in [`DESIGN.md`](DESIGN.md), and the implementation architecture in [`docs/AGENTCANVAS_DESIGN.md`](docs/AGENTCANVAS_DESIGN.md).
 
-## 알려진 제한
+## Known limitations
 
-- 한 명의 신뢰 관리자와 하나의 암묵적 workspace만 지원합니다.
-- 외부 provider call의 exactly-once를 보장하지 않습니다.
-- 평가는 normalized phrase 포함 여부만 판정하며 품질·안전·groundedness·task success를 증명하지 않습니다.
-- horizontal scaling, rolling SQLite migration, Kubernetes와 PostgreSQL backend는 지원하지 않습니다.
-- structured application logging, metrics, quota/rate limiting과 자동 off-host backup이 없습니다.
-- Release/Investigate, 실제 MCP executor, LangGraph adapter, 3D Runtime World와 workspace collaboration은 비전 단계입니다.
-- 현재 공개 범위는 source와 source-built Docker Compose입니다. Prebuilt artifact에는 별도 SBOM, digest/signature와 완전한 license/NOTICE bundle이 필요합니다.
+- Supports exactly one trusted administrator and one implicit workspace.
+- Does not guarantee exactly-once for external provider calls.
+- Evaluation judges only normalized phrase inclusion; it does not prove quality, safety, groundedness, or task success.
+- No horizontal scaling, rolling SQLite migration, Kubernetes, or PostgreSQL backend.
+- No structured application logging, metrics, quota/rate limiting, or automatic off-host backups.
+- Release/Investigate, a real MCP executor, a LangGraph adapter, the 3D Runtime World, and workspace collaboration are vision-stage only.
+- The current public scope is source and source-built Docker Compose. Prebuilt artifacts would need their own SBOM, digests/signatures, and a complete license/NOTICE bundle.
 
-## 기여·보안·지원
+## Contributing, security, and support
 
-기여 절차와 DCO sign-off는 [`CONTRIBUTING.md`](CONTRIBUTING.md), 취약점 신고는 [`SECURITY.md`](SECURITY.md), 지원 범위는 [`SUPPORT.md`](SUPPORT.md)를 따릅니다. 모든 참여자는 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)를 준수해야 합니다.
+Follow [`CONTRIBUTING.md`](CONTRIBUTING.md) for the contribution process and DCO sign-off, [`SECURITY.md`](SECURITY.md) for vulnerability reports, and [`SUPPORT.md`](SUPPORT.md) for the support scope. All participants must follow [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
-## 라이선스
+## License
 
-AgentCanvas는 [Apache License 2.0](LICENSE)에 따라 제공됩니다. 제3자 구성요소 고지는 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)에서 관리합니다.
+AgentCanvas is provided under the [Apache License 2.0](LICENSE). Third-party component notices are maintained in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
