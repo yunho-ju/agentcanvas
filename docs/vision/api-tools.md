@@ -108,6 +108,47 @@ architect와 동일한 골격의 별도 서비스: **입력 → 검증된 제안
 - 인증 키는 생성기가 절대 받지 않는다 — `secret://` 이름만 제안하고,
   실제 값 등록은 기존 secrets 경로를 따른다.
 
+## Result handling — 응답을 다 싣지 않는다
+
+큰 문서를 돌려주는 도구(예: 의료 문서 API)의 응답을 통째로 모델 컨텍스트에
+실으면 컨텍스트가 넘친다. "무엇을 얼마나 실을 것인가"는 도구마다 다르므로,
+ToolDef에 **결과 처리 전략**을 둔다 — 분기 대신 registry: 새 전략은 표에 한
+줄을 더한다.
+
+```
+ToolDef
+  ...
+  result_handling: Full | Sections | Digest | Retrieve   # discriminated union
+                                                          # 기본은 Full
+
+Full                                # 그대로 싣는다 — 작은 응답의 기본값
+Sections                            # 부르는 쪽이 섹션 목록을 고른다
+  section_param: str                # 도구 입력에 추가되는 배열 파라미터 이름
+                                    # (input_schema에 함께 실린다 — 노드가
+                                    #  섹션 배열을 넘긴다)
+Digest                              # 받은 전체를 모델로 압축 요약해 싣는다
+  model_ref: ModelRef               # 요약을 맡을 모델 (본 실행과 분리)
+  max_chars: int                    # 실을 최대 길이
+Retrieve                            # 질의로 관련 부분만 골라 싣는다 (BM25)
+  query_param: str                  # 부르는 쪽이 넘기는 검색 질의 파라미터
+  top_k: int                        # 실을 조각 수
+  chunk: {by: "section"|"chars", size: int}
+```
+
+원칙:
+
+- **전략은 어댑터의 후처리다** — 노드·validator·화면은 전략의 존재만 알고
+  내용은 모른다. 원 응답은 어댑터가 받고, 컨텍스트에는 처리된 것만 싣는다.
+- **정직한 화면**: `tool.completed` 이벤트에 원문 크기와 실은 크기를 함께
+  기록한다 ("원문 12,400자 → 780자 실음"). 잘려 나간 것이 있음을 화면이
+  침묵하지 않는다 — 화면에서 시스템을 이해할 수 있어야 한다는 원칙.
+- **AI 생성기와의 접점**: Tool Wrapper가 OpenAPI 응답 schema를 보고 응답이
+  크겠다 싶으면(배열·문서 필드) 전략을 함께 제안한다 — 섹션 개념이 schema에
+  보이면 Sections, 자유 텍스트 덩어리면 Retrieve를 기본 제안.
+- **전략도 시험 대상이다**: 같은 도구·같은 케이스를 전략만 바꿔 eval로 돌려
+  "어떤 전략이 답 품질/비용에 유리한가"를 비교할 수 있게 한다 (eval 시스템의
+  variant 실행 — 후속 제안, 이 문서 범위 밖).
+
 ## Execution
 
 `packages/adapters`에 `HttpToolAdapter`:
@@ -132,9 +173,10 @@ architect와 동일한 골격의 별도 서비스: **입력 → 검증된 제안
 ## Phasing
 
 1. **P0** — 선행 정리 3건 (위)
-2. **P1** — 계약: ToolDef, ResourceBinding.tools, patch op 3종, 노드 일반화 + 동적 포트
-3. **P2** — Tool Wrapper 생성 서비스 + 미리보기/승인 UI + 팔레트 노출
-4. **P3** — HttpToolAdapter 실행 + tool.* 이벤트 + 정책 집행
+2. **P1** — 계약: ToolDef(+result_handling), ResourceBinding.tools, patch op 3종, 노드 일반화 + 동적 포트
+3. **P2** — Tool Wrapper 생성 서비스(전략 제안 포함) + 미리보기/승인 UI + 팔레트 노출
+4. **P3** — HttpToolAdapter 실행 + 결과 처리 전략(Full/Sections/Digest/Retrieve) + tool.* 이벤트 + 정책 집행
+5. **P4(후속)** — 전략 비교 eval (같은 케이스를 전략 variant로 돌려 품질·비용 비교)
 
 P3까지 가면 "도구 실행" 노드가 아무 일 없이 초록불이 되는 현재의 거짓 성공도
 사라진다. MCP executor는 그 뒤에 같은 어댑터 자리(`kind: "mcp"`)로 들어온다.
