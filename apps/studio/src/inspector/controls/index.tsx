@@ -10,6 +10,7 @@ import {
 import { MODEL_CATALOG } from "../../registry/modelCatalog";
 import { SCHEMA_CATALOG, resolveSchema } from "../../registry/schemaCatalog";
 import type { ControlKind } from "../schemaForm";
+import { useDocResources } from "../useDocResources";
 import { useTextDraft } from "../useTextDraft";
 import {
   asJsonText,
@@ -85,10 +86,18 @@ function BooleanControl(props: ControlProps) {
   );
 }
 
+/** 이 칸을 설명하는 글들 — schema의 설명 옆에 지금 상황의 이유를 나란히 놓는다. */
+function describedBy(props: ControlProps, reasonId?: string): string | undefined {
+  const ids = [props.describedBy, reasonId].filter(Boolean);
+  return ids.length > 0 ? ids.join(" ") : undefined;
+}
+
 /** 고를 수 있는 하나 — 저장되는 값과 사람이 읽는 이름은 다를 수 있다. */
 interface Choice {
   value: string;
   label: string;
+  /** 이름만으로는 모를 때 덧붙이는 쉬운 설명 */
+  hint?: string;
 }
 
 function ChoiceControl(props: ControlProps & { choices: Choice[] }) {
@@ -144,7 +153,9 @@ const TYPE_IT_MYSELF = "__type_it_myself__";
  * 많이 쓰는 값은 고르고, 특수한 값만 적는다.
  * 저장되는 것은 언제나 값 하나 — 고름/적음은 화면의 상태일 뿐이라 undo에 남지 않는다.
  */
-function PresetRefControl(props: ControlProps & { choices: Choice[] }) {
+function PresetRefControl(
+  props: ControlProps & { choices: Choice[]; disabled?: boolean },
+) {
   const t = useT();
   const current = asText(props.value);
   const known = props.choices.some((choice) => choice.value === current);
@@ -162,6 +173,7 @@ function PresetRefControl(props: ControlProps & { choices: Choice[] }) {
       <select
         {...common(props)}
         className="control"
+        disabled={props.disabled}
         value={typing ? TYPE_IT_MYSELF : current}
         onChange={(event) => {
           // 적는 자리로 넘어가는 것만으로는 값이 바뀌지 않는다 — 되돌릴 것도 쌓이지 않는다.
@@ -178,7 +190,7 @@ function PresetRefControl(props: ControlProps & { choices: Choice[] }) {
           </option>
         ) : null}
         {props.choices.map((choice) => (
-          <option key={choice.value} value={choice.value}>
+          <option key={choice.value} value={choice.value} title={choice.hint}>
             {choice.label}
           </option>
         ))}
@@ -192,8 +204,10 @@ function PresetRefControl(props: ControlProps & { choices: Choice[] }) {
           aria-labelledby={`${props.id}-label`}
           aria-describedby={props.describedBy}
           aria-invalid={props.invalid || undefined}
-          // 방금 연 자리에 손이 바로 닿는다 — 한 번 더 클릭하게 두지 않는다.
-          autoFocus
+          disabled={props.disabled}
+          // 손이 가는 것은 '직접 적기…'를 고른 그때뿐이다 — 목록이 밖에서 바뀌었다고
+          // 초점을 빼앗지 않는다 (고른 것은 옆 칸이지 이 칸이 아니다).
+          autoFocus={typed !== null}
           value={current}
           onChange={(event) => type(event.target.value)}
         />
@@ -213,6 +227,74 @@ function ModelRefControl(props: ControlProps) {
         label: localized(definition.title, locale),
       }))}
     />
+  );
+}
+
+/**
+ * 어떤 연결을 쓸지는 이 문서가 가진 연결 중에서 고른다 — 전역 카탈로그가 아니다 (DESIGN §7 binding-select).
+ * 목록이 비어 있어도 빈 셀렉트를 던지지 않는다: 왜 비었는지를 말한다.
+ */
+function BindingSelectControl(props: ControlProps) {
+  const t = useT();
+  const { bindings } = useDocResources();
+  const empty = bindings.length === 0;
+  const reasonId = `${props.id}-reason`;
+  return (
+    <span className="control__from-doc">
+      <PresetRefControl
+        {...props}
+        describedBy={describedBy(props, empty ? reasonId : undefined)}
+        choices={bindings.map((binding) => ({
+          value: binding.id,
+          label: binding.id,
+        }))}
+      />
+      {empty ? (
+        <span className="control__hint" id={reasonId}>
+          {t("control.bindingSelect.empty")}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * 어떤 도구를 실행할지는 방금 고른 연결이 든 도구 중에서 고른다 (DESIGN §7 tool-select).
+ * 연결을 고르기 전에는 고를 것이 없다 — 잠그되, 왜 잠겼는지를 말한다.
+ */
+function ToolSelectControl(props: ControlProps) {
+  const locale = useLocale();
+  const t = useT();
+  const { ref, chosen } = useDocResources();
+  const tools = chosen?.tools ?? [];
+  // 아직 아무 연결도 고르지 않았을 때만 잠근다. 문서에 없는 이름이 적혀 있는 것은 다른 일이라
+  // 잠그지 않는다 — 그 이름이 틀렸다는 말은 필드 오류와 노드 뱃지가 이미 한다.
+  const waiting = ref === "";
+  const reason = waiting
+    ? "control.toolSelect.needsBinding"
+    : chosen && tools.length === 0
+      ? "control.toolSelect.empty"
+      : undefined;
+  const reasonId = `${props.id}-reason`;
+  return (
+    <span className="control__from-doc">
+      <PresetRefControl
+        {...props}
+        describedBy={describedBy(props, reason ? reasonId : undefined)}
+        disabled={waiting}
+        choices={tools.map((tool) => ({
+          value: tool.name,
+          label: tool.name,
+          // 도구 이름만 던지지 않는다 — 무엇을 하는 도구인지 함께 말한다.
+          hint: localized(tool.plain_description, locale),
+        }))}
+      />
+      {reason ? (
+        <span className="control__hint" id={reasonId}>
+          {t(reason)}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -346,6 +428,8 @@ export const CONTROLS: Record<ControlKind, ControlEntry> = {
   secretRef: { Component: SecretRefControl },
   schemaRef: { Component: SchemaRefControl },
   modelRef: { Component: ModelRefControl },
+  bindingSelect: { Component: BindingSelectControl },
+  toolSelect: { Component: ToolSelectControl },
   json: { Component: JsonControl },
   stringMap: { Component: StringMapControl, selfLabelled: true },
 };

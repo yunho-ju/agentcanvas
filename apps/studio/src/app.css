@@ -4192,6 +4192,7 @@ button:disabled {
 .control__secret,
 .control__json,
 .control__preset,
+.control__from-doc,
 .control__preset-fill {
   display: flex;
   flex-direction: column;

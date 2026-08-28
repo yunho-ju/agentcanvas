@@ -1,7 +1,12 @@
 // config_schema(JSON Schema) -> inspector 폼. 노드 타입은 여기서 쳐다보지 않는다 (설계 §4.2).
 // 읽을 수 없는 조각은 버리지 않고 raw JSON 편집으로 넘긴다 — 어떤 schema가 와도 UI는 살아 있다.
 import type { Locale } from "../i18n/locale";
-import type { JsonSchema } from "../registry/registry";
+import {
+  BINDING_REF_MARKER,
+  TOOL_NAME_FIELD,
+  TOOL_PORTS_MARKER,
+  type JsonSchema,
+} from "../registry/registry";
 
 /** 계약이 두 언어로 들고 온 글과 같은 모양 — 폼의 라벨도 언어를 고를 수 있어야 한다. */
 export type FieldText = Record<Locale, string>;
@@ -18,6 +23,8 @@ export type ControlKind =
   | "secretRef"
   | "schemaRef"
   | "modelRef"
+  | "bindingSelect"
+  | "toolSelect"
   | "json";
 
 export interface FormField {
@@ -67,6 +74,15 @@ const CONTROL_BY_FORMAT: Record<string, ControlKind> = {
 };
 
 /**
+ * 필드 자신에 붙은 마커가 골라 주는 편집기 — format 표와 같은 문법이다.
+ * 노드 타입 이름은 여기서도 쳐다보지 않는다: 마커를 붙인 필드면 무엇이든 대상이다.
+ */
+// 마커 이름은 계약이 정한다 — registry가 읽는 그 이름을 그대로 쓴다 (두 벌로 두지 않는다).
+const CONTROL_BY_MARKER: Record<string, ControlKind> = {
+  [BINDING_REF_MARKER]: "bindingSelect",
+};
+
+/**
  * schema type -> 편집기 매핑 테이블.
  * 새 type을 지원할 때 여기 한 줄을 더한다 — 읽는 쪽 코드는 그대로다.
  */
@@ -81,7 +97,21 @@ const CONTROL_BY_TYPE: Record<string, (schema: Record<string, unknown>) => Contr
   object: (schema) => (additionalType(schema) === "string" ? "stringMap" : "json"),
 };
 
-function controlOf(schema: Record<string, unknown>): ControlKind {
+function markedControl(schema: Record<string, unknown>): ControlKind | undefined {
+  const marker = Object.keys(CONTROL_BY_MARKER).find((key) => schema[key] === true);
+  return marker ? CONTROL_BY_MARKER[marker] : undefined;
+}
+
+/** 뿌리가 "이 필드가 도구 이름"이라고 가리킨 이름 — 가리키지 않았으면 없다. */
+function toolNameField(root: Record<string, unknown> | null): string | undefined {
+  const plan = asObject(root?.[TOOL_PORTS_MARKER])?.[TOOL_NAME_FIELD];
+  return typeof plan === "string" ? plan : undefined;
+}
+
+function controlOf(schema: Record<string, unknown>, marked?: ControlKind): ControlKind {
+  // 마커는 계약이 이 자리에 대해 아는 가장 구체적인 말이다 — enum·type보다 먼저다.
+  const byMarker = marked ?? markedControl(schema);
+  if (byMarker) return byMarker;
   if (stringList(schema.enum)) return "select";
   const byType =
     typeof schema.type === "string" ? CONTROL_BY_TYPE[schema.type] : undefined;
@@ -115,9 +145,10 @@ function describeField(
   name: string,
   schema: Record<string, unknown>,
   required: string[],
+  marked?: ControlKind,
 ): FormField {
   const description = schemaText(schema, "description");
-  const control = controlOf(schema);
+  const control = controlOf(schema, marked);
   return {
     name,
     label: fieldTitle(schema, name),
@@ -167,9 +198,18 @@ export function describeForm(configSchema: unknown): ConfigForm {
   if (!properties) return { fields: [], raw: true };
 
   const required = stringList(schema?.required) ?? [];
+  const toolName = toolNameField(schema);
   const fields = orderedNames(properties, schema?.["x-field-order"]).flatMap((name) => {
     const property = asObject(properties[name]);
-    return property ? [describeField(name, property, required)] : [];
+    if (!property) return [];
+    return [
+      describeField(
+        name,
+        property,
+        required,
+        name === toolName ? "toolSelect" : undefined,
+      ),
+    ];
   });
   return { fields, raw: false };
 }

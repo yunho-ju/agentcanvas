@@ -18,9 +18,9 @@ export interface ResolvedPorts {
 export const INPUT_NODE_TYPE = "core.input";
 
 // config_schema 확장 키워드 — Python `node_registry`와 같은 이름을 읽는다.
-const BINDING_REF_MARKER = "x-binding-ref";
-const TOOL_PORTS_MARKER = "x-tool-ports";
-const TOOL_NAME_FIELD = "tool_name_field";
+export const BINDING_REF_MARKER = "x-binding-ref";
+export const TOOL_PORTS_MARKER = "x-tool-ports";
+export const TOOL_NAME_FIELD = "tool_name_field";
 const TOOL_INPUT_PORT = "input_port";
 const TOOL_OUTPUT_PORT = "output_port";
 
@@ -51,7 +51,7 @@ function byId(ports: PortSpec[] | undefined): Record<string, PortSpec> {
  * config_schema가 바인딩 id라고 표시한(x-binding-ref) 자리에 실제로 적힌 이름들.
  * 타입 이름으로 분기하지 않는다 — 마커를 붙인 노드 타입이면 무엇이든 대상이다.
  */
-function bindingRefs(node: SpecNode, nodeType: NodeType): string[] {
+export function bindingRefs(node: SpecNode, nodeType: NodeType): string[] {
   const properties = asRecord(nodeType.config_schema.properties);
   if (!properties) return [];
 

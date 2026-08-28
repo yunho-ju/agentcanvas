@@ -5,13 +5,22 @@ import { type Message, msg } from "../i18n/messages";
 import { type JsonSchema, nodeTypes, resolvePorts } from "../registry/registry";
 import { typeWord } from "./typeWords";
 
+/**
+ * 연결 규칙이 실제로 들여다보는 것 — 노드, 이미 그어진 연결, 값의 모양.
+ * 문서 전체를 요구하지 않는다: 편집 도중의 그래프도 같은 규칙을 물어볼 수 있어야 한다.
+ */
+export type ConnectableSpec = Pick<
+  AgentSpec,
+  "nodes" | "edges" | "input_schema" | "resources"
+>;
+
 export interface ConnectionCheck {
   ok: boolean;
   reason?: Message;
 }
 
 function portOf(
-  spec: AgentSpec,
+  spec: ConnectableSpec,
   endpoint: EdgeEndpoint,
   direction: "inputs" | "outputs",
   registry: Record<string, NodeType>,
@@ -47,7 +56,11 @@ function sameType(source: unknown, target: unknown): boolean {
  * 이 연결을 그으면 흐름이 제자리로 돌아오는가 — Python validator의 `graph.cycle` 미러.
  * 반복(iterative)으로 훑는다: 깊은 체인에서도 재귀 한도에 걸리지 않는다.
  */
-function comesBackAround(spec: AgentSpec, source: string, target: string): boolean {
+function comesBackAround(
+  spec: ConnectableSpec,
+  source: string,
+  target: string,
+): boolean {
   const outgoing = new Map<string, string[]>();
   for (const edge of spec.edges) {
     outgoing.set(edge.source.node, [
@@ -70,7 +83,7 @@ function comesBackAround(spec: AgentSpec, source: string, target: string): boole
 
 /** 연결 가능 여부 — 불가하면 사람이 읽을 이유를 함께 돌려준다. */
 export function checkConnection(
-  spec: AgentSpec,
+  spec: ConnectableSpec,
   source: EdgeEndpoint,
   target: EdgeEndpoint,
   registry: Record<string, NodeType> = nodeTypes,

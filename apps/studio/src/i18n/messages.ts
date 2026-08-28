@@ -777,6 +777,19 @@ const TEXTS = {
   },
   // 목록에 없는 값은 직접 적는다 — 이 자리는 값을 적는 상자의 이름이기도 하다.
   "control.preset.custom": { ko: "직접 적기…", en: "Type it yourself…" },
+  // 고를 것이 없을 때는 빈 목록을 던지지 않고 왜 비었는지 말한다 (DESIGN §7 binding-select).
+  "control.bindingSelect.empty": {
+    ko: "이 문서에는 아직 연결이 없어요",
+    en: "This document has no connections yet",
+  },
+  "control.toolSelect.needsBinding": {
+    ko: "먼저 연결을 고르세요",
+    en: "Pick a connection first",
+  },
+  "control.toolSelect.empty": {
+    ko: "이 연결에는 아직 도구가 없어요",
+    en: "This connection has no tools yet",
+  },
   // 빈 상자 앞에서 무엇을 적을지 모르는 사람에게 주는 시작 글 — 고르면 채워지고 거기서 고쳐 쓴다.
   "control.presetFill.placeholder": {
     ko: "이런 일을 시켜 보세요…",

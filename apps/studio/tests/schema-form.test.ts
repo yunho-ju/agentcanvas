@@ -40,10 +40,11 @@ describe("describeForm on the six base node types", () => {
     });
   });
 
-  it("reads tool.mcp refs as lines of text", () => {
+  // 두 자리 모두 문서가 가진 것 중에서 고른다 — 마커가 그렇게 표시했다 (DESIGN §7).
+  it("reads tool.mcp refs as picks from what the document holds", () => {
     expect(controlsOf(nodeTypes["tool.mcp"].config_schema)).toEqual({
-      resource_ref: "text",
-      tool_name: "text",
+      resource_ref: "bindingSelect",
+      tool_name: "toolSelect",
     });
   });
 
