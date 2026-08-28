@@ -4,6 +4,7 @@ import type { AgentSpec } from "../src/generated/agent_spec";
 import { validateSpec } from "../src/graph/validateSpec";
 import { selectedEdge, selectedNode, useEditor } from "../src/store/editor";
 import { translate } from "../src/i18n/messages";
+import { TOOL_BINDING_ID, withToolBinding } from "./toolSpec";
 
 const example = exampleSpec as unknown as AgentSpec;
 
@@ -102,6 +103,17 @@ describe("updateNodeConfig", () => {
   it("says nothing when no connection was harmed", () => {
     store().updateNodeConfig("clinical-agent", { model_ref: "model://fast" });
     expect(store().notice).toBeNull();
+  });
+
+  it("dresses a tool node's ports in the tool it was just pointed at", () => {
+    store().loadSpec(withToolBinding(example, "other"));
+    store().updateNodeConfig("tool", {
+      resource_ref: TOOL_BINDING_ID,
+      tool_name: "lookup",
+    });
+    expect(
+      store().nodes.find((node) => node.id === "tool")?.data.ports.outputs.result.schema,
+    ).toEqual({ type: "string" });
   });
 
   it("ignores a node that is not on the canvas", () => {

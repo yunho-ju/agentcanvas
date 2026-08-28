@@ -1,6 +1,7 @@
 // 이 편집이 무엇을 망가뜨리는가 — 편집을 실제로 하기 전에 답한다 (순수 함수).
 // 도달성 규칙은 engine validator의 graph.unreachable_node와 같다:
 // core.input 노드에서 연결을 따라 갈 수 있는 노드만 데이터가 닿는 노드다.
+import type { Resources } from "../generated/agent_spec";
 import { INPUT_NODE_TYPE, type JsonSchema } from "../registry/registry";
 import { withNodeConfig } from "./config";
 import type { FlowEdge, FlowGraph, FlowNode } from "./serialize";
@@ -66,6 +67,10 @@ export function analyzeConfigChange(
   nodeId: string,
   config: Record<string, unknown>,
   inputSchema?: JsonSchema,
+  resources?: Resources,
 ): Impact {
-  return impactBetween(graph, withNodeConfig(graph, nodeId, config, inputSchema).graph);
+  return impactBetween(
+    graph,
+    withNodeConfig(graph, nodeId, config, inputSchema, resources).graph,
+  );
 }

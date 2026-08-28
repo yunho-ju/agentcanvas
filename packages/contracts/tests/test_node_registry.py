@@ -1,5 +1,5 @@
 import pytest
-from agentcanvas_contracts.agent_spec import Node
+from agentcanvas_contracts.agent_spec import Node, ResourceBinding
 from agentcanvas_contracts.node_registry import (
     DEFAULT_NODE_TYPES,
     NodeType,
@@ -530,3 +530,117 @@ def test_input_port_schema_is_unspecified_without_an_input_schema():
         DEFAULT_NODE_TYPES["core.input"],
     )
     assert resolved.outputs["question"].schema_ == {}
+
+
+def a_binding_carrying_lookup(output_schema: dict) -> ResourceBinding:
+    return ResourceBinding.model_validate(
+        {
+            "id": "reference",
+            "kind": "mcp.toolset",
+            "server_ref": "mcp://reference",
+            "approval_policy": "read_only_auto",
+            "tools": [
+                {
+                    "name": "lookup",
+                    "plain_description": {"ko": "찾아본다.", "en": "Looks it up."},
+                    "input_schema": {"type": "object", "properties": {}},
+                    "output_schema": output_schema,
+                    "timeout_ms": 5000,
+                    "call": {"transport": "mcp", "remote_name": "lookup"},
+                }
+            ],
+        }
+    )
+
+
+TOOL_NODE_CONFIG = {"resource_ref": "reference", "tool_name": "lookup"}
+
+
+def test_a_tool_node_wears_the_tool_without_gaining_or_losing_a_port():
+    """도구 마커는 있던 포트의 schema만 갈아입힌다 — 포트 이름표는 그대로다.
+
+    포트 이름만 쓰는 자리(studio landingPorts)가 바인딩을 몰라도 안전한 이유다.
+    """
+    tool_type = DEFAULT_NODE_TYPES["tool.mcp"]
+    static = resolve_ports(node("tool.mcp", TOOL_NODE_CONFIG), tool_type)
+    dressed = resolve_ports(
+        node("tool.mcp", TOOL_NODE_CONFIG),
+        tool_type,
+        None,
+        [a_binding_carrying_lookup({"type": "string"})],
+    )
+    assert (set(dressed.inputs), set(dressed.outputs)) == (
+        set(static.inputs),
+        set(static.outputs),
+    )
+    assert dressed.outputs["result"].schema_ == {"type": "string"}
+
+
+def a_node_type_wearing_both_markers() -> NodeType:
+    """bindings로도 포트가 생기고 도구도 입는, 두 마커가 겹친 가상의 노드 타입."""
+    return NodeType.model_validate(
+        {
+            **VALID_NODE_TYPE,
+            "type": "core.input",
+            "ports": {"inputs": [], "outputs": [{"id": "result", "schema": {}}]},
+            "config_schema": {
+                "type": "object",
+                "properties": {
+                    "resource_ref": {"type": "string", "x-binding-ref": True},
+                    "tool_name": {"type": "string"},
+                    "bindings": {"type": "object"},
+                },
+                "x-tool-ports": {
+                    "tool_name_field": "tool_name",
+                    "input_port": "input",
+                    "output_port": "result",
+                },
+            },
+        }
+    )
+
+
+def test_the_tool_dresses_a_port_the_bindings_already_made():
+    """두 동적 해석이 같은 포트를 맡으면 도구가 나중에 입힌다 — TS 미러와 같은 차례."""
+    resolved = resolve_ports(
+        node(
+            "core.input", {**TOOL_NODE_CONFIG, "bindings": {"result": "input.result"}}
+        ),
+        a_node_type_wearing_both_markers(),
+        {"type": "object", "properties": {"result": {"type": "number"}}},
+        [a_binding_carrying_lookup({"type": "string"})],
+    )
+    assert resolved.outputs["result"].schema_ == {"type": "string"}
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [
+        {"tool_name_field": ["tool_name"], "output_port": "result"},
+        {"tool_name_field": {"tool_name": True}, "output_port": "result"},
+        {"output_port": "result"},
+    ],
+)
+def test_a_marker_that_does_not_name_a_config_field_falls_back_quietly(plan):
+    """마커가 이상하게 적혀도 예외 대신 정적 포트다 — studio와 같은 답."""
+    broken = NodeType.model_validate(
+        {
+            **VALID_NODE_TYPE,
+            "ports": {"inputs": [], "outputs": [{"id": "result", "schema": {}}]},
+            "config_schema": {
+                "type": "object",
+                "properties": {
+                    "resource_ref": {"type": "string", "x-binding-ref": True},
+                    "tool_name": {"type": "string"},
+                },
+                "x-tool-ports": plan,
+            },
+        }
+    )
+    resolved = resolve_ports(
+        node("custom.echo", TOOL_NODE_CONFIG),
+        broken,
+        None,
+        [a_binding_carrying_lookup({"type": "string"})],
+    )
+    assert resolved.outputs["result"].schema_ == {}

@@ -92,7 +92,9 @@ def _node_type_catalog() -> str:
 
 
 def _port_names_of(node: Node, spec: AgentSpec) -> dict[str, object]:
-    resolved = resolve_ports(node, DEFAULT_NODE_TYPES[node.type], spec.input_schema)
+    resolved = resolve_ports(
+        node, DEFAULT_NODE_TYPES[node.type], spec.input_schema, spec.resources
+    )
     return {
         "type": node.type,
         "inputs": [_port_shape(port) for port in resolved.inputs.values()],

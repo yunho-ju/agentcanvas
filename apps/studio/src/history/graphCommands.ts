@@ -1,5 +1,5 @@
 // 캔버스 위의 노드·연결을 바꾸는 편집들. 모두 순수하다 — 예외를 던지지 않는다.
-import type { AgentSpec } from "../generated/agent_spec";
+import type { AgentSpec, Resources } from "../generated/agent_spec";
 import { withNodeConfig } from "../graph/config";
 import { analyzeConfigChange, breaksNothing } from "../graph/impact";
 import { impactLines } from "../graph/impactWords";
@@ -156,11 +156,12 @@ export function changeNodeConfig(
   id: string,
   config: Record<string, unknown>,
   inputSchema?: JsonSchema,
+  resources?: Resources,
   options: EditOptions = {},
 ): Command {
   const previous = graph.nodes.find((node) => node.id === id);
   // 설정을 바꾸는 것도 무언가를 빼는 일이다 — 노드를 뺄 때와 같은 잣대로 영향을 잰다.
-  const impact = analyzeConfigChange(graph, id, config, inputSchema);
+  const impact = analyzeConfigChange(graph, id, config, inputSchema, resources);
   const removedEdges = placed(
     graph.edges,
     impact.brokenEdges.map((edge) => edge.id),
@@ -186,7 +187,7 @@ export function changeNodeConfig(
       : {}),
     apply: (current) => ({
       ...current,
-      ...withNodeConfig(current, id, config, inputSchema).graph,
+      ...withNodeConfig(current, id, config, inputSchema, resources).graph,
     }),
     revert: (current) => ({
       ...current,

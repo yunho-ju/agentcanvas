@@ -1,4 +1,5 @@
 // config가 바뀌면 포트가 바뀐다 — 그 여파(사라진 포트에 걸린 연결)를 결과로 돌려주는 순수 함수.
+import type { Resources } from "../generated/agent_spec";
 import type { JsonSchema } from "../registry/registry";
 import { nodeTypes, resolvePorts } from "../registry/registry";
 import type { FlowEdge, FlowGraph, FlowNode } from "./serialize";
@@ -9,7 +10,12 @@ export interface ConfigChange {
   removedEdges: FlowEdge[];
 }
 
-function reconfigured(node: FlowNode, config: Record<string, unknown>, inputSchema?: JsonSchema): FlowNode {
+function reconfigured(
+  node: FlowNode,
+  config: Record<string, unknown>,
+  inputSchema?: JsonSchema,
+  resources?: Resources,
+): FlowNode {
   const spec = { ...node.data.spec, config };
   const nodeType = node.data.nodeType ?? nodeTypes[spec.type];
   return {
@@ -18,7 +24,9 @@ function reconfigured(node: FlowNode, config: Record<string, unknown>, inputSche
       ...node.data,
       spec,
       // 모르는 노드 타입의 포트는 우리가 다시 계산할 수 없다 — 있던 포트를 그대로 둔다.
-      ports: nodeType ? resolvePorts(spec, nodeType, inputSchema) : node.data.ports,
+      ports: nodeType
+        ? resolvePorts(spec, nodeType, inputSchema, resources)
+        : node.data.ports,
     },
   };
 }
@@ -36,11 +44,12 @@ export function withNodeConfig(
   id: string,
   config: Record<string, unknown>,
   inputSchema?: JsonSchema,
+  resources?: Resources,
 ): ConfigChange {
   const target = graph.nodes.find((node) => node.id === id);
   if (!target) return { graph, removedEdges: [] };
 
-  const next = reconfigured(target, config, inputSchema);
+  const next = reconfigured(target, config, inputSchema, resources);
   const removedEdges = graph.edges.filter((edge) => !stillConnected(edge, next));
   return {
     graph: {

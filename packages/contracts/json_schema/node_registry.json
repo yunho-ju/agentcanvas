@@ -409,7 +409,12 @@
         "resource_ref",
         "tool_name"
       ],
-      "type": "object"
+      "type": "object",
+      "x-tool-ports": {
+        "input_port": "input",
+        "output_port": "result",
+        "tool_name_field": "tool_name"
+      }
     },
     "display_name": {
       "en": "Run a tool",

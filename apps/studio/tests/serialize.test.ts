@@ -3,6 +3,7 @@ import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import type { AgentSpec } from "../src/generated/agent_spec";
 import { toFlow, toSpec } from "../src/graph/serialize";
 import { validateSpec } from "../src/graph/validateSpec";
+import { withToolBinding } from "./toolSpec";
 
 const example = exampleSpec as unknown as AgentSpec;
 
@@ -37,6 +38,19 @@ describe("toFlow", () => {
       "patient_context",
       "question",
     ]);
+  });
+
+  it("draws a tool node with the ports of the tool it runs", () => {
+    const flow = toFlow(withToolBinding(example));
+    const tool = flow.nodes.find((node) => node.id === "tool");
+    expect(tool?.data.ports.outputs.result.schema).toEqual({ type: "string" });
+  });
+
+  it("draws the plain tool ports again once the connection is taken away", () => {
+    const spec = withToolBinding(example);
+    const flow = toFlow({ ...spec, resources: [] });
+    const tool = flow.nodes.find((node) => node.id === "tool");
+    expect(tool?.data.ports.outputs.result.schema).toEqual({});
   });
 
   it("maps spec edge ports onto flow handles", () => {

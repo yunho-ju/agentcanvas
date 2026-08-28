@@ -1,0 +1,191 @@
+[
+  {
+    "name": "a tool node whose connection carries the tool it names",
+    "node_type": "tool.mcp",
+    "config": { "resource_ref": "clinical-reference", "tool_name": "lookup" },
+    "resources": [
+      {
+        "id": "clinical-reference",
+        "kind": "mcp.toolset",
+        "server_ref": "mcp://clinical-reference",
+        "approval_policy": "read_only_auto",
+        "tools": [
+          {
+            "name": "lookup",
+            "plain_description": {
+              "ko": "이름으로 문헌을 찾는다.",
+              "en": "Finds an article by name."
+            },
+            "input_schema": {
+              "type": "object",
+              "properties": { "query": { "type": "string" } }
+            },
+            "output_schema": { "type": "string" },
+            "timeout_ms": 5000,
+            "call": { "transport": "mcp", "remote_name": "lookup" }
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "inputs": {
+        "input": {
+          "type": "object",
+          "properties": { "query": { "type": "string" } }
+        }
+      },
+      "outputs": {
+        "result": { "type": "string" },
+        "error": { "type": "object" }
+      }
+    }
+  },
+  {
+    "name": "a tool node in an agent that has no connections at all",
+    "node_type": "tool.mcp",
+    "config": { "resource_ref": "clinical-reference", "tool_name": "lookup" },
+    "resources": [],
+    "expected": {
+      "inputs": { "input": { "type": "object" } },
+      "outputs": { "result": {}, "error": { "type": "object" } }
+    }
+  },
+  {
+    "name": "a tool node pointing at a connection this agent does not have",
+    "node_type": "tool.mcp",
+    "config": { "resource_ref": "somewhere-else", "tool_name": "lookup" },
+    "resources": [
+      {
+        "id": "clinical-reference",
+        "kind": "mcp.toolset",
+        "server_ref": "mcp://clinical-reference",
+        "approval_policy": "read_only_auto",
+        "tools": [
+          {
+            "name": "lookup",
+            "plain_description": {
+              "ko": "이름으로 문헌을 찾는다.",
+              "en": "Finds an article by name."
+            },
+            "input_schema": { "type": "object" },
+            "output_schema": { "type": "string" },
+            "timeout_ms": 5000,
+            "call": { "transport": "mcp", "remote_name": "lookup" }
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "inputs": { "input": { "type": "object" } },
+      "outputs": { "result": {}, "error": { "type": "object" } }
+    }
+  },
+  {
+    "name": "a tool node naming a tool the connection does not carry",
+    "node_type": "tool.mcp",
+    "config": { "resource_ref": "clinical-reference", "tool_name": "summarize" },
+    "resources": [
+      {
+        "id": "clinical-reference",
+        "kind": "mcp.toolset",
+        "server_ref": "mcp://clinical-reference",
+        "approval_policy": "read_only_auto",
+        "tools": [
+          {
+            "name": "lookup",
+            "plain_description": {
+              "ko": "이름으로 문헌을 찾는다.",
+              "en": "Finds an article by name."
+            },
+            "input_schema": { "type": "object" },
+            "output_schema": { "type": "string" },
+            "timeout_ms": 5000,
+            "call": { "transport": "mcp", "remote_name": "lookup" }
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "inputs": { "input": { "type": "object" } },
+      "outputs": { "result": {}, "error": { "type": "object" } }
+    }
+  },
+  {
+    "name": "a tool node whose connection carries no tools yet",
+    "node_type": "tool.mcp",
+    "config": { "resource_ref": "clinical-reference", "tool_name": "lookup" },
+    "resources": [
+      {
+        "id": "clinical-reference",
+        "kind": "mcp.toolset",
+        "server_ref": "mcp://clinical-reference",
+        "approval_policy": "read_only_auto",
+        "tools": []
+      }
+    ],
+    "expected": {
+      "inputs": { "input": { "type": "object" } },
+      "outputs": { "result": {}, "error": { "type": "object" } }
+    }
+  },
+  {
+    "name": "a tool node with nothing filled in yet",
+    "node_type": "tool.mcp",
+    "config": {},
+    "resources": [
+      {
+        "id": "clinical-reference",
+        "kind": "mcp.toolset",
+        "server_ref": "mcp://clinical-reference",
+        "approval_policy": "read_only_auto",
+        "tools": [
+          {
+            "name": "lookup",
+            "plain_description": {
+              "ko": "이름으로 문헌을 찾는다.",
+              "en": "Finds an article by name."
+            },
+            "input_schema": { "type": "object" },
+            "output_schema": { "type": "string" },
+            "timeout_ms": 5000,
+            "call": { "transport": "mcp", "remote_name": "lookup" }
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "inputs": { "input": { "type": "object" } },
+      "outputs": { "result": {}, "error": { "type": "object" } }
+    }
+  },
+  {
+    "name": "a tool node that names a tool but no connection",
+    "node_type": "tool.mcp",
+    "config": { "tool_name": "lookup" },
+    "resources": [
+      {
+        "id": "clinical-reference",
+        "kind": "mcp.toolset",
+        "server_ref": "mcp://clinical-reference",
+        "approval_policy": "read_only_auto",
+        "tools": [
+          {
+            "name": "lookup",
+            "plain_description": {
+              "ko": "이름으로 문헌을 찾는다.",
+              "en": "Finds an article by name."
+            },
+            "input_schema": { "type": "object" },
+            "output_schema": { "type": "string" },
+            "timeout_ms": 5000,
+            "call": { "transport": "mcp", "remote_name": "lookup" }
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "inputs": { "input": { "type": "object" } },
+      "outputs": { "result": {}, "error": { "type": "object" } }
+    }
+  }
+]

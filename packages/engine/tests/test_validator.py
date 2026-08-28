@@ -140,6 +140,52 @@ def test_incompatible_port_types_are_an_error():
     )
 
 
+def binding_with_tool(binding_id: str, name: str, output_schema: dict) -> dict:
+    """도구 하나를 들고 있는 연결 — 그 도구가 노드의 포트에 입혀진다."""
+    return {
+        **binding(binding_id),
+        "tools": [
+            {
+                "name": name,
+                "plain_description": {"ko": "찾아본다.", "en": "Looks it up."},
+                "input_schema": {"type": "object"},
+                "output_schema": output_schema,
+                "timeout_ms": 5000,
+                "call": {"transport": "mcp", "remote_name": name},
+            }
+        ],
+    }
+
+
+def test_a_tool_that_gives_back_text_cannot_feed_a_port_wanting_an_object():
+    spec = build_spec(
+        [
+            tool_node("lookup", resource_ref="reference"),
+            tool_node("second", resource_ref="reference", tool_name="other"),
+        ],
+        [edge("e1", ("lookup", "result"), ("second", "input"))],
+        [binding_with_tool("reference", "lookup", {"type": "string"})],
+    )
+    issues = validate_graph(spec)
+    assert "port.schema_mismatch" in codes(issues, Severity.ERROR)
+    assert any(
+        "string" in issue.message and "object" in issue.message for issue in issues
+    )
+
+
+def test_a_tool_result_of_unknown_shape_still_feeds_anything():
+    """바인딩이 도구를 들고 있지 않으면 포트는 정적인 그대로다 — 미완성이 길을 막지 않는다."""
+    spec = build_spec(
+        [
+            tool_node("lookup", resource_ref="reference"),
+            tool_node("second", resource_ref="reference", tool_name="other"),
+        ],
+        [edge("e1", ("lookup", "result"), ("second", "input"))],
+        [binding("reference")],
+    )
+    assert "port.schema_mismatch" not in codes(validate_graph(spec), Severity.ERROR)
+
+
 def test_unspecified_port_schema_is_compatible_with_anything():
     spec = build_spec(
         [input_node(), agent_node(), output_node()],

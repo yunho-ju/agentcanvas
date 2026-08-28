@@ -22,7 +22,9 @@ function portOf(
   const nodeType = registry[node.type];
   if (!nodeType) return { missing: msg("connection.unknownType") };
 
-  const port = resolvePorts(node, nodeType, spec.input_schema)[direction][endpoint.port];
+  const port = resolvePorts(node, nodeType, spec.input_schema, spec.resources)[direction][
+    endpoint.port
+  ];
   if (!port) {
     const key =
       direction === "inputs" ? "connection.missingInput" : "connection.missingOutput";

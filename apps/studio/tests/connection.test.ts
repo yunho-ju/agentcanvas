@@ -87,6 +87,52 @@ describe("checkConnection", () => {
     expect(result.ok).toBe(false);
   });
 
+  // Python validator의 `port.schema_mismatch` 미러 — 도구 노드의 포트도 ToolDef를 입는다.
+  it("refuses a tool that gives back text feeding a port that wants an object", () => {
+    const withTools = spec({
+      resources: [
+        {
+          id: "reference",
+          kind: "mcp.toolset",
+          server_ref: "mcp://reference",
+          approval_policy: "read_only_auto",
+          tools: [
+            {
+              name: "lookup",
+              plain_description: { ko: "찾아본다.", en: "Looks it up." },
+              input_schema: { type: "object" },
+              output_schema: { type: "string" },
+              timeout_ms: 5000,
+              call: { transport: "mcp", remote_name: "lookup" },
+            },
+          ],
+        },
+      ],
+      nodes: [
+        ...spec().nodes,
+        {
+          id: "lookup",
+          type: "tool.mcp",
+          position: { x: 800, y: 0 },
+          config: { resource_ref: "reference", tool_name: "lookup" },
+        },
+        {
+          id: "second",
+          type: "tool.mcp",
+          position: { x: 1000, y: 0 },
+          config: { resource_ref: "reference", tool_name: "other" },
+        },
+      ],
+    });
+
+    const result = checkConnection(
+      withTools,
+      { node: "lookup", port: "result" },
+      { node: "second", port: "input" },
+    );
+    expect(result.ok).toBe(false);
+  });
+
   it("allows two ports that declare the very same union type", () => {
     // 기본 registry에는 union type 입력 포트가 없다 — Python `validate_graph(spec, registry)`처럼
     // registry를 넣어 같은 union끼리의 판정을 확인한다.

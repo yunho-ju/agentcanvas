@@ -18,7 +18,13 @@ from agentcanvas_adapters.scripted import (
     ScriptedReply,
 )
 from agentcanvas_adapters.secrets import env_vault
-from agentcanvas_contracts.agent_spec import AgentSpec, AgentStatus, Node, Position
+from agentcanvas_contracts.agent_spec import (
+    AgentSpec,
+    AgentStatus,
+    Node,
+    Position,
+    ResourceBinding,
+)
 from agentcanvas_contracts.model_catalog import ModelDef
 from agentcanvas_contracts.node_registry import DEFAULT_NODE_TYPES
 from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
@@ -180,6 +186,54 @@ def test_a_bound_input_port_carries_the_value_type_of_the_input_schema():
     ports = json_block_after(prompt_for(asked), BASE_PORT_LABEL)
 
     assert ports["input"]["outputs"] == [{"id": "question", "value": "string"}]
+
+
+def a_binding_carrying_lookup() -> ResourceBinding:
+    return ResourceBinding.model_validate(
+        {
+            "id": "reference",
+            "kind": "mcp.toolset",
+            "server_ref": "mcp://reference",
+            "approval_policy": "read_only_auto",
+            "tools": [
+                {
+                    "name": "lookup",
+                    "plain_description": {"ko": "찾아본다.", "en": "Looks it up."},
+                    "input_schema": {"type": "object"},
+                    "output_schema": {"type": "string"},
+                    "timeout_ms": 5000,
+                    "call": {"transport": "mcp", "remote_name": "lookup"},
+                }
+            ],
+        }
+    )
+
+
+def test_a_tool_port_carries_the_value_type_of_the_tool_it_runs():
+    spec = a_spec()
+    spec = spec.model_copy(
+        update={
+            "resources": [a_binding_carrying_lookup()],
+            "nodes": [
+                *spec.nodes,
+                Node(
+                    id="tool",
+                    type="tool.mcp",
+                    position=Position(x=320, y=0),
+                    config={"resource_ref": "reference", "tool_name": "lookup"},
+                ),
+            ],
+        }
+    )
+    asked = ArchitectRequest(
+        base_spec=spec.model_copy(update={"revision": spec.computed_revision()}),
+        request="look the article up",
+        model_ref="model://architect",
+    )
+
+    ports = json_block_after(prompt_for(asked), BASE_PORT_LABEL)
+
+    assert {"id": "result", "value": "string"} in ports["tool"]["outputs"]
 
 
 def test_the_prompt_forbids_inventing_types_and_ports():

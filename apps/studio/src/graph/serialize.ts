@@ -74,7 +74,7 @@ export function toFlow(spec: AgentSpec): FlowGraph {
           spec: node,
           nodeType,
           ports: nodeType
-            ? resolvePorts(node, nodeType, spec.input_schema)
+            ? resolvePorts(node, nodeType, spec.input_schema, spec.resources)
             : { inputs: {}, outputs: {} },
         },
       };

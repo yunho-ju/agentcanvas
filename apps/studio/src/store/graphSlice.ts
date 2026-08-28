@@ -337,7 +337,14 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
       // 아무것도 달라지지 않은 편집은 되돌릴 것도 없다 — 다시하기 목록을 지우지 않는다.
       if (!node || changedFields(node.data.spec.config ?? {}, config).length === 0) return;
       get().runCommand(
-        changeNodeConfig(scene(), id, config, get().spec?.input_schema, options),
+        changeNodeConfig(
+          scene(),
+          id,
+          config,
+          get().spec?.input_schema,
+          get().spec?.resources,
+          options,
+        ),
       );
     },
 

@@ -6,11 +6,11 @@ from enum import Enum
 
 from agentcanvas_contracts.agent_spec import AgentSpec, Edge, JsonSchema, Node
 from agentcanvas_contracts.node_registry import (
-    BINDING_REF_MARKER,
     DEFAULT_NODE_TYPES,
     INPUT_NODE_TYPE,
     NodeType,
     ResolvedPorts,
+    binding_refs,
     config_issues,
     resolve_ports,
 )
@@ -87,7 +87,9 @@ def _resolve_all_ports(
     spec: AgentSpec, registry: dict[str, NodeType]
 ) -> dict[str, ResolvedPorts]:
     return {
-        node.id: resolve_ports(node, registry[node.type], spec.input_schema)
+        node.id: resolve_ports(
+            node, registry[node.type], spec.input_schema, spec.resources
+        )
         for node in spec.nodes
         if node.type in registry
     }
@@ -109,32 +111,6 @@ def _invalid_config_issues(
     ]
 
 
-def _binding_refs(node: Node, node_type: NodeType) -> list[str]:
-    """config_schema가 바인딩 id라고 표시한(x-binding-ref) 자리에 실제로 적힌 이름들.
-
-    타입 이름으로 분기하지 않는다 — 마커를 붙인 노드 타입이면 무엇이든 검사 대상이다.
-    """
-    properties = node_type.config_schema.get("properties")
-    if not isinstance(properties, dict):
-        return []
-
-    refs: list[str] = []
-    for name, field_schema in properties.items():
-        if not isinstance(field_schema, dict):
-            continue
-        value = node.config.get(name)
-        if field_schema.get(BINDING_REF_MARKER) is True and isinstance(value, str):
-            refs.append(value)
-        items = field_schema.get("items")
-        if (
-            isinstance(items, dict)
-            and items.get(BINDING_REF_MARKER) is True
-            and isinstance(value, list)
-        ):
-            refs.extend(item for item in value if isinstance(item, str))
-    return refs
-
-
 def _unknown_binding_issues(
     spec: AgentSpec, registry: dict[str, NodeType]
 ) -> list[ValidationIssue]:
@@ -151,7 +127,7 @@ def _unknown_binding_issues(
         )
         for node in spec.nodes
         if node.type in registry
-        for ref in _binding_refs(node, registry[node.type])
+        for ref in binding_refs(node, registry[node.type])
         if ref not in known
     ]
 

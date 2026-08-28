@@ -6,8 +6,9 @@ from jsonschema import Draft7Validator
 from jsonschema.exceptions import ValidationError
 from pydantic import Field
 
-from .agent_spec import ContractModel, JsonSchema, Node
+from .agent_spec import ContractModel, JsonSchema, Node, ResourceBinding
 from .localized import LocalizedText
+from .tool_def import ToolDef
 
 
 class PortSpec(ContractModel):
@@ -45,6 +46,14 @@ INPUT_NODE_TYPE = "core.input"
 
 # config_schema 확장 키워드 — 이 자리에 적는 값은 spec.resources 바인딩의 id다.
 BINDING_REF_MARKER = "x-binding-ref"
+
+# config_schema 확장 키워드 — 이 노드의 포트는 config가 고른 도구(ToolDef)를 입는다.
+# 어느 자리에 도구 이름을 적고 어느 포트가 무엇을 입는지는 여기 적힌 대로다
+# (노드 타입 이름으로 분기하지 않는다).
+TOOL_PORTS_MARKER = "x-tool-ports"
+TOOL_NAME_FIELD = "tool_name_field"
+TOOL_INPUT_PORT = "input_port"
+TOOL_OUTPUT_PORT = "output_port"
 
 
 def _input_bindings(node: Node) -> dict[str, str]:
@@ -108,8 +117,85 @@ def config_issues(node: Node, node_type: NodeType) -> list[str]:
     return issues
 
 
+def binding_refs(node: Node, node_type: NodeType) -> list[str]:
+    """config_schema가 바인딩 id라고 표시한(x-binding-ref) 자리에 실제로 적힌 이름들.
+
+    타입 이름으로 분기하지 않는다 — 마커를 붙인 노드 타입이면 무엇이든 대상이다.
+    """
+    properties = node_type.config_schema.get("properties")
+    if not isinstance(properties, dict):
+        return []
+
+    refs: list[str] = []
+    for name, field_schema in properties.items():
+        if not isinstance(field_schema, dict):
+            continue
+        value = node.config.get(name)
+        if field_schema.get(BINDING_REF_MARKER) is True and isinstance(value, str):
+            refs.append(value)
+        items = field_schema.get("items")
+        if (
+            isinstance(items, dict)
+            and items.get(BINDING_REF_MARKER) is True
+            and isinstance(value, list)
+        ):
+            refs.extend(item for item in value if isinstance(item, str))
+    return refs
+
+
+def _chosen_tool(
+    node: Node,
+    node_type: NodeType,
+    plan: dict,
+    resources: list[ResourceBinding],
+) -> ToolDef | None:
+    """이 노드가 고른 도구 — 가리킨 바인딩이 그 이름의 도구를 들고 있을 때만 있다."""
+    field = plan.get(TOOL_NAME_FIELD)
+    wanted = node.config.get(field) if isinstance(field, str) else None
+    if not isinstance(wanted, str):
+        return None
+    bound = binding_refs(node, node_type)
+    return next(
+        (
+            tool
+            for resource in resources
+            if resource.id in bound
+            for tool in resource.tools
+            if tool.name == wanted
+        ),
+        None,
+    )
+
+
+def _wearing(ports: dict[str, PortSpec], port_id: object, schema: JsonSchema) -> None:
+    """registry에 있는 포트에만 schema를 입힌다 — 없는 자리를 새로 만들지 않는다."""
+    port = ports.get(port_id) if isinstance(port_id, str) else None
+    if port is not None:
+        ports[port.id] = port.model_copy(update={"schema_": schema})
+
+
+def _tool_ports(
+    node: Node,
+    node_type: NodeType,
+    resources: list[ResourceBinding],
+    resolved: ResolvedPorts,
+) -> None:
+    """도구를 입는 포트를 가진 노드라면, 고른 도구의 schema를 그 포트에 입힌다."""
+    plan = node_type.config_schema.get(TOOL_PORTS_MARKER)
+    if not isinstance(plan, dict):
+        return
+    tool = _chosen_tool(node, node_type, plan, resources)
+    if tool is None:
+        return
+    _wearing(resolved.inputs, plan.get(TOOL_INPUT_PORT), tool.input_schema)
+    _wearing(resolved.outputs, plan.get(TOOL_OUTPUT_PORT), tool.output_schema)
+
+
 def resolve_ports(
-    node: Node, node_type: NodeType, input_schema: JsonSchema | None = None
+    node: Node,
+    node_type: NodeType,
+    input_schema: JsonSchema | None = None,
+    resources: list[ResourceBinding] | None = None,
 ) -> ResolvedPorts:
     """노드의 실제 포트 = registry static ports ∪ config에서 파생되는 dynamic ports.
 
@@ -127,6 +213,7 @@ def resolve_ports(
             resolved.outputs[name] = PortSpec(
                 id=name, schema=port_schema if isinstance(port_schema, dict) else {}
             )
+    _tool_ports(node, node_type, resources or [], resolved)
     return resolved
 
 
@@ -591,6 +678,13 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                         },
                     },
                     "required": ["resource_ref", "tool_name"],
+                    # 이 노드의 포트는 고른 도구(ToolDef)를 입는다 — 어느 자리에 이름을
+                    # 적고 어느 포트가 무엇을 입는지를 registry가 말한다.
+                    TOOL_PORTS_MARKER: {
+                        TOOL_NAME_FIELD: "tool_name",
+                        TOOL_INPUT_PORT: "input",
+                        TOOL_OUTPUT_PORT: "result",
+                    },
                 },
             }
         ),
@@ -670,10 +764,15 @@ __all__ = [
     "BINDING_REF_MARKER",
     "DEFAULT_NODE_TYPES",
     "INPUT_NODE_TYPE",
+    "TOOL_INPUT_PORT",
+    "TOOL_NAME_FIELD",
+    "TOOL_OUTPUT_PORT",
+    "TOOL_PORTS_MARKER",
     "NodeType",
     "PortSpec",
     "Ports",
     "ResolvedPorts",
+    "binding_refs",
     "config_issues",
     "resolve_ports",
 ]
