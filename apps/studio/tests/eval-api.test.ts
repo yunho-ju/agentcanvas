@@ -8,6 +8,7 @@ import {
   fetchBatchListingFromServer,
   fetchDatasetFromServer,
   fetchDatasetSummariesFromServer,
+  fetchEvaluatorStandingFromServer,
   startBatchOnServer,
   updateDatasetOnServer,
 } from "../src/api/eval";
@@ -231,5 +232,36 @@ describe("fetchBatchListingFromServer — 지난 시험 실행 목록", () => {
     const { fetch } = server({ status: 200, body: { batches: [{ id: "b" }], has_more: false } });
     const outcome = await fetchBatchListingFromServer("ds-doc-1", { fetch });
     expect("failure" in outcome && outcome.failure).toBeDefined();
+  });
+});
+
+describe("fetchEvaluatorStandingFromServer — 이 서버에 선 판정 층", () => {
+  it("이름을 서는지 여부에 맺어 읽는다", async () => {
+    const { calls, fetch } = server({
+      status: 200,
+      body: [
+        { name: "expected_phrases", standing: true },
+        { name: "nli_entailment", standing: false },
+      ],
+    });
+
+    const standing = await fetchEvaluatorStandingFromServer({ baseUrl: "http://here", fetch });
+
+    expect(calls[0]?.url).toBe("http://here/eval/evaluators");
+    expect(standing).toEqual({ expected_phrases: true, nli_entailment: false });
+  });
+
+  it("서버에 닿지 못하면 모른다고 한다 — 실패를 화면 말로 지어내지 않는다", async () => {
+    const fetch = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+
+    expect(await fetchEvaluatorStandingFromServer({ fetch })).toBeNull();
+  });
+
+  it("읽을 수 없는 모양이 오면 반쯤 아는 척하지 않는다", async () => {
+    const { fetch } = server({ status: 200, body: [{ name: "nli_entailment" }] });
+
+    expect(await fetchEvaluatorStandingFromServer({ fetch })).toBeNull();
   });
 });

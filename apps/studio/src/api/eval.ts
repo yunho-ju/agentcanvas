@@ -5,6 +5,7 @@
 import type { BatchReadOutcome, BatchStartOutcome } from "../eval/batchPoller";
 import { batchListingOf, type EvalBatchListing } from "../eval/batchHistory";
 import { datasetSummariesOf, type DatasetListOutcome, type DatasetOutcome, type DatasetReadOutcome } from "../eval/dataset";
+import { standingOf, type EvaluatorStanding } from "../eval/evaluatorStanding";
 import type { EvalBatch } from "../generated/eval_batch";
 import type { EvalDataset } from "../generated/eval_dataset";
 import { msg } from "../i18n/messages";
@@ -22,6 +23,7 @@ export type { DatasetOutcome, DatasetReadOutcome } from "../eval/dataset";
 export type { DatasetListOutcome } from "../eval/dataset";
 export type { BatchStartOutcome } from "../eval/batchPoller";
 export type { EvalBatchListing } from "../eval/batchHistory";
+export type { EvaluatorStanding } from "../eval/evaluatorStanding";
 
 export type EvalApiOptions = ServerOptions;
 
@@ -38,6 +40,21 @@ export async function fetchDatasetSummariesFromServer(options: EvalApiOptions = 
   if (answer.body === UNREADABLE || answer.response.status !== OK) return { failure: msg("eval.dataset.failed") };
   const datasets = datasetSummariesOf(answer.body);
   return datasets ? { datasets } : { failure: msg("eval.dataset.failed") };
+}
+
+/**
+ * 이 서버에 어떤 판정 층이 섰는지 묻는다 — 닿지 못하거나 읽지 못하면 '모른다'(null)다.
+ * 모르는 것을 아는 척하지 않으므로 쉬운 말 실패도 만들지 않는다: 화면은 그대로 돌아간다.
+ */
+export async function fetchEvaluatorStandingFromServer(
+  options: EvalApiOptions = {},
+): Promise<EvaluatorStanding | null> {
+  const base = options.baseUrl ?? apiBaseUrl();
+  const answer = await ask(`${base}/eval/evaluators`, options);
+  if (answer === null || answer.body === UNREADABLE || answer.response.status !== OK) {
+    return null;
+  }
+  return standingOf(answer.body);
 }
 
 async function ask(

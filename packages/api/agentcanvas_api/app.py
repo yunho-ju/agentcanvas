@@ -64,7 +64,7 @@ from .eval_dataset_service import (
     EvalDatasetService,
 )
 from .eval_dataset_store import EvalDatasetStore, EvalDatasetSummary
-from .eval_ladder import judging_ladder
+from .eval_ladder import judging_ladder, layers_standing
 from .eval_service import (
     EvalBatchFailed,
     EvalBatchListing,
@@ -348,6 +348,17 @@ class EvalBatchReadResponse(BaseModel):
     batch: EvalBatch | None = None
     #: 배경에서 어그러졌을 때만 있다 — 속엣말은 담지 않는다.
     message: str | None = None
+
+
+class EvaluatorStanding(BaseModel):
+    """판정 층 하나가 이 서버에 섰는가 — 이름은 판정기 카탈로그의 것 그대로다.
+
+    계약(AgentSpec·RunEvent)의 모양이 아니라 이 서버의 지금 사정이라 API 모델로만 있다:
+    같은 시험이 서버마다 다르게 판정되는 까닭을 화면이 읽는 자리다.
+    """
+
+    name: str
+    standing: bool
 
 
 def _default_store(path: Path) -> SpecStore:
@@ -956,6 +967,14 @@ def create_app(
         return EvalCaseSuggestionResponse(
             asked_for=outcome.asked_for, cases=outcome.cases
         )
+
+    # 화면이 이 서버의 판정 층을 아는 유일한 길 — 답은 조립 때 세운 사다리 하나에서 나온다.
+    @app.get("/eval/evaluators", response_model=list[EvaluatorStanding])
+    def list_evaluator_standings() -> list[EvaluatorStanding]:
+        return [
+            EvaluatorStanding(name=name, standing=stands)
+            for name, stands in layers_standing(ladder).items()
+        ]
 
     @app.post("/eval/datasets", response_model=EvalDataset, status_code=201)
     def create_eval_dataset(dataset: EvalDataset) -> EvalDataset:

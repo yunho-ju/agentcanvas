@@ -6,7 +6,9 @@ import { EvalPromptList } from "./EvalPromptList";
 import { EvalSuggestCards } from "./EvalSuggestCards";
 import { EvalSummaryPill } from "./EvalSummaryPill";
 import { useT } from "../i18n/useT";
-import { evalCases, evalRunBlocked } from "../store/evalSlice";
+import { evalCases, evalJudgeBlocked, evalJudgeInEffect, evalRunBlocked } from "../store/evalSlice";
+import { NLI_ENTAILMENT_EVALUATOR } from "./evaluatorCatalog";
+import { layerIsMissing } from "./evaluatorStanding";
 import { useEditor } from "../store/editor";
 import { getLocale } from "../i18n/localeStore";
 import { savedWhen } from "../shell/docWords";
@@ -40,9 +42,11 @@ export function EvalPanel() {
   const startNewCase = useEditor((state) => state.startNewCase);
   const restoreDeletedCase = useEditor((state) => state.restoreDeletedCase);
   const runAllCases = useEditor((state) => state.runAllCases);
-  const useJudge = useEditor((state) => state.evalUseJudge);
+  // 켠 표시도 판정을 거친다 — 설 수 없는 심판은 켜진 것으로 보이지 않는다.
+  const useJudge = useEditor(evalJudgeInEffect);
   const setUseJudge = useEditor((state) => state.setEvalUseJudge);
-  const running = useEditor((state) => state.batchStatus === "running");
+  const judgeBlocked = useEditor(useShallow(evalJudgeBlocked));
+  const standing = useEditor((state) => state.evaluatorStanding);
   const t = useT();
   const advanced = useEditor((state) => state.evalAdvanced);
   const setAdvanced = useEditor((state) => state.setEvalAdvanced);
@@ -84,12 +88,12 @@ export function EvalPanel() {
       {/* 값이 드는 층은 사람이 켤 때만 선다 — 비용은 누르기 전에 체크 옆에서 읽힌다 (DESIGN §7 eval-panel). */}
       <label
         className="eval-panel__judge"
-        title={running ? t("eval.run.all.blocked.running") : undefined}
+        title={judgeBlocked ? t(judgeBlocked) : undefined}
       >
         <input
           type="checkbox"
           checked={useJudge}
-          disabled={running}
+          disabled={judgeBlocked !== null}
           onChange={(event) => setUseJudge(event.target.checked)}
         />
         <span className="eval-panel__judge-label">{t("eval.run.judge")}</span>
@@ -133,6 +137,10 @@ export function EvalPanel() {
       )}
       {/* 손으로 짓는 자리 다음에 AI가 지어 주는 자리 — 담아야 묶음에 들어간다 (DESIGN §7 eval-suggest-card). */}
       <EvalSuggestCards />
+      {/* 이 서버에 뜻 검사가 없다는 사실은 고급 보기에서만 말한다 — 기본 화면은 조용하다. */}
+      {advanced && layerIsMissing(standing, NLI_ENTAILMENT_EVALUATOR) ? (
+        <p className="eval-panel__layer-note">{t("eval.layer.meaning.missing")}</p>
+      ) : null}
       {advanced ? (
         <section className="eval-batch-history" aria-label={t("eval.history.label")}>
           <p className="eval-batch-history__title">{t("eval.history.title")}</p>

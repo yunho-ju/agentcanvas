@@ -491,3 +491,40 @@ def test_a_judge_stands_where_its_own_model_can_be_asked(monkeypatch):
 
     assert model.judged
     assert attempt["judged_by"] == "llm_judge"
+
+
+def layers_standing_in(client: TestClient) -> dict[str, bool]:
+    """이 서버가 내려주는 '지금 선 판정 층' — 이름을 그대로 서는지 여부에 맺어 읽는다."""
+    answer = client.get("/eval/evaluators")
+
+    assert answer.status_code == 200
+    return {layer["name"]: layer["standing"] for layer in answer.json()}
+
+
+def test_the_wording_check_stands_on_every_server():
+    """EVAL_HONESTY 1: 0층은 아무것도 설치하지 않아도 선다 — 화면은 그 사실을 그대로 읽는다."""
+    assert layers_standing_in(a_client_with())["expected_phrases"] is True
+
+
+def test_the_meaning_check_stands_only_where_a_meaning_backend_was_handed_in():
+    """EVAL_HONESTY 2: 같은 시험이 서버마다 다르게 판정되는 까닭이 화면에 닿는다."""
+    assert layers_standing_in(a_client_with())["nli_entailment"] is False
+    assert (
+        layers_standing_in(a_client_with(ScriptedEntailment([])))["nli_entailment"]
+        is True
+    )
+
+
+def test_the_judge_stands_only_where_its_own_model_can_be_asked(monkeypatch):
+    """EVAL_HONESTY 3: 부를 수 없는 심판을 설 수 있다고 말하지 않는다 — 사다리와 같은 판단이다."""
+    only_my_computer = a_server_that_picks_its_own_model(
+        monkeypatch, {LOCAL_MODEL_ENV: "qwen3"}, SaysOneThingAndJudges()
+    )
+    assert layers_standing_in(only_my_computer)["llm_judge"] is False
+
+    with_a_key = a_server_that_picks_its_own_model(
+        monkeypatch,
+        {env_name(ANTHROPIC_API_KEY_REF): "sk-a-key"},
+        SaysOneThingAndJudges(),
+    )
+    assert layers_standing_in(with_a_key)["llm_judge"] is True

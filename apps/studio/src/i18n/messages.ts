@@ -968,6 +968,16 @@ const TEXTS = {
     ko: "모델 호출 비용이 들어요",
     en: "This calls a model, so it costs money",
   },
+  // 부를 수 없는 심판을 켤 수 있게 두지 않는다 — 비활성은 이유를 말한다 (DESIGN §7 eval-panel).
+  "eval.run.judge.blocked.unavailable": {
+    ko: "심판이 쓸 모델을 이 서버에서 부를 수 없어요",
+    en: "This server cannot call a model for the judge",
+  },
+  // 이 서버에 선 층을 고급 보기에서만 말한다 — 기본 화면은 조용하다.
+  "eval.layer.meaning.missing": {
+    ko: "이 서버에는 뜻 검사가 설치되지 않아 글자 검사만 해요",
+    en: "This server has no meaning check installed, so it only checks the wording",
+  },
   "eval.run.all.blocked.running": {
     ko: "지금 돌려 보는 중이에요",
     en: "Already running these now",

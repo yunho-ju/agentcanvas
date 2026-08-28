@@ -88,6 +88,16 @@ def judging_ladder(
     )
 
 
+def layers_standing(ladder: JudgingLadder) -> dict[str, bool]:
+    """카탈로그의 층마다 '이 서버에서 서는가' — 세워 둔 사다리 하나가 그 판단의 원천이다.
+
+    판단을 다시 하지 않는다: 심판을 세울 수 있는지·뜻 검사가 실렸는지는 사다리를 세울 때 이미
+    한 번 정해졌고, 여기서 또 정하면 화면이 말하는 것과 배치가 딛는 것이 갈린다.
+    """
+    standing = set(ladder.order_with_judge)
+    return {name: name in standing for name in DEFAULT_EVALUATOR_CATALOG}
+
+
 def _asked_once(
     asks: EntailmentCall, evaluator_name: str, memory: JudgementMemory | None
 ) -> AsksEntailment:
@@ -102,4 +112,5 @@ __all__ = [
     "NO_MEANING_LAYER",
     "JudgingLadder",
     "judging_ladder",
+    "layers_standing",
 ]

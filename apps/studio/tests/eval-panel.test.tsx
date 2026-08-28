@@ -44,6 +44,7 @@ beforeEach(() => {
     batchStatus: "idle",
     batch: null,
     evalAdvanced: false,
+    evaluatorStanding: null,
     evalBatchHistory: null,
     evalBatchHistoryLoading: false,
     evalBatchHistoryFailure: null,
@@ -686,5 +687,139 @@ describe("EVAL-5 — 심판 모델까지 쓰기 체크 (DESIGN §7 eval-panel)",
     expect(judgeCheck()).toBeDisabled();
     // 비활성은 이유를 말한다 — 실행 primary와 같은 까닭이면 같은 말이다.
     expect(judgeCheck().closest("label")).toHaveAttribute("title", "지금 돌려 보는 중이에요");
+  });
+});
+
+describe("EVAL_HONESTY — 이 서버에 선 판정 층을 화면이 안다 (DESIGN §7 eval-panel)", () => {
+  const MEANING_MISSING = "이 서버에는 뜻 검사가 설치되지 않아 글자 검사만 해요";
+
+  function judgeCheck() {
+    return screen.getByRole("checkbox", { name: /심판 모델까지 쓰기/ });
+  }
+
+  /** 이 서버에 무엇이 섰는지 서버 대역이 말해 준 다음의 화면 — 고급 보기는 시험이 직접 켠다. */
+  async function panelKnowing(
+    standing: Record<string, boolean> | null,
+    advanced = true,
+  ) {
+    const server = await openPanel();
+    server.standsWith(standing);
+    act(() => useEditor.setState({ evalAdvanced: advanced }));
+    await act(() => store().loadEvaluatorStanding());
+    return server;
+  }
+
+  // 독립 리뷰 major — 실제 앱에서 묻는 자리는 시험 모드 진입 하나뿐이다. 그 한 줄이 없으면
+  // evaluatorStanding은 영원히 null이고(fail-open) 화면은 아무것도 모른 채 조용하다.
+  it("시험 모드로 들어오는 것만으로 이 서버에 무엇이 섰는지 물어본다", async () => {
+    store().loadSpec(graphAsking);
+    const server = serveEval();
+    server.standsWith({ expected_phrases: true, nli_entailment: false, llm_judge: false });
+
+    // 시험이 loadEvaluatorStanding을 직접 부르지 않는다 — 진입만으로 화면이 알아야 한다.
+    act(() => store().enterEvalMode());
+    await act(() => Promise.resolve());
+    render(<EvalPanel />);
+    act(() => useEditor.setState({ evalAdvanced: true }));
+
+    expect(screen.getByText(MEANING_MISSING)).toBeInTheDocument();
+    expect(judgeCheck()).toBeDisabled();
+  });
+
+  it("뜻 검사가 없는 서버에서는 고급 보기가 글자 검사만 한다고 한 줄로 말한다", async () => {
+    await panelKnowing({ expected_phrases: true, nli_entailment: false, llm_judge: true });
+
+    expect(screen.getByText(MEANING_MISSING)).toBeInTheDocument();
+  });
+
+  it("영어로 봐도 같은 사실을 말한다", async () => {
+    act(() => setLocale("en"));
+    await panelKnowing({ expected_phrases: true, nli_entailment: false, llm_judge: true });
+
+    expect(
+      screen.getByText("This server has no meaning check installed, so it only checks the wording"),
+    ).toBeInTheDocument();
+  });
+
+  it("뜻 검사가 선 서버에서는 그 줄이 없다 — 없는 걱정을 만들지 않는다", async () => {
+    await panelKnowing({ expected_phrases: true, nli_entailment: true, llm_judge: true });
+
+    expect(screen.queryByText(MEANING_MISSING)).not.toBeInTheDocument();
+  });
+
+  it("기본 화면(고급 보기 끔)은 조용하다 — 뜻 검사 한 줄은 고급 보기의 것이다", async () => {
+    await panelKnowing({ expected_phrases: true, nli_entailment: false, llm_judge: true }, false);
+
+    expect(screen.queryByText(MEANING_MISSING)).not.toBeInTheDocument();
+  });
+
+  it("심판을 부를 수 없는 서버에서는 체크가 잠기고 이유를 말하며, 눌러도 켜지지 않는다", async () => {
+    await panelKnowing({ expected_phrases: true, nli_entailment: true, llm_judge: false });
+
+    expect(judgeCheck()).toBeDisabled();
+    expect(judgeCheck().closest("label")).toHaveAttribute(
+      "title",
+      "심판이 쓸 모델을 이 서버에서 부를 수 없어요",
+    );
+
+    await userEvent.click(judgeCheck());
+
+    expect(judgeCheck()).not.toBeChecked();
+    expect(store().evalUseJudge).toBe(false);
+  });
+
+  it("심판이 서는 서버에서는 체크가 그대로 열려 있다", async () => {
+    await panelKnowing({ expected_phrases: true, nli_entailment: true, llm_judge: true });
+
+    expect(judgeCheck()).toBeEnabled();
+    expect(judgeCheck().closest("label")).not.toHaveAttribute("title");
+  });
+
+  // 독립 리뷰 minor — 조회 왕복 중에 켠 체크. 답이 '심판은 설 수 없다'로 오면 화면 표시와
+  // 실어 보내는 값이 **같은 판정**에서 나와야 한다(하나만 고치면 화면이 거짓을 말한다).
+  describe("조회가 도착하기 전에 켠 체크", () => {
+    async function judgeTurnedOnBeforeTheAnswerArrives() {
+      const server = await openPanel(); // 대역은 아직 무엇이 섰는지 말하지 않았다
+      await act(async () => {
+        await store().saveSpec();
+      });
+      await userEvent.click(screen.getByRole("button", { name: "첫 시험 만들기" }));
+      await userEvent.type(screen.getByLabelText(/제목/), "인사");
+      await userEvent.type(screen.getByLabelText(/들어있어야 하는 말/), "안녕");
+      await userEvent.click(screen.getByRole("button", { name: "저장" }));
+      await act(() => Promise.resolve());
+
+      // 아직 모르는 동안은 열려 있다 — 사람이 켠다.
+      await userEvent.click(judgeCheck());
+      expect(store().evalUseJudge).toBe(true);
+
+      server.standsWith({ expected_phrases: true, nli_entailment: true, llm_judge: false });
+      await act(() => store().loadEvaluatorStanding());
+      return server;
+    }
+
+    it("뒤늦게 '심판은 설 수 없다'가 오면 체크는 켜진 척하지 않는다", async () => {
+      await judgeTurnedOnBeforeTheAnswerArrives();
+
+      expect(judgeCheck()).not.toBeChecked();
+    });
+
+    it("실행도 심판까지 딛겠다고 싣지 않는다 — 표시와 같은 판정에서 나온다", async () => {
+      const server = await judgeTurnedOnBeforeTheAnswerArrives();
+
+      await userEvent.click(runButton());
+      await act(() => Promise.resolve());
+
+      expect(server.startedWith).toEqual([expect.objectContaining({ useJudge: false })]);
+    });
+  });
+
+  it("서버에 물어보지 못하면 아무 말도 하지 않고 아무것도 막지 않는다", async () => {
+    // 조회가 실패한 자리 그대로 — api 문이 '모른다'(null)를 돌려준다.
+    await panelKnowing(null);
+
+    expect(store().evaluatorStanding).toBeNull();
+    expect(screen.queryByText(MEANING_MISSING)).not.toBeInTheDocument();
+    expect(judgeCheck()).toBeEnabled();
   });
 });

@@ -2,6 +2,7 @@
 // 시계는 손으로 쥔다: flushPoll을 부를 때까지 폴링은 한 걸음도 나아가지 않는다.
 import type { DatasetOutcome, DatasetReadOutcome, BatchStartOutcome } from "../src/api/eval";
 import type { BatchReadOutcome } from "../src/eval/batchPoller";
+import type { EvaluatorStanding } from "../src/eval/evaluatorStanding";
 import type { EvalBatch } from "../src/generated/eval_batch";
 import type { EvalDataset } from "../src/generated/eval_dataset";
 import type { Message } from "../src/i18n/messages";
@@ -35,6 +36,8 @@ export interface EvalServerDouble {
   refuseBatchStart: (failure: Message) => void;
   /** 다음 저장 부탁을 이 까닭으로 물린다(1회) */
   refuseSave: (failure: Message) => void;
+  /** 이 서버에 선 판정 층을 이렇게 말한다 — null은 물어봐도 알아내지 못한 자리다 */
+  standsWith: (standing: EvaluatorStanding | null) => void;
   /** 걸어 둔 폴링 타이머를 손으로 흘려보낸다 — 부른 만큼만 한 걸음씩 나아간다 */
   flushPoll: () => Promise<void>;
 }
@@ -48,6 +51,8 @@ export function serveEval(): EvalServerDouble {
   let polls = 0;
   let batchRefusal: Message | null = null;
   let saveRefusal: Message | null = null;
+  // 이 서버에 무엇이 섰는지 — 아무 말도 하지 않은 서버는 '모른다'(null)로 답한다.
+  let standing: EvaluatorStanding | null = null;
 
   const fetchDataset = async (id: string): Promise<DatasetReadOutcome> => {
     const found = datasets.get(id);
@@ -126,6 +131,7 @@ export function serveEval(): EvalServerDouble {
     updateDataset,
     startBatch,
     fetchBatch,
+    fetchEvaluatorStanding: async () => standing,
     setPollTimer,
     clearPollTimer,
   });
@@ -143,6 +149,9 @@ export function serveEval(): EvalServerDouble {
     },
     refuseSave: (failure) => {
       saveRefusal = failure;
+    },
+    standsWith: (next) => {
+      standing = next;
     },
     flushPoll: async () => {
       const due = timers.splice(0, timers.length);

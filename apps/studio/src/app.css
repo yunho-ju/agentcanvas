@@ -3383,6 +3383,14 @@ button:disabled {
   color: var(--ink-soft);
 }
 
+/* 이 서버에 선 층에 대한 사실 한 줄 — 알림이 아니라 관찰이라 조용한 caption이다. */
+.eval-panel__layer-note {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: var(--leading-tight);
+  color: var(--ink-soft);
+}
+
 .eval-panel__notice {
   margin: 0;
   padding: var(--space-2) var(--space-3);

@@ -30,6 +30,8 @@ import {
   withoutCase,
 } from "../eval/dataset";
 import { datasetIdFor } from "../eval/datasetId";
+import { LLM_JUDGE_EVALUATOR } from "../eval/evaluatorCatalog";
+import { layerIsMissing } from "../eval/evaluatorStanding";
 import { type EvalSummary, summaryOf } from "../eval/summary";
 import type { EvalBatch } from "../generated/eval_batch";
 import type { EvalCase } from "../generated/eval_case";
@@ -130,6 +132,29 @@ export function evalRunBlocked(state: EditorState): Message | null {
   return null;
 }
 
+/**
+ * 지금 '심판 모델까지 쓰기'를 막는 까닭 — 없으면 켜도 된다.
+ * 부를 수 없는 심판은 켤 수 없다: 서버가 무엇을 세웠는지 모르면 막지 않는다(fail-open).
+ */
+export function evalJudgeBlocked(state: EditorState): Message | null {
+  if (state.batchStatus === "running") return msg("eval.run.all.blocked.running");
+  if (layerIsMissing(state.evaluatorStanding, LLM_JUDGE_EVALUATOR))
+    return msg("eval.run.judge.blocked.unavailable");
+  return null;
+}
+
+/**
+ * 이번 실행이 실제로 심판까지 딛는가 — 켜 두었어도 **설 수 없는 심판은 딛지 않는다**.
+ * 체크 표시와 서버로 싣는 값이 둘 다 이 판정 하나에서 나온다: 조회가 늦게 닿아
+ * '심판은 설 수 없다'가 켠 뒤에 도착해도 화면이 켜진 척하거나 청하지 않는다.
+ */
+export function evalJudgeInEffect(state: EditorState): boolean {
+  return (
+    state.evalUseJudge &&
+    !layerIsMissing(state.evaluatorStanding, LLM_JUDGE_EVALUATOR)
+  );
+}
+
 /** 이름 없는 문서도 시험 묶음은 지어야 한다 — doc-card와 같은 말을 쓴다. */
 function fallbackDatasetName(name: string | null | undefined): string {
   return name ?? translate(getLocale(), msg("doc.unnamed"));
@@ -211,6 +236,8 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
     enterEvalMode: () => {
       set({ evalPanelOpen: true });
       loadDatasetForCurrentDoc();
+      // 이 서버에 어떤 판정 층이 섰는지도 이때 알아본다 — 못 들어도 패널은 그대로 열린다.
+      void get().loadEvaluatorStanding();
     },
 
     leaveEvalMode: () => {
@@ -301,7 +328,7 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
         dataset.id,
         spec.id,
         savedSpec.revision,
-        get().evalUseJudge,
+        evalJudgeInEffect(get()),
       );
       if (outcome.failure) {
         set({

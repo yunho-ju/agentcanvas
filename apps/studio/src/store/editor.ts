@@ -8,6 +8,7 @@ import { type EvalSlice, createEvalSlice } from "./evalSlice";
 import { type EvalSuggestSlice, createEvalSuggestSlice } from "./evalSuggestSlice";
 import { type EvalDatasetSlice, createEvalDatasetSlice } from "./evalDatasetSlice";
 import { type EvalHistorySlice, createEvalHistorySlice } from "./evalHistorySlice";
+import { type EvalStandingSlice, createEvalStandingSlice } from "./evalStandingSlice";
 import { type FirstStepsSlice, createFirstStepsSlice } from "./firstStepsSlice";
 import { type FeedbackSlice, createFeedbackSlice } from "./feedbackSlice";
 import { type GateSlice, createGateSlice } from "./gateSlice";
@@ -40,6 +41,7 @@ export type EditorState = GraphSlice &
   EvalSuggestSlice &
   EvalDatasetSlice &
   EvalHistorySlice &
+  EvalStandingSlice &
   ArchitectSlice;
 
 export function selectedNode(state: EditorState): FlowNode | undefined {
@@ -69,5 +71,6 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createEvalSuggestSlice(...args),
   ...createEvalDatasetSlice(...args),
   ...createEvalHistorySlice(...args),
+  ...createEvalStandingSlice(...args),
   ...createGraphSlice(...args),
 }));
