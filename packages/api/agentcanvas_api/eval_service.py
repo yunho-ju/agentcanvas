@@ -13,6 +13,7 @@ v1 배치는 spec을 그대로 돈다: 모델 이름은 요청에도 결과 계�
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -59,6 +60,14 @@ BATCH_WENT_WRONG = (
     "something went wrong while this batch was running, so it stopped here"
 )
 BATCH_WAS_CANCELLED = "this batch was cancelled before it could finish"
+
+#: 심판까지 청했는데 이 서버에는 심판이 없을 때 남기는 말 — 사람이 청한 것과 실제로 돈 것이 다르다.
+JUDGE_WAS_NOT_THERE = (
+    "this batch asked for the judge rung, but no judge is set up here, so only"
+    " the cheaper checks ran"
+)
+
+_logger = logging.getLogger(__name__)
 
 
 def new_id() -> str:
@@ -140,6 +149,7 @@ class EvalBatchService:
         wake_worker: Callable[[], None] | None = None,
         evaluators: Mapping[str, Evaluator] = DEFAULT_EVALUATORS,
         ladder: Sequence[str] = (EVALUATOR_NAME,),
+        judged_ladder: Sequence[str] | None = None,
     ) -> None:
         self._datasets = datasets
         self._specs = specs
@@ -161,6 +171,17 @@ class EvalBatchService:
         # 0층은 사다리의 밑동이라 반드시 있다 — 케이스 결과가 이름·판으로 싣는 것도 이 층이다.
         self._evaluator = rungs[0]
         self._higher_rungs = rungs[1:]
+        # 사람이 값이 드는 층까지 청했을 때 딛는 차례 — 적어 주지 않으면 늘 딛는 차례와 같다
+        # (그런 서버에서는 청해도 싼 층까지만 돈다, 조용히는 아니고).
+        self._higher_rungs_with_judge = (
+            self._higher_rungs
+            if judged_ladder is None
+            else [_the_evaluator_named(name, evaluators) for name in judged_ladder][1:]
+        )
+        # 청해서 더 딛을 층이 실제로 있는가 — 없으면 청한 것과 돈 것이 다르다는 사실을 말해야 한다.
+        self._a_judge_can_stand = len(self._higher_rungs_with_judge) > len(
+            self._higher_rungs
+        )
         # 아직 완결되지 않은 배치들 — 서버가 다시 뜨면 잊힌다(v1 알려진 한계).
         self._in_flight: set[str] = set()
         # 배경에서 죽은 배치들 — 조회가 running인 척 영영 기다리게 하지 않는다.
@@ -173,13 +194,21 @@ class EvalBatchService:
         spec_id: str,
         spec_revision: str,
         idempotency_key: str | None = None,
+        use_judge: bool = False,
     ) -> EvalBatchStartOutcome:
-        """저장된 데이터셋을 저장된 스펙의 그 판에 대고 돌린다 — 오래된 판은 조용히 돌리지 않는다."""
+        """저장된 데이터셋을 저장된 스펙의 그 판에 대고 돌린다 — 오래된 판은 조용히 돌리지 않는다.
+
+        심판까지 쓸지는 이 실행의 속성이다(시험의 속성이 아니다): 청한 대로 이 배치만
+        값이 드는 층을 딛는다. 세울 심판이 없는 서버에서는 청해도 싼 층까지만 돈다 — 로그가 말한다.
+        """
+        if use_judge and not self._a_judge_can_stand:
+            _logger.warning(JUDGE_WAS_NOT_THERE)
         command = {
             "operation": "batch",
             "dataset_id": dataset_id,
             "spec_id": spec_id,
             "spec_revision": spec_revision,
+            "use_judge": use_judge,
         }
         fingerprint = request_fingerprint(command)
         if self._jobs is not None and idempotency_key is not None:
@@ -229,6 +258,7 @@ class EvalBatchService:
                     "batch_id": batch_id,
                     "started_at": started_at.isoformat(),
                     "case_run_ids": case_run_ids,
+                    "use_judge": use_judge,
                 },
                 now=started_at,
             )
@@ -238,7 +268,14 @@ class EvalBatchService:
         with self._lock:
             self._in_flight.add(batch_id)
         self._worker(
-            self._runs(batch_id, dataset.id, dataset.cases, stored.spec, started_at)
+            self._runs(
+                batch_id,
+                dataset.id,
+                dataset.cases,
+                stored.spec,
+                started_at,
+                use_judge,
+            )
         )
         return EvalBatchStarted(batch_id=batch_id)
 
@@ -249,6 +286,7 @@ class EvalBatchService:
         cases: Sequence[EvalCase],
         spec: AgentSpec,
         started_at: datetime,
+        use_judge: bool,
     ) -> Work:
         """이 배치가 돌아갈 일 하나 — 일꾼에게 맡길 수 있게 인자 없는 일로 감싼다.
 
@@ -259,7 +297,7 @@ class EvalBatchService:
 
         def work() -> None:
             try:
-                results = [self._runs_case(case, spec) for case in cases]
+                results = [self._runs_case(case, spec, use_judge) for case in cases]
                 batch = EvalBatch(
                     id=batch_id,
                     dataset_id=dataset_id,
@@ -278,8 +316,13 @@ class EvalBatchService:
 
         return work
 
-    def _runs_case(self, case: EvalCase, spec: AgentSpec) -> EvalCaseResult:
-        attempts = [self._runs_attempt(case, spec) for _ in range(case.runs_per_case)]
+    def _runs_case(
+        self, case: EvalCase, spec: AgentSpec, use_judge: bool
+    ) -> EvalCaseResult:
+        attempts = [
+            self._runs_attempt(case, spec, use_judge=use_judge)
+            for _ in range(case.runs_per_case)
+        ]
         return EvalCaseResult(
             case_id=case.id,
             attempts=attempts,
@@ -289,7 +332,11 @@ class EvalBatchService:
         )
 
     def _runs_attempt(
-        self, case: EvalCase, spec: AgentSpec, run_id: str | None = None
+        self,
+        case: EvalCase,
+        spec: AgentSpec,
+        run_id: str | None = None,
+        use_judge: bool = False,
     ) -> EvalAttempt:
         run_id = run_id or self._new_run_id()
         try:
@@ -299,8 +346,9 @@ class EvalBatchService:
         except Exception:  # noqa: BLE001 — 남의 사정으로 배치를 멈추지 않는다: 이 시도만 불통과로 적는다.
             events = []
         output_text = _final_output_text(spec, events)
+        higher = self._higher_rungs_with_judge if use_judge else self._higher_rungs
         verdict = judged_up_the_ladder(
-            self._evaluator, self._higher_rungs, case.expected_phrases, output_text
+            self._evaluator, higher, case.expected_phrases, output_text
         )
         return EvalAttempt(
             run_id=run_id,
@@ -369,6 +417,7 @@ class EvalBatchService:
         run_ids_value = job.payload["case_run_ids"]
         if not isinstance(run_ids_value, list) or len(run_ids_value) != len(cases):
             raise UnrecoverableJob("eval attempt identities are malformed")
+        use_judge = job.payload.get("use_judge") is True
         results: list[EvalCaseResult] = []
         for case, run_ids in zip(cases, run_ids_value, strict=True):
             if not isinstance(run_ids, list) or len(run_ids) != case.runs_per_case:
@@ -376,7 +425,9 @@ class EvalBatchService:
             attempts: list[EvalAttempt] = []
             for run_id in run_ids:
                 require_active_lease()
-                attempts.append(self._runs_attempt(case, spec, str(run_id)))
+                attempts.append(
+                    self._runs_attempt(case, spec, str(run_id), use_judge=use_judge)
+                )
             results.append(
                 EvalCaseResult(
                     case_id=case.id,
@@ -447,6 +498,7 @@ def _case_passed(case: EvalCase, attempts: Sequence[EvalAttempt]) -> bool:
 
 __all__ = [
     "BATCH_WENT_WRONG",
+    "JUDGE_WAS_NOT_THERE",
     "EvalBatchFailed",
     "EvalBatchListing",
     "EvalBatchRefusal",

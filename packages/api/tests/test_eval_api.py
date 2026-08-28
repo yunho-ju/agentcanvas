@@ -5,18 +5,25 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from agentcanvas_adapters.anthropic_model import ANTHROPIC_API_KEY_REF
+from agentcanvas_adapters.llm_judge import JUDGE_PROMPT_REF
 from agentcanvas_adapters.scripted import ScriptedEntailment
+from agentcanvas_adapters.secrets import env_name
 from agentcanvas_api import app as app_module
-from agentcanvas_api.app import create_app
+from agentcanvas_api.app import LOCAL_MODEL_ENV, create_app
+from agentcanvas_api.eval_service import JUDGE_WAS_NOT_THERE
 from agentcanvas_api.memory_eval_batch_store import InMemoryEvalBatchStore
 from agentcanvas_api.memory_eval_dataset_store import InMemoryEvalDatasetStore
 from agentcanvas_api.memory_run_store import InMemoryRunStore
 from agentcanvas_api.memory_store import InMemorySpecStore
 from agentcanvas_api.run_service import Work, Worker
+from agentcanvas_engine.model_call import ModelSaid
 from fastapi.testclient import TestClient
 
 STARTED_AT = datetime(2026, 8, 1, 12, 30, tzinfo=UTC)
@@ -283,7 +290,7 @@ def test_a_batch_that_breaks_while_saving_reads_as_failed():
     assert failed.json()["message"]
 
 
-def a_client_with(asks_entailment=None) -> TestClient:
+def a_client_with(asks_entailment=None, model=None) -> TestClient:
     """뜻 검사 백엔드를 밖에서 건네받는 서버 — 시험은 진짜 모델을 싣지 않는다."""
     return TestClient(
         create_app(
@@ -294,18 +301,19 @@ def a_client_with(asks_entailment=None) -> TestClient:
             clock=lambda: STARTED_AT,
             worker=right_here,
             asks_entailment=asks_entailment,
+            **({} if model is None else {"model": model}),
         )
     )
 
 
-def one_attempt_of_a_batch(client: TestClient) -> dict:
+def one_attempt_of_a_batch(client: TestClient, **asked) -> dict:
     """스펙·데이터셋을 올리고 배치 하나를 끝까지 돌려 그 회차를 돌려준다."""
     client.post("/specs", json=spec_payload())
     spec = client.get(f"/specs/{SPEC_ID}").json()["spec"]
     client.post("/eval/datasets", json=a_dataset_payload())
     started = client.post(
         "/eval/datasets/greetings/batches",
-        json={"spec_id": SPEC_ID, "spec_revision": spec["revision"]},
+        json={"spec_id": SPEC_ID, "spec_revision": spec["revision"], **asked},
     )
     assert started.status_code == 202
     read = client.get(f"/eval/batches/{started.json()['batch_id']}")
@@ -348,3 +356,138 @@ def test_the_server_entry_point_is_the_one_that_loads_the_meaning_model(monkeypa
 
     assert app_module.serves() == "an app"
     assert handed == {"asks_entailment": asks}
+
+
+class SaysOneThingAndJudges:
+    """실행에는 짧게 답하고, 심판으로 불릴 때만 판정을 말하는 모델 — 부른 자리로 갈린다."""
+
+    def __init__(self, said: str = "안녕하세요", contained: bool = True) -> None:
+        self._said = said
+        self._contained = contained
+        #: 심판으로 불린 물음들 — 몇 번 불렸는지는 시험이 직접 센다.
+        self.judged: list[str] = []
+
+    def __call__(self, ask):
+        if ask.prompt_ref == JUDGE_PROMPT_REF:
+            self.judged.append(ask.instruction or "")
+            return ModelSaid(
+                input_tokens=1,
+                output_tokens=1,
+                text=json.dumps({"contained": self._contained}),
+            )
+        if ask.ways:
+            return ModelSaid(
+                input_tokens=1,
+                output_tokens=1,
+                way=ask.ways[0],
+                text=json.dumps({"way": ask.ways[0]}),
+            )
+        return ModelSaid(input_tokens=1, output_tokens=1, text=self._said)
+
+
+def test_a_batch_that_did_not_ask_for_the_judge_never_calls_it():
+    """C3: 값이 드는 층은 기본으로 꺼져 있다 — 청하지 않은 배치의 판정은 예전 그대로다."""
+    model = SaysOneThingAndJudges()
+
+    attempt = one_attempt_of_a_batch(a_client_with(model=model))
+
+    assert model.judged == []
+    assert attempt["judged_by"] == "expected_phrases"
+    assert attempt["passed"] is False
+
+
+def test_a_batch_that_asked_for_the_judge_is_judged_by_it():
+    """C6: 켜서 청하면 0층이 못 건진 말만 심판에게 가고, 담겼다면 그 회차는 구제된다."""
+    model = SaysOneThingAndJudges()
+
+    attempt = one_attempt_of_a_batch(a_client_with(model=model), use_judge=True)
+
+    assert [asked for asked in model.judged if "hello" in asked]
+    assert attempt["judged_by"] == "llm_judge"
+    assert attempt["passed"] is True
+
+
+def test_asking_for_a_judge_this_server_cannot_stand_leaves_the_verdict_alone():
+    """C10: 물을 곳이 없는 서버는 심판을 세우지 않는다 — 청해도 싼 층의 판정이 그대로다."""
+    attempt = one_attempt_of_a_batch(a_client_with(), use_judge=True)
+
+    assert attempt["judged_by"] == "expected_phrases"
+
+
+def test_a_batch_request_does_not_take_words_it_does_not_know():
+    """오타를 조용히 삼키면 켠 줄 아는 사람 밑에서 심판 없이 돈다."""
+    client = a_client_with()
+    client.post("/specs", json=spec_payload())
+    spec = client.get(f"/specs/{SPEC_ID}").json()["spec"]
+    client.post("/eval/datasets", json=a_dataset_payload())
+
+    asked = client.post(
+        "/eval/datasets/greetings/batches",
+        json={
+            "spec_id": SPEC_ID,
+            "spec_revision": spec["revision"],
+            "useJudge": True,
+        },
+    )
+
+    assert asked.status_code == 422
+
+
+def a_server_that_picks_its_own_model(monkeypatch, env: dict, model) -> TestClient:
+    """서버가 스스로 모델을 고르는 배선 — 무엇을 고를지는 env가, 무엇이 답할지는 대역이 정한다.
+
+    진짜 provider에 나가지 않게 무엇이 답하는지만 대역으로 바꾼다: 심판을 세울지 말지는
+    여전히 env(카탈로그·열쇠)를 보고 정해야 한다 — 그 판단이 이 시험의 대상이다.
+    """
+    monkeypatch.setattr(app_module.os, "environ", env)
+    monkeypatch.setattr(app_module, "asks_the_model_in", lambda _env: model)
+    return TestClient(
+        create_app(
+            store=InMemorySpecStore(),
+            run_store=InMemoryRunStore(),
+            eval_dataset_store=InMemoryEvalDatasetStore(),
+            eval_batch_store=InMemoryEvalBatchStore(),
+            clock=lambda: STARTED_AT,
+            worker=right_here,
+        )
+    )
+
+
+def test_a_judge_does_not_stand_where_its_own_model_cannot_be_asked(
+    monkeypatch, caplog
+):
+    """다른 문이 열렸다고 심판이 서지 않는다 — 심판이 부를 그 이름이 열려야 심판이다.
+
+    내 컴퓨터의 모델만 세운 서버에서 심판이 서면, 모든 질의가 열쇠 없는 문 앞에서 balk하고
+    화면에는 '심판이 보고 못 건졌다'는 거짓이 남는다.
+    """
+    model = SaysOneThingAndJudges()
+
+    with caplog.at_level(logging.WARNING, logger="agentcanvas_api.eval_service"):
+        attempt = one_attempt_of_a_batch(
+            a_server_that_picks_its_own_model(
+                monkeypatch, {LOCAL_MODEL_ENV: "qwen3"}, model
+            ),
+            use_judge=True,
+        )
+
+    assert model.judged == []
+    assert attempt["judged_by"] == "expected_phrases"
+    assert JUDGE_WAS_NOT_THERE in caplog.text
+
+
+def test_a_judge_stands_where_its_own_model_can_be_asked(monkeypatch):
+    """심판이 부를 이름의 문이 열린 서버에서는 심판이 선다."""
+    model = SaysOneThingAndJudges()
+
+    attempt = one_attempt_of_a_batch(
+        a_server_that_picks_its_own_model(
+            monkeypatch,
+            {env_name(ANTHROPIC_API_KEY_REF): "sk-a-key"},
+            model,
+        ),
+        use_judge=True,
+    )
+
+    assert model.judged
+    assert attempt["judged_by"] == "llm_judge"

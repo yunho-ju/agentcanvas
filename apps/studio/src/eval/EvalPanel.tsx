@@ -40,6 +40,9 @@ export function EvalPanel() {
   const startNewCase = useEditor((state) => state.startNewCase);
   const restoreDeletedCase = useEditor((state) => state.restoreDeletedCase);
   const runAllCases = useEditor((state) => state.runAllCases);
+  const useJudge = useEditor((state) => state.evalUseJudge);
+  const setUseJudge = useEditor((state) => state.setEvalUseJudge);
+  const running = useEditor((state) => state.batchStatus === "running");
   const t = useT();
   const advanced = useEditor((state) => state.evalAdvanced);
   const setAdvanced = useEditor((state) => state.setEvalAdvanced);
@@ -78,6 +81,20 @@ export function EvalPanel() {
       >
         {t("eval.run.all")}
       </button>
+      {/* 값이 드는 층은 사람이 켤 때만 선다 — 비용은 누르기 전에 체크 옆에서 읽힌다 (DESIGN §7 eval-panel). */}
+      <label
+        className="eval-panel__judge"
+        title={running ? t("eval.run.all.blocked.running") : undefined}
+      >
+        <input
+          type="checkbox"
+          checked={useJudge}
+          disabled={running}
+          onChange={(event) => setUseJudge(event.target.checked)}
+        />
+        <span className="eval-panel__judge-label">{t("eval.run.judge")}</span>
+        <span className="eval-panel__judge-cost">{t("eval.run.judge.cost")}</span>
+      </label>
       {/* 지운 케이스의 되돌리기와는 다른 자리 — 실행 실패 같은 패널 전역 알림만 여기서 말한다. */}
       {caseSaveNotice ? (
         <p className="eval-panel__notice" data-tone={caseSaveNotice.tone}>

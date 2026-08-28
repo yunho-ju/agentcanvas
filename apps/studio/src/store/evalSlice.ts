@@ -70,6 +70,8 @@ export interface EvalSlice {
   batchId: string | null;
   batchStatus: EvalBatchStatus;
   batch: EvalBatch | null;
+  /** 이번 실행에 심판 모델까지 쓸지 — 값이 드는 층이라 기본은 꺼짐이고, 묶음에 저장하지 않는다 */
+  evalUseJudge: boolean;
 
   fetchDataset: (id: string) => Promise<DatasetReadOutcome>;
   createDataset: (dataset: EvalDataset) => Promise<DatasetOutcome>;
@@ -78,6 +80,7 @@ export interface EvalSlice {
     datasetId: string,
     specId: string,
     specRevision: string,
+    useJudge: boolean,
   ) => Promise<BatchStartOutcome>;
   fetchBatch: FetchBatch;
   setPollTimer: SetTimer;
@@ -102,6 +105,7 @@ export interface EvalSlice {
   saveCaseDraft: () => Promise<void>;
   deleteCase: (id: string) => Promise<void>;
   restoreDeletedCase: () => Promise<void>;
+  setEvalUseJudge: (use: boolean) => void;
   runAllCases: () => Promise<void>;
 }
 
@@ -156,6 +160,8 @@ const RESET_EVAL_STATE = {
   batchId: null,
   batchStatus: "idle" as const,
   batch: null,
+  // 값이 드는 선택은 저장되지 않는다 — 다시 열면 꺼진 채다 (DESIGN §7 eval-panel).
+  evalUseJudge: false,
 };
 
 export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (set, get) => {
@@ -195,8 +201,8 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
     fetchDataset: (id) => fetchDatasetFromServer(id),
     createDataset: (dataset) => createDatasetOnServer(dataset),
     updateDataset: (dataset) => updateDatasetOnServer(dataset),
-    startBatch: (datasetId, specId, specRevision) =>
-      startBatchOnServer(datasetId, specId, specRevision),
+    startBatch: (datasetId, specId, specRevision, useJudge) =>
+      startBatchOnServer(datasetId, specId, specRevision, useJudge),
     fetchBatch: (batchId) => fetchBatchFromServer(batchId),
     persistDataset: (dataset) => persist(dataset),
     setPollTimer: (tick, ms) => globalThis.setTimeout(tick, ms),
@@ -210,7 +216,7 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
     leaveEvalMode: () => {
       // 패널을 떠나면 아직 도는 배치를 배경에서 계속 묻지 않는다 — 다시 열면 새로 알아본다.
       poller.stop();
-      set({ evalPanelOpen: false, caseDraft: null, lastDeletedCase: null, evalDatasetSwitching: false, evalDatasetRenaming: false });
+      set({ evalPanelOpen: false, caseDraft: null, lastDeletedCase: null, evalDatasetSwitching: false, evalDatasetRenaming: false, evalUseJudge: false });
       // 담지 않은 제안은 남지 않는다 — 승인 없이 묶음에 들어가는 길은 어디에도 없다.
       get().discardSuggestions();
       get().resetEvalBatchHistory();
@@ -223,6 +229,8 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
       get().resetEvalBatchHistory();
       loadDatasetForCurrentDoc();
     },
+
+    setEvalUseJudge: (use) => set({ evalUseJudge: use }),
 
     startNewCase: (seed) => set({ caseDraft: { ...emptyCaseDraft(), ...seed } }),
 
@@ -289,7 +297,12 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
       const dataset = get().dataset;
       if (!spec || !savedSpec || !dataset) return;
       set({ batchStatus: "running", batch: null, batchId: null });
-      const outcome = await get().startBatch(dataset.id, spec.id, savedSpec.revision);
+      const outcome = await get().startBatch(
+        dataset.id,
+        spec.id,
+        savedSpec.revision,
+        get().evalUseJudge,
+      );
       if (outcome.failure) {
         set({
           batchStatus: "failed",

@@ -117,8 +117,8 @@ describe("attemptInQuestion — 화면이 말하는 그 회차", () => {
       rounds: 2,
       output: "첫 번째 답",
       missing: [],
-      // 뜻으로 구제된 회차는 서버가 그렇게 판정했을 때만이다 — 이 배치는 판정한 이름이 없다.
-      rescuedByMeaning: false,
+      // 구제는 서버가 그 층으로 판정했을 때만이다 — 이 배치는 판정한 이름이 없다.
+      rescuedBy: null,
     });
   });
 
@@ -133,8 +133,8 @@ describe("attemptInQuestion — 화면이 말하는 그 회차", () => {
       rounds: 2,
       output: "두 번째 답",
       missing: [],
-      // 뜻으로 구제된 회차는 서버가 그렇게 판정했을 때만이다 — 이 배치는 판정한 이름이 없다.
-      rescuedByMeaning: false,
+      // 구제는 서버가 그 층으로 판정했을 때만이다 — 이 배치는 판정한 이름이 없다.
+      rescuedBy: null,
     });
   });
 

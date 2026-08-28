@@ -1,6 +1,7 @@
 // 케이스 카드 한 줄의 상태 — 통과/실패/도는 중/아직 (DESIGN §7 eval-case-card). 순수 함수.
 import type { EvalBatch } from "../generated/eval_batch";
-import { NLI_ENTAILMENT_EVALUATOR } from "./evaluatorCatalog";
+import type { MessageKey } from "../i18n/messages";
+import { RESCUE_LINE } from "./evaluatorCatalog";
 
 export type CaseCardState =
   | { kind: "none" }
@@ -31,10 +32,10 @@ export interface AttemptInQuestion {
   /** 그 회차에 없던 말 — 판정한 쪽(서버)이 적어 준 근거 그대로다. 옛 배치에는 없어 빈 목록이다. */
   missing: string[];
   /**
-   * 글자로는 놓쳤지만 뜻이 같아 통과한 회차인가 — 서버가 그 회차를 뜻 검사로 판정했을 때만 참이다.
-   * 판정한 이름을 싣지 않은 옛 배치는 거짓이다(없는 사실을 추측하지 않는다).
+   * 0층이 놓친 것을 윗층이 구제한 회차라면, 그 층이 하는 말 — 통과한 회차에만 있다.
+   * 판정한 이름을 싣지 않은 옛 배치와 화면이 모르는 층은 없음이다(없는 사실을 추측하지 않는다).
    */
-  rescuedByMeaning: boolean;
+  rescuedBy: MessageKey | null;
 }
 
 /**
@@ -62,6 +63,6 @@ export function attemptInQuestion(
     rounds: attempts.length,
     output: attempt.output_text,
     missing: attempt.missing_phrases ?? [],
-    rescuedByMeaning: attempt.passed && attempt.judged_by === NLI_ENTAILMENT_EVALUATOR,
+    rescuedBy: (attempt.passed && RESCUE_LINE[attempt.judged_by ?? ""]) || null,
   };
 }

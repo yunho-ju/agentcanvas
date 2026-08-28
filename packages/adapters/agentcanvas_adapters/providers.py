@@ -57,6 +57,24 @@ def nobody_to_ask(
     )
 
 
+def can_be_asked(
+    model_ref: str, vault: SecretResolver, catalog: Mapping[str, ModelDef] | None = None
+) -> bool:
+    """이 이름 하나가 이 서버에서 실제로 답까지 닿는가 — 세워 두지 않은 이름도, 열쇠 없는 문도 닿지 못한다.
+
+    nobody_to_ask는 "아무나 물을 곳이 있는가"를 묻고, 이쪽은 "바로 이 이름을 물을 수 있는가"를
+    묻는다. 두 물음을 같은 것으로 쓰면, 다른 문이 열린 서버에서 닿지도 못할 이름을 세워 두고
+    매번 balk를 답으로 받는다 — 조용한 거짓말이 된다.
+    """
+    known = DEFAULT_MODEL_CATALOG if catalog is None else catalog
+    model = known.get(model_ref)
+    if model is None:
+        return False
+    if model.base_url:
+        return True
+    return vault(OPENS_BY_PROVIDER[model.provider].key_ref) is not None
+
+
 def asks_whoever_serves(
     vault: SecretResolver, catalog: Mapping[str, ModelDef] | None = None
 ) -> ModelCall:
@@ -81,5 +99,6 @@ __all__ = [
     "OpensADoor",
     "ProviderDoor",
     "asks_whoever_serves",
+    "can_be_asked",
     "nobody_to_ask",
 ]

@@ -137,6 +137,8 @@ export async function startBatchOnServer(
   datasetId: string,
   specId: string,
   specRevision: string,
+  /** 심판 모델까지 딛을지 — 이번 실행의 선택이라 시험 묶음에는 저장되지 않는다 */
+  useJudge = false,
   options: EvalApiOptions = {},
 ): Promise<BatchStartOutcome> {
   const base = options.baseUrl ?? apiBaseUrl();
@@ -146,7 +148,11 @@ export async function startBatchOnServer(
     const answered = await send(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ spec_id: specId, spec_revision: specRevision }),
+      body: JSON.stringify({
+        spec_id: specId,
+        spec_revision: specRevision,
+        use_judge: useJudge,
+      }),
     });
     const body = await bodyOf(answered);
     if (answered.status === ACCEPTED) {

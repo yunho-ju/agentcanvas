@@ -34,6 +34,7 @@ beforeEach(() => {
     nodes: [],
     edges: [],
     evalPanelOpen: false,
+    evalUseJudge: false,
     dataset: null,
     datasetSynced: null,
     datasetKnownOnServer: false,
@@ -617,5 +618,73 @@ describe("E12 — 문구는 전부 사전을 거친다", () => {
     expect(
       screen.getByText(evaluatorCatalog[EXPECTED_PHRASES_EVALUATOR].plain_description.ko),
     ).toBeInTheDocument();
+  });
+});
+
+
+describe("EVAL-5 — 심판 모델까지 쓰기 체크 (DESIGN §7 eval-panel)", () => {
+  async function savedCase() {
+    const server = await openPanel();
+    await act(async () => {
+      await store().saveSpec();
+    });
+    await userEvent.click(screen.getByRole("button", { name: "첫 시험 만들기" }));
+    await userEvent.type(screen.getByLabelText(/제목/), "인사");
+    await userEvent.type(screen.getByLabelText(/들어있어야 하는 말/), "안녕");
+    await userEvent.click(screen.getByRole("button", { name: "저장" }));
+    await act(() => Promise.resolve());
+    return server;
+  }
+
+  function judgeCheck() {
+    return screen.getByRole("checkbox", { name: /심판 모델까지 쓰기/ });
+  }
+
+  it("값이 드는 층은 기본으로 꺼져 있고, 켜지 않으면 청하지도 않는다", async () => {
+    const server = await savedCase();
+
+    expect(judgeCheck()).not.toBeChecked();
+
+    await userEvent.click(runButton());
+    await act(() => Promise.resolve());
+
+    expect(server.startedWith).toEqual([expect.objectContaining({ useJudge: false })]);
+  });
+
+  it("켜고 돌리면 이번 실행에만 심판까지 쓰겠다고 실어 보낸다", async () => {
+    const server = await savedCase();
+
+    await userEvent.click(judgeCheck());
+    await userEvent.click(runButton());
+    await act(() => Promise.resolve());
+
+    expect(server.startedWith).toEqual([expect.objectContaining({ useJudge: true })]);
+    // 이 선택은 실행의 속성이다 — 시험 묶음에 저장되지 않는다.
+    expect(JSON.stringify(store().dataset)).not.toContain("judge");
+  });
+
+  it("비용이 든다는 사실을 누르기 전에 체크 옆에서 읽는다", async () => {
+    await savedCase();
+
+    expect(screen.getByText("모델 호출 비용이 들어요")).toBeInTheDocument();
+  });
+
+  it("영어로 봐도 같은 말을 한다", async () => {
+    await savedCase();
+    act(() => setLocale("en"));
+
+    expect(screen.getByRole("checkbox", { name: /Use the judge model too/ })).toBeInTheDocument();
+    expect(screen.getByText("This calls a model, so it costs money")).toBeInTheDocument();
+  });
+
+  it("돌리는 중에는 바꿀 수 없다 — 도는 배치의 값을 뒤늦게 바꾸는 척하지 않는다", async () => {
+    await savedCase();
+
+    await userEvent.click(runButton());
+    await act(() => Promise.resolve());
+
+    expect(judgeCheck()).toBeDisabled();
+    // 비활성은 이유를 말한다 — 실행 primary와 같은 까닭이면 같은 말이다.
+    expect(judgeCheck().closest("label")).toHaveAttribute("title", "지금 돌려 보는 중이에요");
   });
 });

@@ -13,8 +13,18 @@ interface BatchState {
   batch?: EvalBatch;
 }
 
+/** 배치를 열어 달라고 온 부탁 하나 — 무엇을, 어느 층까지 딛어 돌려 달라고 했는가. */
+export interface BatchAsked {
+  datasetId: string;
+  specId: string;
+  specRevision: string;
+  useJudge: boolean;
+}
+
 export interface EvalServerDouble {
   datasets: Map<string, EvalDataset>;
+  /** 배치를 열어 달라고 온 부탁들 — 무엇을 실어 보냈는지는 시험이 직접 읽어 확인한다 */
+  startedWith: BatchAsked[];
   /** 배치 진행을 물어본 횟수 — 폴링이 멎었는지는 이 숫자가 더는 늘지 않는 것으로 본다 */
   polls: number;
   /** 이 배치가 완결됐다고 해 둔다 — 다음 flushPoll에서 화면에 닿는다 */
@@ -70,12 +80,16 @@ export function serveEval(): EvalServerDouble {
     return { dataset };
   };
 
+  const startedWith: BatchAsked[] = [];
+
   const startBatch = async (
-    _datasetId: string,
-    _specId: string,
-    _specRevision: string,
+    datasetId: string,
+    specId: string,
+    specRevision: string,
+    useJudge = false,
   ): Promise<BatchStartOutcome> => {
     starts += 1;
+    startedWith.push({ datasetId, specId, specRevision, useJudge });
     if (batchRefusal) {
       const failure = batchRefusal;
       batchRefusal = null;
@@ -118,6 +132,7 @@ export function serveEval(): EvalServerDouble {
 
   return {
     datasets,
+    startedWith,
     get polls() {
       return polls;
     },

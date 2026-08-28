@@ -124,7 +124,7 @@ describe("startBatchOnServer — 배치를 열어 달라고 부탁한다", () =>
   it("202로 열리면 이름을 받는다", async () => {
     const { calls, fetch } = server({ status: 202, body: { batch_id: "batch-1" } });
 
-    const outcome = await startBatchOnServer("ds-doc-1", "doc-1", "sha256:abc", {
+    const outcome = await startBatchOnServer("ds-doc-1", "doc-1", "sha256:abc", false, {
       baseUrl: "http://here",
       fetch,
     });
@@ -133,16 +133,31 @@ describe("startBatchOnServer — 배치를 열어 달라고 부탁한다", () =>
       {
         url: "http://here/eval/datasets/ds-doc-1/batches",
         method: "POST",
-        body: { spec_id: "doc-1", spec_revision: "sha256:abc" },
+        body: { spec_id: "doc-1", spec_revision: "sha256:abc", use_judge: false },
       },
     ]);
     expect(outcome.batchId).toBe("batch-1");
   });
 
+  it("심판까지 쓰겠다고 켠 실행은 그 선택을 실어 보낸다", async () => {
+    const { calls, fetch } = server({ status: 202, body: { batch_id: "batch-2" } });
+
+    await startBatchOnServer("ds-doc-1", "doc-1", "sha256:abc", true, {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(calls[0].body).toEqual({
+      spec_id: "doc-1",
+      spec_revision: "sha256:abc",
+      use_judge: true,
+    });
+  });
+
   it("없는 묶음·그래프면 404를 실패로 옮긴다", async () => {
     const { fetch } = server({ status: 404, body: { detail: "no dataset called 'ds-doc-1'" } });
 
-    const outcome = await startBatchOnServer("ds-doc-1", "doc-1", "sha256:abc", { fetch });
+    const outcome = await startBatchOnServer("ds-doc-1", "doc-1", "sha256:abc", false, { fetch });
 
     expect(outcome.batchId).toBeUndefined();
     expect(outcome.failure).toBeDefined();
@@ -151,7 +166,7 @@ describe("startBatchOnServer — 배치를 열어 달라고 부탁한다", () =>
   it("오래된 판이면 409를 실패로 옮긴다", async () => {
     const { fetch } = server({ status: 409, body: { detail: "'doc-1' has moved on" } });
 
-    const outcome = await startBatchOnServer("ds-doc-1", "doc-1", "sha256:abc", { fetch });
+    const outcome = await startBatchOnServer("ds-doc-1", "doc-1", "sha256:abc", false, { fetch });
 
     expect(outcome.failure).toBeDefined();
   });

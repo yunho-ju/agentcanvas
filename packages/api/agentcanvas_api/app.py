@@ -15,8 +15,13 @@ from typing import Any, Literal
 
 from agentcanvas_adapters.case_suggester import SuggestedCase
 from agentcanvas_adapters.entailment import EntailmentCall, local_entailment
+from agentcanvas_adapters.llm_judge import JUDGE_MODEL_REF, llm_judge_entailment
 from agentcanvas_adapters.openai_model import OPENAI_API_KEY_REF
-from agentcanvas_adapters.providers import asks_whoever_serves, nobody_to_ask
+from agentcanvas_adapters.providers import (
+    asks_whoever_serves,
+    can_be_asked,
+    nobody_to_ask,
+)
 from agentcanvas_adapters.secrets import env_vault
 from agentcanvas_contracts.agent_spec import AgentSpec, NonEmptyText
 from agentcanvas_contracts.architect_patch import AgentSpecPatch
@@ -289,15 +294,18 @@ class RunRequest(BaseModel):
 
 
 class EvalBatchRequest(BaseModel):
-    """배치를 청하며 적어 보내는 것 — 어느 그래프의 어느 판을 돌리는가.
+    """배치를 청하며 적어 보내는 것 — 어느 그래프의 어느 판을, 어느 층까지 딛어 돌리는가.
 
     v1 배치는 spec을 그대로 돈다: 모델은 spec_revision이 가리키는 그래프 안에 있다.
+    심판까지 쓸지는 이 실행의 속성이라 여기 실린다 — 시험(dataset)에는 저장하지 않는다.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     spec_id: str
     spec_revision: str
+    #: 값이 드는 층까지 딛을지 — 켜지 않으면 심판은 한 번도 불리지 않는다.
+    use_judge: bool = False
 
 
 class EvalCaseSuggestionRequest(BaseModel):
@@ -420,6 +428,31 @@ def asks_the_model_in(env: Mapping[str, str]) -> ModelCall:
 
 def _default_model_call() -> ModelCall:
     return asks_the_model_in(os.environ)
+
+
+def _a_judge_for(
+    asks_a_model: ModelCall,
+    judge_model_ref: str,
+    env: Mapping[str, str] | None,
+) -> EntailmentCall | None:
+    """심판을 세울 수 있는가 — 심판이 부를 **바로 그 이름**이 이 서버에서 열려야 심판이다.
+
+    지어낸 판단으로 뜻을 보아 통과를 내주면, 화면은 '심판이 보고 통과시켰다'고 말하게 된다.
+    다른 문이 열렸다고 세워 두는 것도 같은 거짓이다: 내 컴퓨터의 모델만 있는 서버에서
+    본사의 이름으로 물으면 매 질의가 열쇠 없는 문 앞에서 되돌아오고, 화면에는 '심판이 보고
+    못 건졌다'가 남는다. 그래서 열리지 않는 이름이면 심판 자리는 아예 비워 둔다 — 청한
+    배치는 싼 층까지만 돌고, 그 사실을 로그가 말한다.
+
+    env는 서버가 스스로 모델을 고른 경우에만 건네받는다: 모델을 주입했다면 무엇이 답하는지는
+    주입한 쪽이 안다(카탈로그도 열쇠도 그 자리의 사정이 아니다).
+    """
+    if asks_a_model is says_the_first_way:
+        return None
+    if env is not None and not can_be_asked(
+        judge_model_ref, env_vault(env), catalog_in(env)
+    ):
+        return None
+    return llm_judge_entailment(asks_a_model, judge_model_ref)
 
 
 def _origins_from_env() -> list[str]:
@@ -552,7 +585,17 @@ def create_app(
     eval_datasets = EvalDatasetService(eval_dataset_store_used)
     # 판정 사다리는 건네받은 층으로 세운다 — 뜻 검사를 건네주지 않았으면 0층까지만 서고,
     # 그 사실은 서버 로그가 말한다(조용히 짧아지되 침묵하지는 않는다).
-    ladder = judging_ladder(asks_entailment)
+    # 심판이 부를 이름은 여기서 정한다 — 바꾸려면 이 한 줄이고, 그 이름이 이 서버에서
+    # 열리지 않으면 심판은 서지 않는다(청해도 싼 층까지만 돈다).
+    ladder = judging_ladder(
+        asks_entailment,
+        judge=_a_judge_for(
+            asks_a_model,
+            JUDGE_MODEL_REF,
+            # 서버가 스스로 고른 배선에서만 env가 판단의 근거다(주입된 모델은 주입한 쪽의 것).
+            os.environ if model is None else None,
+        ),
+    )
     eval_batches = EvalBatchService(
         datasets=eval_dataset_store_used,
         specs=specs,
@@ -568,6 +611,7 @@ def create_app(
         wake_worker=wake_durable_worker,
         evaluators=ladder.evaluators,
         ladder=ladder.order,
+        judged_ladder=ladder.order_with_judge,
     )
     if durable_jobs is not None:
         durable_runtime = DurableJobWorker(durable_jobs, runs, eval_batches)
@@ -957,6 +1001,7 @@ def create_app(
                 asked.spec_id,
                 asked.spec_revision,
                 _idempotency_key(idempotency_key),
+                use_judge=asked.use_judge,
             )
         except IdempotencyConflict as conflict:
             raise HTTPException(

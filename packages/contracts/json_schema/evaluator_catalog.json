@@ -11,6 +11,18 @@
     },
     "version": "v1"
   },
+  "llm_judge": {
+    "example": {
+      "en": "If the expected phrase is \"nice to meet you\", an answer like \"good to see you in person\" passes when the judge model reads it as the same thing.",
+      "ko": "기대하는 말이 \"반갑습니다\"라면, 답이 \"얼굴 뵙게 되어 좋네요\"일 때도 심판 모델이 같은 뜻으로 보면 통과예요."
+    },
+    "name": "llm_judge",
+    "plain_description": {
+      "en": "Asks a judge model whether the answer says this",
+      "ko": "심판 모델에게 이 뜻이 답에 담겼는지 물어봐요"
+    },
+    "version": "v1"
+  },
   "nli_entailment": {
     "example": {
       "en": "If the expected phrase is \"nice to meet you\", an answer like \"I am glad we could meet\" passes too, because it means the same thing.",

@@ -4,6 +4,10 @@
 물을 자리가 없으면 사다리는 0층까지만 선다 — 판정은 계속 돌고, 다만 조용히 지나가지
 않는다: 무엇이 빠졌는지 서버 로그가 말한다.
 
+맨 위의 심판 단은 값이 드는 층이라 사람이 켰을 때만 딛는다: 그래서 사다리는 차례를 둘
+들고 있다 — 늘 딛는 차례(order)와, 사람이 심판까지 청했을 때의 차례(order_with_judge).
+심판을 세울 수 없는 서버에서는 둘이 같다(청해도 싼 층까지만 딛는다, 조용하지는 않게).
+
 층을 더 얹는 일은 여기에 한 줄 얹는 일이다(무엇을 얹을지 정하는 자리) — 사다리를 딛는
 규칙(engine)도, 배치를 도는 규칙(EvalBatchService)도 고치지 않는다.
 """
@@ -15,8 +19,13 @@ from dataclasses import dataclass
 
 from agentcanvas_adapters.entailment import EntailmentCall
 from agentcanvas_contracts.evaluator_catalog import DEFAULT_EVALUATOR_CATALOG
+from agentcanvas_engine.evaluation.entailment import AsksEntailment
 from agentcanvas_engine.evaluation.evaluator import Evaluator
 from agentcanvas_engine.evaluation.expected_phrases import EVALUATOR_NAME
+from agentcanvas_engine.evaluation.llm_judge import (
+    LLM_JUDGE_EVALUATOR_NAME,
+    llm_judge_evaluator,
+)
 from agentcanvas_engine.evaluation.nli_entailment import (
     NLI_EVALUATOR_NAME,
     nli_entailment_evaluator,
@@ -27,6 +36,12 @@ from .entailment_memory import JudgementMemory, remembers_what_was_judged
 
 _logger = logging.getLogger(__name__)
 
+#: 심판을 세울 수 없는 서버가 남기는 말 — 켜 달라고 해도 싼 층까지만 딛는다는 사실 하나.
+NO_JUDGE_LAYER = (
+    "no model is set up to judge here, so asking for the judge rung still runs"
+    " only the cheaper checks"
+)
+
 #: 뜻 검사가 없는 서버가 남기는 말 — 사람이 읽을 사실 하나, 속엣말은 없다.
 NO_MEANING_LAYER = (
     "the meaning check (NLI) is not installed, so only the wording check runs"
@@ -36,27 +51,55 @@ NO_MEANING_LAYER = (
 
 @dataclass(frozen=True)
 class JudgingLadder:
-    """세워진 사다리 — 무엇이 있고(evaluators), 어느 차례로 딛는가(order)."""
+    """세워진 사다리 — 무엇이 있고(evaluators), 늘 딛는 차례와 심판까지 청했을 때의 차례."""
 
     evaluators: dict[str, Evaluator]
     order: list[str]
+    order_with_judge: list[str]
 
 
 def judging_ladder(
-    asks: EntailmentCall | None, memory: JudgementMemory | None = None
+    asks: EntailmentCall | None,
+    memory: JudgementMemory | None = None,
+    judge: EntailmentCall | None = None,
 ) -> JudgingLadder:
-    """실을 수 있는 것만 얹은 사다리 — 뜻 검사는 같은 물음을 두 번 묻지 않게 감싸서 얹는다."""
+    """실을 수 있는 것만 얹은 사다리 — 묻는 층은 같은 물음을 두 번 묻지 않게 감싸서 얹는다."""
     evaluators = dict(DEFAULT_EVALUATORS)
     order = [EVALUATOR_NAME]
     if asks is None:
         _logger.info(NO_MEANING_LAYER)
-        return JudgingLadder(evaluators=evaluators, order=order)
-    definition = DEFAULT_EVALUATOR_CATALOG[NLI_EVALUATOR_NAME]
-    evaluators[NLI_EVALUATOR_NAME] = nli_entailment_evaluator(
-        remembers_what_was_judged(asks, definition, memory)
+    else:
+        evaluators[NLI_EVALUATOR_NAME] = nli_entailment_evaluator(
+            _asked_once(asks, NLI_EVALUATOR_NAME, memory)
+        )
+        order.append(NLI_EVALUATOR_NAME)
+    if judge is None:
+        _logger.info(NO_JUDGE_LAYER)
+        return JudgingLadder(
+            evaluators=evaluators, order=order, order_with_judge=list(order)
+        )
+    evaluators[LLM_JUDGE_EVALUATOR_NAME] = llm_judge_evaluator(
+        _asked_once(judge, LLM_JUDGE_EVALUATOR_NAME, memory)
     )
-    order.append(NLI_EVALUATOR_NAME)
-    return JudgingLadder(evaluators=evaluators, order=order)
+    return JudgingLadder(
+        evaluators=evaluators,
+        order=order,
+        order_with_judge=[*order, LLM_JUDGE_EVALUATOR_NAME],
+    )
 
 
-__all__ = ["NO_MEANING_LAYER", "JudgingLadder", "judging_ladder"]
+def _asked_once(
+    asks: EntailmentCall, evaluator_name: str, memory: JudgementMemory | None
+) -> AsksEntailment:
+    """같은 물음을 두 번 묻지 않게 감싼다 — 어느 층의 물음인지가 기억의 열쇠에 들어간다."""
+    return remembers_what_was_judged(
+        asks, DEFAULT_EVALUATOR_CATALOG[evaluator_name], memory
+    )
+
+
+__all__ = [
+    "NO_JUDGE_LAYER",
+    "NO_MEANING_LAYER",
+    "JudgingLadder",
+    "judging_ladder",
+]

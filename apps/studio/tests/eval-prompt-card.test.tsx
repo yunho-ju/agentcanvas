@@ -315,6 +315,37 @@ describe("빠진 말 토막 — 실패의 까닭은 서버가 적어 준 근거 
       expect(screen.getByText("감사합니다")).toBeInTheDocument();
       expect(screen.queryByText("글자는 달랐지만 뜻이 같아 통과했어요")).not.toBeInTheDocument();
     });
+    it("심판 모델이 판정한 통과는 심판이 보았다고 말한다 — 뜻 검사와 다른 말이다", async () => {
+      await shownCase([{ passed: true, output_text: "얼굴 뵈어 좋네요", judged_by: "llm_judge" }], {
+        passed: true,
+      });
+
+      expect(screen.getByText("심판 모델이 뜻을 보고 통과로 판정했어요")).toBeInTheDocument();
+      expect(screen.queryByText("글자는 달랐지만 뜻이 같아 통과했어요")).not.toBeInTheDocument();
+      // 판정기 원명·모델 이름은 쉬운 화면에 쓰지 않는다.
+      expect(screen.queryByText(/llm_judge/)).not.toBeInTheDocument();
+    });
+
+    it("화면이 모르는 층이 판정한 회차에는 없는 사실을 지어 붙이지 않는다", async () => {
+      await shownCase([{ passed: true, output_text: "반갑습니다", judged_by: "무언가-새로운-층" }], {
+        passed: true,
+      });
+
+      expect(screen.queryByText("글자는 달랐지만 뜻이 같아 통과했어요")).not.toBeInTheDocument();
+      expect(screen.queryByText("심판 모델이 뜻을 보고 통과로 판정했어요")).not.toBeInTheDocument();
+      expect(screen.getByText("실제로 나온 답")).toBeInTheDocument();
+    });
+
+    it("심판이 판정한 회차의 전문가 줄도 그 층의 이름을 말한다", async () => {
+      await shownCase([{ passed: true, output_text: "얼굴 뵈어 좋네요", judged_by: "llm_judge" }], {
+        passed: true,
+        advanced: true,
+      });
+
+      expect(screen.getByText(/llm_judge/)).toBeInTheDocument();
+      expect(screen.queryByText(/expected_phrases/)).not.toBeInTheDocument();
+    });
+
     it("자세히 보기의 회차 줄은 그 회차를 판정한 층의 이름을 말한다", async () => {
       await shownCase([{ passed: true, output_text: "만나 뵈어 기뻐요", judged_by: "nli_entailment" }], {
         passed: true,

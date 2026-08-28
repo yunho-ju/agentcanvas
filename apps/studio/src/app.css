@@ -3353,6 +3353,36 @@ button:disabled {
   opacity: 0.4;
 }
 
+/* 심판 체크 — 실행 primary 바로 아래 인라인 한 줄 (DESIGN §7 eval-panel). */
+.eval-panel__judge {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-label);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.eval-panel__judge:hover {
+  color: var(--accent);
+}
+
+.eval-panel__judge:has(input:disabled) {
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
+.eval-panel__judge input:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+/* 비용은 hover·title 뒤에 숨기지 않는다 — 켜기 전에 읽힌다. */
+.eval-panel__judge-cost {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}
+
 .eval-panel__notice {
   margin: 0;
   padding: var(--space-2) var(--space-3);

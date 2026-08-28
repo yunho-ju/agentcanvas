@@ -9,9 +9,10 @@ from agentcanvas_adapters.openai_model import OPENAI_API_KEY_REF
 from agentcanvas_adapters.providers import (
     OPENS_BY_PROVIDER,
     asks_whoever_serves,
+    can_be_asked,
     nobody_to_ask,
 )
-from agentcanvas_adapters.secrets import env_vault
+from agentcanvas_adapters.secrets import env_name, env_vault
 from agentcanvas_contracts.agent_spec import Node, Position
 from agentcanvas_contracts.model_catalog import ModelDef, Provider
 from agentcanvas_engine.model_call import ModelAsk, ModelBalked
@@ -46,6 +47,43 @@ def an_ask(model_ref: str) -> ModelAsk:
 def test_every_place_a_model_can_live_has_someone_who_asks_there():
     """표에 없는 provider는 KeyError가 되어 실행 전체의 사고로 샌다 — 늘리면 여기서 먼저 걸린다."""
     assert set(OPENS_BY_PROVIDER) == set(get_args(Provider))
+
+
+ON_MY_COMPUTER = ModelDef(
+    ref="model://on-my-computer",
+    title={"ko": "내 컴퓨터의 모델", "en": "On my computer"},
+    provider="openai_compatible",
+    model_id="qwen",
+    base_url="http://localhost:11434/v1",
+)
+
+
+class TestWhetherOneNameCanBeAskedHere:
+    """이름 하나가 실제로 답까지 닿는가 — '아무나 물을 곳이 있는가'와는 다른 물음이다."""
+
+    def test_a_name_nobody_set_up_cannot_be_asked(self):
+        assert can_be_asked("model://nobody-set-this-up", env_vault({}), CATALOG) is (
+            False
+        )
+
+    def test_a_name_whose_door_has_no_key_cannot_be_asked(self):
+        assert can_be_asked("model://claude", env_vault({}), CATALOG) is False
+
+    def test_a_name_whose_door_the_key_opens_can_be_asked(self):
+        vault = env_vault({env_name(ANTHROPIC_API_KEY_REF): "sk-a-key"})
+
+        assert can_be_asked("model://claude", vault, CATALOG) is True
+
+    def test_a_model_on_my_computer_needs_no_key_at_all(self):
+        catalog = {**CATALOG, ON_MY_COMPUTER.ref: ON_MY_COMPUTER}
+
+        assert can_be_asked(ON_MY_COMPUTER.ref, env_vault({}), catalog) is True
+
+    def test_another_open_door_does_not_open_this_name(self):
+        """다른 문이 열렸다고 이 이름이 열리지 않는다 — 이 갈림이 거짓 심판을 막는다."""
+        catalog = {**CATALOG, ON_MY_COMPUTER.ref: ON_MY_COMPUTER}
+
+        assert can_be_asked("model://claude", env_vault({}), catalog) is False
 
 
 class TestAskingWhoeverServesThatModel:

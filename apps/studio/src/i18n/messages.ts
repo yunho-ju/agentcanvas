@@ -962,6 +962,12 @@ const TEXTS = {
     ko: "모든 케이스를 지금 그래프로 한 번에 돌려 본다",
     en: "Runs every case against this graph, all at once",
   },
+  // 심판 체크 — 값이 드는 층은 사람이 켤 때만 선다 (DESIGN §7 eval-panel).
+  "eval.run.judge": { ko: "심판 모델까지 쓰기", en: "Use the judge model too" },
+  "eval.run.judge.cost": {
+    ko: "모델 호출 비용이 들어요",
+    en: "This calls a model, so it costs money",
+  },
   "eval.run.all.blocked.running": {
     ko: "지금 돌려 보는 중이에요",
     en: "Already running these now",
@@ -1004,6 +1010,11 @@ const TEXTS = {
   "eval.case.rescued": {
     ko: "글자는 달랐지만 뜻이 같아 통과했어요",
     en: "The words were different, but the meaning matched, so it passed",
+  },
+  // 심판 모델이 구제한 통과 한 줄 — 무엇이 통과시켰는지가 다르므로 뜻 검사와 다른 말을 한다.
+  "eval.case.rescued.judge": {
+    ko: "심판 모델이 뜻을 보고 통과로 판정했어요",
+    en: "The judge model read the meaning and passed it",
   },
   // 주의 신호 한 줄 — 통과했어도 회차마다 답이 갈렸다는 관찰이다 (DESIGN §7 eval-case-card).
   // 판정이 아니므로 '틀렸다'고 말하지 않는다: 본 것만 말한다.

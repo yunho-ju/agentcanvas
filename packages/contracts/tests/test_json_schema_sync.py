@@ -219,6 +219,19 @@ def test_eval_case_schema_description_states_the_passes_needed_rule():
     assert "runs_per_case" in schema["description"]
 
 
+def test_a_new_rung_does_not_move_the_eval_batch_schema():
+    """판정기가 늘어도 결과 계약은 그대로다 — judged_by는 층 이름을 열거하지 않는 일반 글자다.
+
+    열거로 적어 두면 층을 하나 더할 때마다 결과 계약이 흔들리고, 옛 배치를 읽지 못하게 된다.
+    """
+    written = (JSON_SCHEMA_DIR / "eval_batch.json").read_text(encoding="utf-8")
+    document = json.loads(written)
+    judged_by = document["$defs"]["EvalAttempt"]["properties"]["judged_by"]
+
+    assert {"type": "string"} in judged_by["anyOf"]
+    assert all(name not in written for name in DEFAULT_EVALUATOR_CATALOG)
+
+
 def test_rendered_schema_is_valid_json_schema_document():
     document = json.loads(render_schema(SCHEMA_MODELS["agent_spec"]))
     assert document["title"] == "AgentSpec"

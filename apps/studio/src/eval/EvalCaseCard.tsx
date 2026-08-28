@@ -136,9 +136,9 @@ export function EvalCaseCard({ evalCase }: { evalCase: EvalCase }) {
       ) : null}
       {/* 방금 돌린 결과가 먼저 보인다 — 결과 토막 → 편집 폼(지우기·저장 캡션은 폼 맨 아래) (DESIGN §7). */}
       {expanded && shown ? <EvalCaseResult shown={shown} /> : null}
-      {/* 글자로는 놓쳤지만 뜻이 같아 통과한 회차 — 이미 ✓로 말한 통과를 다시 외치지 않고 까닭만 한 줄 (DESIGN §7). */}
-      {expanded && shown?.rescuedByMeaning ? (
-        <p className="eval-case-card__rescued">{t("eval.case.rescued")}</p>
+      {/* 윗층이 구제한 회차 — 이미 ✓로 말한 통과를 다시 외치지 않고, 무엇이 통과시켰는지만 한 줄 (DESIGN §7). */}
+      {expanded && shown?.rescuedBy ? (
+        <p className="eval-case-card__rescued">{t(shown.rescuedBy)}</p>
       ) : null}
       {/* 빠진 말은 결과 토막이 보여 주는 바로 그 회차의 답에서 나온다 — 답 A를 보여 주며 답 B를 따지지 않는다. */}
       {expanded && shown && state.kind === "failed" ? (

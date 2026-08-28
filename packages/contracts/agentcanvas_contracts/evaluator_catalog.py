@@ -1,7 +1,7 @@
 """판정기 카탈로그 — 답이 맞았는지 무엇으로 확인할지 고르는 목록.
 
-사다리의 두 층이 있다: 답에 기대하는 말이 들어있는지 보는 싼 확인(0층)과, 글자가 달라도 뜻이
-담겼는지 보는 확인(1층)이다.
+사다리의 세 층이 있다: 답에 기대하는 말이 들어있는지 보는 싼 확인(0층), 글자가 달라도 뜻이
+담겼는지 보는 확인(1층), 그리고 사람이 켰을 때만 서는 심판 모델의 판정(2층)이다.
 판정 로직 자체(정규화·contains 비교)는 여기 없다 — EVAL-2가 이 이름을 보고 무엇을 돌릴지 고른다.
 """
 
@@ -63,6 +63,27 @@ DEFAULT_EVALUATOR_CATALOG: dict[str, EvaluatorDef] = {
                         'If the expected phrase is "nice to meet you", an answer '
                         'like "I am glad we could meet" passes too, because it '
                         "means the same thing."
+                    ),
+                },
+            }
+        ),
+        EvaluatorDef.model_validate(
+            {
+                "name": "llm_judge",
+                "version": "v1",
+                "plain_description": {
+                    "ko": "심판 모델에게 이 뜻이 답에 담겼는지 물어봐요",
+                    "en": "Asks a judge model whether the answer says this",
+                },
+                "example": {
+                    "ko": (
+                        '기대하는 말이 "반갑습니다"라면, 답이 "얼굴 뵙게 되어 좋네요"일 때도 '
+                        "심판 모델이 같은 뜻으로 보면 통과예요."
+                    ),
+                    "en": (
+                        'If the expected phrase is "nice to meet you", an answer '
+                        'like "good to see you in person" passes when the judge '
+                        "model reads it as the same thing."
                     ),
                 },
             }
