@@ -3,8 +3,9 @@
 RunService와 같은 결을 따른다: 실행은 배경에서 흐르고, 일꾼·모델·시계·이름은 밖에서 받는다.
 배경에서 죽으면 기다리는 사람에게도 소식이 가야 한다(run_service.py `_gives_up`과 같은 규율) —
 실패한 배치는 in-flight에서 내려가고, 조회가 그 실패를 말한다.
-판정(무엇이 통과인가)은 engine의 판정기가 안다 — 어느 판정기로 돌지는 밖에서 받은 매핑에서
-고르고(evaluator_named), 여기는 그것을 케이스마다 불러 모을 뿐이다: 새 층을 얹는 데 이 파일을 고치지 않는다.
+판정(무엇이 통과인가)은 engine의 판정기가 안다 — 어느 판정기가 어느 차례로 설지는 밖에서 받은
+이름 목록(ladder)에서 고르고(evaluator_named), 사다리를 딛는 규칙도 engine의 순수 함수가 안다:
+새 층을 얹거나 순서를 바꾸는 데 이 파일을 고치지 않는다.
 v1 배치는 spec을 그대로 돈다: 모델 이름은 요청에도 결과 계약에도 없다(모델 비교는 v2).
 시도가 예외로 어그러지거나 게이트에서 멈추면 그 출력은 빈 문자열이 된다: 기대하는 문구가
 빈 문자열에 담겨 있을 수는 없으므로, 판정은 저절로 불통과가 된다 — 따로 갈래를 타지 않는다.
@@ -25,6 +26,7 @@ from agentcanvas_contracts.eval_result import EvalAttempt, EvalBatch, EvalCaseRe
 from agentcanvas_contracts.run_events import EventType, RunEvent
 from agentcanvas_engine.evaluation.evaluator import Evaluator
 from agentcanvas_engine.evaluation.expected_phrases import EVALUATOR_NAME, passes
+from agentcanvas_engine.evaluation.ladder import judged_up_the_ladder
 from agentcanvas_engine.evaluation.registry import DEFAULT_EVALUATORS, evaluator_named
 from agentcanvas_engine.model_call import ModelCall, says_the_first_way
 from agentcanvas_engine.routed_runtime import routed_run, spoken_llm_texts
@@ -137,6 +139,7 @@ class EvalBatchService:
         jobs: DurableJobStore | None = None,
         wake_worker: Callable[[], None] | None = None,
         evaluators: Mapping[str, Evaluator] = DEFAULT_EVALUATORS,
+        ladder: Sequence[str] = (EVALUATOR_NAME,),
     ) -> None:
         self._datasets = datasets
         self._specs = specs
@@ -149,12 +152,15 @@ class EvalBatchService:
         self._run_case = run_case
         self._jobs = jobs
         self._wake_worker = wake_worker or (lambda: None)
-        # 어느 판정기로 돌지는 밖에서 받은 매핑에서 고른다 — 이름은 v1 하나뿐이고(사다리 순서는 EVAL-4),
-        # 그 이름이 매핑에 없으면 배치를 돌려 놓고 뒤늦게 어그러지는 대신 만드는 자리에서 말한다.
-        evaluator = evaluator_named(EVALUATOR_NAME, evaluators)
-        if evaluator is None:
-            raise ValueError(f"no evaluator named {EVALUATOR_NAME} was handed in")
-        self._evaluator = evaluator
+        # 어느 판정기로 어느 차례에 돌지는 밖에서 받은 이름 목록(ladder)이 정한다 — 층을 더하거나
+        # 순서를 바꾸는 데 이 파일을 고치지 않는다(OCP). 이름이 매핑에 없으면 배치를 돌려 놓고
+        # 뒤늦게 어그러지는 대신 만드는 자리에서 말한다.
+        rungs = [_the_evaluator_named(name, evaluators) for name in ladder]
+        if not rungs:
+            raise ValueError("a judging ladder needs at least a ground floor")
+        # 0층은 사다리의 밑동이라 반드시 있다 — 케이스 결과가 이름·판으로 싣는 것도 이 층이다.
+        self._evaluator = rungs[0]
+        self._higher_rungs = rungs[1:]
         # 아직 완결되지 않은 배치들 — 서버가 다시 뜨면 잊힌다(v1 알려진 한계).
         self._in_flight: set[str] = set()
         # 배경에서 죽은 배치들 — 조회가 running인 척 영영 기다리게 하지 않는다.
@@ -293,12 +299,15 @@ class EvalBatchService:
         except Exception:  # noqa: BLE001 — 남의 사정으로 배치를 멈추지 않는다: 이 시도만 불통과로 적는다.
             events = []
         output_text = _final_output_text(spec, events)
-        judgement = self._evaluator.judge(case.expected_phrases, output_text)
+        verdict = judged_up_the_ladder(
+            self._evaluator, self._higher_rungs, case.expected_phrases, output_text
+        )
         return EvalAttempt(
             run_id=run_id,
-            passed=judgement.passed,
+            passed=verdict.passed,
             output_text=output_text,
-            missing_phrases=judgement.missing_phrases,
+            missing_phrases=verdict.missing_phrases,
+            judged_by=verdict.judged_by,
         )
 
     def view(self, batch_id: str) -> EvalBatchView:
@@ -421,6 +430,14 @@ class EvalBatchService:
         fetched = self._batches.list_for_dataset(dataset_id, limit=limit + 1)
         summaries = [EvalBatchSummary.of(batch) for batch in fetched[:limit]]
         return EvalBatchListing(batches=summaries, has_more=len(fetched) > limit)
+
+
+def _the_evaluator_named(name: str, evaluators: Mapping[str, Evaluator]) -> Evaluator:
+    """사다리에 세울 층 하나 — 건네받은 매핑에 없는 이름은 그 자리에서 말한다."""
+    evaluator = evaluator_named(name, evaluators)
+    if evaluator is None:
+        raise ValueError(f"no evaluator named {name} was handed in")
+    return evaluator
 
 
 def _case_passed(case: EvalCase, attempts: Sequence[EvalAttempt]) -> bool:

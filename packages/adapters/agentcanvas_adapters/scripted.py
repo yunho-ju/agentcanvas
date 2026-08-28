@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from agentcanvas_engine.evaluation.entailment import Entailment
+
 
 @dataclass(frozen=True)
 class _Text:
@@ -179,4 +181,31 @@ class ScriptedOpenAI:
         return reply.completed()
 
 
-__all__ = ["ScriptedChoice", "ScriptedLLM", "ScriptedOpenAI", "ScriptedReply"]
+class ScriptedEntailment:
+    """함의를 묻는 자리의 대역 — 적어 둔 답을 차례로 하고, 무엇을 물었는지 기억한다."""
+
+    def __init__(
+        self, answers: Sequence[bool] = (), model_ref: str = "scripted"
+    ) -> None:
+        self._answers = list(answers)
+        #: 진짜와 같은 자리에 선다는 뜻 — 판정을 기억해 두는 열쇠에 이 정체가 들어간다.
+        self.model_ref = model_ref
+        #: 대역이 받은 (진술, 본문)들 — 무엇을 물었는지는 시험이 직접 읽어 확인한다.
+        self.asked: list[tuple[str, str]] = []
+
+    def __call__(self, statement: str, body: str) -> Entailment:
+        """다음 차례의 답 — 적어 둔 답이 떨어지면 조용히 지어내지 않고 크게 말한다."""
+        assert len(self.asked) < len(self._answers), (
+            "the stand-in was asked more times than it was given answers"
+        )
+        self.asked.append((statement, body))
+        return Entailment(entailed=self._answers[len(self.asked) - 1])
+
+
+__all__ = [
+    "ScriptedChoice",
+    "ScriptedEntailment",
+    "ScriptedLLM",
+    "ScriptedOpenAI",
+    "ScriptedReply",
+]

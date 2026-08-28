@@ -8,11 +8,13 @@ v1 배치는 spec을 그대로 돈다 — model은 요청에도 결과 계약에
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from itertools import count
 
 import pytest
+from agentcanvas_adapters.scripted import ScriptedEntailment
+from agentcanvas_api.entailment_memory import remembers_what_was_judged
 from agentcanvas_api.eval_batch_store import EvalBatchStore
 from agentcanvas_api.eval_service import (
     EvalBatchFailed,
@@ -36,12 +38,20 @@ from agentcanvas_contracts.agent_spec import (
 )
 from agentcanvas_contracts.eval_case import EvalCase, EvalDataset
 from agentcanvas_contracts.eval_result import EvalBatch
-from agentcanvas_contracts.evaluator_catalog import EvaluatorDef
+from agentcanvas_contracts.evaluator_catalog import (
+    DEFAULT_EVALUATOR_CATALOG,
+    EvaluatorDef,
+)
 from agentcanvas_engine.evaluation.evaluator import Evaluator, Judgement
 from agentcanvas_engine.evaluation.expected_phrases import (
     EVALUATOR_NAME,
     judge_expected_phrases,
 )
+from agentcanvas_engine.evaluation.nli_entailment import (
+    NLI_EVALUATOR_NAME,
+    nli_entailment_evaluator,
+)
+from agentcanvas_engine.evaluation.registry import DEFAULT_EVALUATORS
 from agentcanvas_engine.model_call import ModelAsk, ModelSaid
 
 STARTED_AT = datetime(2026, 8, 1, 12, 30, tzinfo=UTC)
@@ -186,6 +196,7 @@ def a_service(
     batches: EvalBatchStore,
     model=None,
     evaluators: Mapping[str, Evaluator] | None = None,
+    ladder: Sequence[str] | None = None,
 ) -> EvalBatchService:
     return EvalBatchService(
         datasets=datasets,
@@ -197,6 +208,7 @@ def a_service(
         new_batch_id=counting_ids("batch"),
         worker=right_here,
         **({} if evaluators is None else {"evaluators": evaluators}),
+        **({} if ladder is None else {"ladder": ladder}),
     )
 
 
@@ -691,3 +703,228 @@ def test_a_service_without_the_evaluator_it_needs_says_so_at_once(
     """C2: 고를 판정기가 없으면 배치를 돌려 놓고 뒤늦게 어그러지지 않는다 — 만드는 그 자리에서 말한다."""
     with pytest.raises(ValueError, match=EVALUATOR_NAME):
         a_service(specs, datasets, batches, evaluators={})
+
+
+class SaysInTurn:
+    """돌릴 때마다 다른 말을 하는 모델 — 회차마다 답이 갈리는 자리를 만든다."""
+
+    def __init__(self, *texts: str) -> None:
+        self._texts = list(texts)
+        self._said = 0
+
+    def __call__(self, ask: ModelAsk) -> ModelSaid:
+        text = self._texts[min(self._said, len(self._texts) - 1)]
+        self._said += 1
+        return ModelSaid(input_tokens=7, output_tokens=3, text=text)
+
+
+def a_ladder_service(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: EvalBatchStore,
+    asks: ScriptedEntailment,
+    model=None,
+) -> EvalBatchService:
+    """0층 위에 뜻으로 보는 층을 얹은 서비스 — 함의를 묻는 자리에는 대역이 선다."""
+    nli = nli_entailment_evaluator(asks)
+    return a_service(
+        specs,
+        datasets,
+        batches,
+        model=model,
+        evaluators={**DEFAULT_EVALUATORS, NLI_EVALUATOR_NAME: nli},
+        ladder=[EVALUATOR_NAME, NLI_EVALUATOR_NAME],
+    )
+
+
+def one_case_batch(
+    service: EvalBatchService, batches: InMemoryEvalBatchStore, revision: str
+):
+    """케이스 하나를 돌리고 그 결과를 돌려준다 — 시험마다 같은 세 줄을 되풀이하지 않는다."""
+    outcome = service.start("greetings", SPEC_ID, revision)
+    assert isinstance(outcome, EvalBatchStarted)
+    batch = batches.get(outcome.batch_id)
+    assert batch is not None
+    return batch.results[0]
+
+
+def test_the_ground_floor_passing_never_asks_the_meaning_layer(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C3: 싼 층이 먼저다 — 글자로 통과하면 뜻 검사는 한 번도 불리지 않는다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(EvalDataset(id="greetings", name="인사", cases=[a_case()]))
+    asks = ScriptedEntailment([])
+    service = a_ladder_service(specs, datasets, batches, asks)
+
+    result = one_case_batch(service, batches, spec.revision)
+
+    assert asks.asked == []
+    assert result.attempts[0].passed is True
+    assert result.attempts[0].judged_by == EVALUATOR_NAME
+
+
+def test_a_round_the_meaning_layer_rescues_passes_with_no_reason_left(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C4: 글자로는 놓쳤지만 뜻이 담겼다면 그 회차는 구제되어 통과하고, 근거는 남지 않는다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(EvalDataset(id="greetings", name="인사", cases=[a_case()]))
+    asks = ScriptedEntailment([True])
+    service = a_ladder_service(
+        specs, datasets, batches, asks, model=Says("만나 뵈어 기뻐요")
+    )
+
+    result = one_case_batch(service, batches, spec.revision)
+
+    assert asks.asked == [("반갑습니다", "만나 뵈어 기뻐요")]
+    assert result.attempts[0].passed is True
+    assert result.attempts[0].missing_phrases == []
+    assert result.attempts[0].judged_by == NLI_EVALUATOR_NAME
+    assert result.passed is True
+
+
+def test_only_the_phrases_the_meaning_layer_could_not_rescue_stay_as_the_reason(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C5: 하나라도 못 건지면 실패다 — 근거에는 끝내 못 건진 말만 남는다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(
+        EvalDataset(
+            id="greetings",
+            name="인사",
+            cases=[a_case(expected_phrases=["반갑습니다", "감사합니다"])],
+        )
+    )
+    asks = ScriptedEntailment([True, False])
+    service = a_ladder_service(
+        specs, datasets, batches, asks, model=Says("만나 뵈어 기뻐요")
+    )
+
+    result = one_case_batch(service, batches, spec.revision)
+
+    assert result.attempts[0].passed is False
+    assert result.attempts[0].missing_phrases == ["감사합니다"]
+    assert result.attempts[0].judged_by == NLI_EVALUATOR_NAME
+
+
+def test_without_a_meaning_layer_the_ground_floor_verdict_stands(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C6: 뜻 검사가 없으면 사다리는 조용히 짧아진다 — 0층의 판정과 근거가 그대로다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(EvalDataset(id="greetings", name="인사", cases=[a_case()]))
+    service = a_service(specs, datasets, batches, model=Says("만나 뵈어 기뻐요"))
+
+    result = one_case_batch(service, batches, spec.revision)
+
+    assert result.attempts[0].passed is False
+    assert result.attempts[0].missing_phrases == ["반갑습니다"]
+    assert result.attempts[0].judged_by == EVALUATOR_NAME
+
+
+def test_the_same_question_about_the_same_answer_is_not_asked_twice(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C7: 같은 (기대하는 말, 답)이면 다시 묻지 않는다 — 대역은 한 번만 불린다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(
+        EvalDataset(
+            id="greetings",
+            name="인사",
+            cases=[a_case(runs_per_case=2, passes_needed=2)],
+        )
+    )
+    asks = ScriptedEntailment([True])
+    nli = nli_entailment_evaluator(
+        remembers_what_was_judged(asks, DEFAULT_EVALUATOR_CATALOG[NLI_EVALUATOR_NAME])
+    )
+    service = a_service(
+        specs,
+        datasets,
+        batches,
+        model=Says("만나 뵈어 기뻐요"),
+        evaluators={**DEFAULT_EVALUATORS, NLI_EVALUATOR_NAME: nli},
+        ladder=[EVALUATOR_NAME, NLI_EVALUATOR_NAME],
+    )
+
+    result = one_case_batch(service, batches, spec.revision)
+
+    assert asks.asked == [("반갑습니다", "만나 뵈어 기뻐요")]
+    assert [attempt.passed for attempt in result.attempts] == [True, True]
+
+
+def test_a_different_answer_is_a_different_question_and_is_asked_again(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C8: 답이 다르면 기억해 둔 판정을 쓰지 않는다 — 새로 묻는다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(
+        EvalDataset(
+            id="greetings",
+            name="인사",
+            cases=[a_case(runs_per_case=2, passes_needed=1)],
+        )
+    )
+    asks = ScriptedEntailment([True, False])
+    nli = nli_entailment_evaluator(
+        remembers_what_was_judged(asks, DEFAULT_EVALUATOR_CATALOG[NLI_EVALUATOR_NAME])
+    )
+    service = a_service(
+        specs,
+        datasets,
+        batches,
+        model=SaysInTurn("만나 뵈어 기뻐요", "오늘 날씨가 좋네요"),
+        evaluators={**DEFAULT_EVALUATORS, NLI_EVALUATOR_NAME: nli},
+        ladder=[EVALUATOR_NAME, NLI_EVALUATOR_NAME],
+    )
+
+    result = one_case_batch(service, batches, spec.revision)
+
+    assert asks.asked == [
+        ("반갑습니다", "만나 뵈어 기뻐요"),
+        ("반갑습니다", "오늘 날씨가 좋네요"),
+    ]
+    assert [attempt.passed for attempt in result.attempts] == [True, False]
+
+
+def test_the_ladder_is_climbed_in_the_order_it_was_handed_in(
+    specs: InMemorySpecStore,
+    datasets: InMemoryEvalDatasetStore,
+    batches: InMemoryEvalBatchStore,
+):
+    """C9: 층과 순서는 주입이 정한다 — engine·api 어느 파일도 이 두 층을 알지 못한다."""
+    spec = a_greeter_spec([a_node("writer")])
+    specs.append(spec, created_at=STARTED_AT)
+    datasets.save(EvalDataset(id="greetings", name="인사", cases=[a_case()]))
+    first, second = a_stand_in_evaluator("첫째"), a_stand_in_evaluator("둘째")
+    service = a_service(
+        specs,
+        datasets,
+        batches,
+        evaluators={"첫째": first, "둘째": second},
+        ladder=["첫째", "둘째"],
+    )
+
+    result = one_case_batch(service, batches, spec.revision)
+
+    assert result.evaluator == "첫째"
+    assert result.attempts[0].judged_by == "둘째"

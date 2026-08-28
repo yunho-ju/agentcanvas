@@ -7,6 +7,7 @@ import type { EvalBatch } from "../generated/eval_batch";
 import { useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 import { attemptsForCase } from "./batchHistory";
+import { evaluatorCatalog } from "./evaluatorCatalog";
 
 const MARK: Record<string, string> = { passed: "✓", failed: "✕" };
 
@@ -68,16 +69,27 @@ function EvalAttemptList({ evalCase, batch }: { evalCase: EvalCase; batch: EvalB
   if (!result) return null;
   return (
     <div className="eval-attempt-list" aria-label={t("eval.attempts.label")}>
-      {attemptsForCase(batch, evalCase.id).map((attempt, index) => (
-        <div className="eval-attempt-list__item" key={`${attempt.run_id}-${index}`}>
-          <span className="eval-attempt-list__round">{t("eval.attempts.round", { round: index + 1 })}</span>
-          <span className={attempt.passed ? "eval-attempt-list__passed" : "eval-attempt-list__failed"}>
-            {attempt.passed ? "✓" : "✕"} {t(attempt.passed ? "eval.attempts.passed" : "eval.attempts.failed")}
-          </span>
-          <span className="eval-attempt-list__output">{attempt.output_text || t("eval.case.result.empty")}</span>
-          <span className="eval-attempt-list__technical">{result.evaluator} · {result.evaluator_version} · {attempt.run_id}</span>
-        </div>
-      ))}
+      {attemptsForCase(batch, evalCase.id).map((attempt, index) => {
+        // 그 회차를 실제로 판정한 층 — 사다리 윗층이 결론을 냈으면 그 이름·판을 말한다.
+        // 판정한 이름을 싣지 않은 옛 배치는 케이스가 실은 이름 그대로다(추측하지 않는다).
+        const judgedBy = attempt.judged_by ?? result.evaluator;
+        // 케이스가 실은 그 층이면 배치가 적어 둔 판이 권위다(그때 실제로 돈 판이다).
+        // 윗층이 판정한 회차만 그 층의 판을 카탈로그에서 가져온다.
+        const version =
+          judgedBy === result.evaluator
+            ? result.evaluator_version
+            : (evaluatorCatalog[judgedBy]?.version ?? result.evaluator_version);
+        return (
+          <div className="eval-attempt-list__item" key={`${attempt.run_id}-${index}`}>
+            <span className="eval-attempt-list__round">{t("eval.attempts.round", { round: index + 1 })}</span>
+            <span className={attempt.passed ? "eval-attempt-list__passed" : "eval-attempt-list__failed"}>
+              {attempt.passed ? "✓" : "✕"} {t(attempt.passed ? "eval.attempts.passed" : "eval.attempts.failed")}
+            </span>
+            <span className="eval-attempt-list__output">{attempt.output_text || t("eval.case.result.empty")}</span>
+            <span className="eval-attempt-list__technical">{judgedBy} · {version} · {attempt.run_id}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -124,6 +136,10 @@ export function EvalCaseCard({ evalCase }: { evalCase: EvalCase }) {
       ) : null}
       {/* 방금 돌린 결과가 먼저 보인다 — 결과 토막 → 편집 폼(지우기·저장 캡션은 폼 맨 아래) (DESIGN §7). */}
       {expanded && shown ? <EvalCaseResult shown={shown} /> : null}
+      {/* 글자로는 놓쳤지만 뜻이 같아 통과한 회차 — 이미 ✓로 말한 통과를 다시 외치지 않고 까닭만 한 줄 (DESIGN §7). */}
+      {expanded && shown?.rescuedByMeaning ? (
+        <p className="eval-case-card__rescued">{t("eval.case.rescued")}</p>
+      ) : null}
       {/* 빠진 말은 결과 토막이 보여 주는 바로 그 회차의 답에서 나온다 — 답 A를 보여 주며 답 B를 따지지 않는다. */}
       {expanded && shown && state.kind === "failed" ? (
         <EvalCaseMissing missing={shown.missing} />

@@ -16,6 +16,11 @@ dependencies = [
     "openai>=3.2",
 ]
 
+[project.optional-dependencies]
+# 뜻으로 보는 판정(NLI) 층 — 서버에 골라 설치한다. 설치하지 않으면 함의를 묻는 자리가
+# 비고(local_entailment가 없음을 돌려준다) 사다리는 0층까지만 선다. 호출당 비용은 0이다.
+nli = ["torch>=2.2", "transformers>=4.44"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

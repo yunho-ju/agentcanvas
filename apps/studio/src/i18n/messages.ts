@@ -1000,6 +1000,11 @@ const TEXTS = {
     ko: "어느 말이 빠졌는지 찾지 못했어요 — '자세히 보기'를 켜면 회차마다 무엇이 나왔는지 볼 수 있어요",
     en: "We could not tell which words were missing — turn on 'Show details' to see what came back each run",
   },
+  // 뜻으로 구제된 통과 한 줄 — 판정기 원명·점수 없이 무슨 일이 있었는지만 말한다 (DESIGN §7 eval-case-card).
+  "eval.case.rescued": {
+    ko: "글자는 달랐지만 뜻이 같아 통과했어요",
+    en: "The words were different, but the meaning matched, so it passed",
+  },
   // 주의 신호 한 줄 — 통과했어도 회차마다 답이 갈렸다는 관찰이다 (DESIGN §7 eval-case-card).
   // 판정이 아니므로 '틀렸다'고 말하지 않는다: 본 것만 말한다.
   "eval.case.spread": {

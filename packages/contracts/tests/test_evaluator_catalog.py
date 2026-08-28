@@ -7,6 +7,7 @@ from agentcanvas_contracts.evaluator_catalog import (
 from pydantic import ValidationError
 
 EXPECTED_PHRASES = "expected_phrases"
+NLI_ENTAILMENT = "nli_entailment"
 
 
 def test_the_catalog_keys_every_evaluator_by_its_own_name():
@@ -16,8 +17,9 @@ def test_the_catalog_keys_every_evaluator_by_its_own_name():
     )
 
 
-def test_the_seed_offers_exactly_one_evaluator():
-    assert sorted(DEFAULT_EVALUATOR_CATALOG) == [EXPECTED_PHRASES]
+def test_the_catalog_offers_the_two_rungs_of_the_ladder():
+    """싼 글자 확인과 그 위의 뜻 확인 — 사다리의 층은 이 목록이 원천이다."""
+    assert sorted(DEFAULT_EVALUATOR_CATALOG) == [EXPECTED_PHRASES, NLI_ENTAILMENT]
 
 
 def test_every_evaluator_has_a_plain_description_and_an_example_in_both_languages():

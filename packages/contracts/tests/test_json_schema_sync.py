@@ -270,3 +270,19 @@ def test_example_agent_spec_validates_against_committed_schema():
         ).read_text(encoding="utf-8")
     )
     jsonschema.validate(instance=example, schema=schema)
+
+
+def test_regenerating_everything_twice_writes_exactly_the_same_bytes(tmp_path):
+    """재생성은 몇 번을 돌려도 같은 파일이다 — 생성물 diff가 이유 없이 흔들리지 않는다."""
+
+    def everything() -> dict[str, str]:
+        paths = [
+            *write_schemas(tmp_path),
+            write_evaluator_catalog(tmp_path),
+            write_instruction_catalog(tmp_path),
+            write_model_catalog(tmp_path),
+            write_schema_catalog(tmp_path),
+        ]
+        return {path.name: path.read_text(encoding="utf-8") for path in paths}
+
+    assert everything() == everything()

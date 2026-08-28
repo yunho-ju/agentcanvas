@@ -129,11 +129,16 @@ describe("빠진 말 토막 — 실패의 까닭은 서버가 적어 준 근거 
     expected_phrases: ["반갑습니다", "감사합니다"],
   };
 
-  type GivenAttempt = { passed: boolean; output_text: string; missing_phrases?: string[] };
+  type GivenAttempt = {
+    passed: boolean;
+    output_text: string;
+    missing_phrases?: string[];
+    judged_by?: string | null;
+  };
 
   async function shownCase(
     attempts: GivenAttempt[],
-    { passed = false, expectedPhrases = evalCase.expected_phrases } = {},
+    { passed = false, expectedPhrases = evalCase.expected_phrases, advanced = false } = {},
   ) {
     await openPanel(specWith({ "clinical-agent": "환자에게 쉬운 말로 답해요" }));
     const batch: EvalBatch = {
@@ -161,6 +166,7 @@ describe("빠진 말 토막 — 실패의 까닭은 서버가 적어 준 근거 
         batch,
         batchId: batch.id,
         batchStatus: "completed",
+        evalAdvanced: advanced,
       }),
     );
     await userEvent.click(screen.getByText(evalCase.title));
@@ -266,6 +272,67 @@ describe("빠진 말 토막 — 실패의 까닭은 서버가 적어 준 근거 
 
       expect(screen.getByText("답에 없던 말")).toBeInTheDocument();
       expect(screen.queryByText(/갈렸어요/)).not.toBeInTheDocument();
+    });
+  });
+  describe("뜻으로 구제된 통과 — 글자는 달랐지만 뜻이 같았다 (EVAL-4)", () => {
+    it("서버가 그 회차를 뜻 검사로 판정했으면 쉬운 말 한 줄로 말한다", async () => {
+      await shownCase([{ passed: true, output_text: "만나 뵈어 기뻐요", judged_by: "nli_entailment" }], {
+        passed: true,
+      });
+
+      expect(screen.getByText("글자는 달랐지만 뜻이 같아 통과했어요")).toBeInTheDocument();
+      // 판정기 원명·점수는 쉬운 화면에 쓰지 않는다.
+      expect(screen.queryByText(/nli_entailment/)).not.toBeInTheDocument();
+    });
+
+    it("글자로 통과한 회차에는 뜻 이야기를 붙이지 않는다", async () => {
+      await shownCase([{ passed: true, output_text: "반갑습니다", judged_by: "expected_phrases" }], {
+        passed: true,
+      });
+
+      expect(screen.queryByText("글자는 달랐지만 뜻이 같아 통과했어요")).not.toBeInTheDocument();
+    });
+
+    it("판정한 이름이 없는 옛 배치는 그 줄 없이 그대로 그려진다", async () => {
+      await shownCase([{ passed: true, output_text: "반갑습니다", missing_phrases: [] }], { passed: true });
+
+      expect(screen.queryByText("글자는 달랐지만 뜻이 같아 통과했어요")).not.toBeInTheDocument();
+      expect(screen.getByText("실제로 나온 답")).toBeInTheDocument();
+      expect(screen.getByText("반갑습니다")).toBeInTheDocument();
+    });
+
+    it("구제되지 못한 실패 회차의 빠진 말은 서버가 적어 준 그대로다", async () => {
+      await shownCase([
+        {
+          passed: false,
+          output_text: "만나 뵈어 기뻐요",
+          missing_phrases: ["감사합니다"],
+          judged_by: "nli_entailment",
+        },
+      ]);
+
+      expect(screen.getByText("답에 없던 말")).toBeInTheDocument();
+      expect(screen.getByText("감사합니다")).toBeInTheDocument();
+      expect(screen.queryByText("글자는 달랐지만 뜻이 같아 통과했어요")).not.toBeInTheDocument();
+    });
+    it("자세히 보기의 회차 줄은 그 회차를 판정한 층의 이름을 말한다", async () => {
+      await shownCase([{ passed: true, output_text: "만나 뵈어 기뻐요", judged_by: "nli_entailment" }], {
+        passed: true,
+        advanced: true,
+      });
+
+      // 구제 라벨 바로 아래에서 0층 이름을 말하면 한 화면이 두 가지를 주장하게 된다.
+      expect(screen.getByText(/nli_entailment/)).toBeInTheDocument();
+      expect(screen.queryByText(/expected_phrases/)).not.toBeInTheDocument();
+    });
+
+    it("판정한 이름이 없는 옛 배치의 회차 줄은 케이스가 실은 이름 그대로다", async () => {
+      await shownCase([{ passed: true, output_text: "반갑습니다", missing_phrases: [] }], {
+        passed: true,
+        advanced: true,
+      });
+
+      expect(screen.getByText(/expected_phrases/)).toBeInTheDocument();
     });
   });
 });

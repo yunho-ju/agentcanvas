@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from agentcanvas_adapters.scripted import ScriptedEntailment
+from agentcanvas_api import app as app_module
 from agentcanvas_api.app import create_app
 from agentcanvas_api.memory_eval_batch_store import InMemoryEvalBatchStore
 from agentcanvas_api.memory_eval_dataset_store import InMemoryEvalDatasetStore
@@ -279,3 +281,70 @@ def test_a_batch_that_breaks_while_saving_reads_as_failed():
     assert failed.status_code == 200
     assert failed.json()["status"] == "failed"
     assert failed.json()["message"]
+
+
+def a_client_with(asks_entailment=None) -> TestClient:
+    """뜻 검사 백엔드를 밖에서 건네받는 서버 — 시험은 진짜 모델을 싣지 않는다."""
+    return TestClient(
+        create_app(
+            store=InMemorySpecStore(),
+            run_store=InMemoryRunStore(),
+            eval_dataset_store=InMemoryEvalDatasetStore(),
+            eval_batch_store=InMemoryEvalBatchStore(),
+            clock=lambda: STARTED_AT,
+            worker=right_here,
+            asks_entailment=asks_entailment,
+        )
+    )
+
+
+def one_attempt_of_a_batch(client: TestClient) -> dict:
+    """스펙·데이터셋을 올리고 배치 하나를 끝까지 돌려 그 회차를 돌려준다."""
+    client.post("/specs", json=spec_payload())
+    spec = client.get(f"/specs/{SPEC_ID}").json()["spec"]
+    client.post("/eval/datasets", json=a_dataset_payload())
+    started = client.post(
+        "/eval/datasets/greetings/batches",
+        json={"spec_id": SPEC_ID, "spec_revision": spec["revision"]},
+    )
+    assert started.status_code == 202
+    read = client.get(f"/eval/batches/{started.json()['batch_id']}")
+    assert read.json()["status"] == "completed"
+    return read.json()["batch"]["results"][0]["attempts"][0]
+
+
+def test_a_meaning_backend_handed_to_the_server_is_the_one_the_ladder_asks():
+    """수정 3: 함의 백엔드는 주입 구멍으로 들어온다 — 서버가 스스로 모델을 싣지 않는다."""
+    asks = ScriptedEntailment([True])
+
+    attempt = one_attempt_of_a_batch(a_client_with(asks))
+
+    assert len(asks.asked) == 1
+    assert attempt["judged_by"] == "nli_entailment"
+    assert attempt["passed"] is True
+
+
+def test_a_server_that_was_handed_nothing_never_loads_a_model_by_itself(monkeypatch):
+    """서버를 만드는 것만으로 3GB짜리 모델을 싣지 않는다 — 시험 26곳이 이 문을 지난다."""
+
+    def must_not_be_called(*args, **kwargs):
+        raise AssertionError("create_app loaded a meaning model on its own")
+
+    monkeypatch.setattr(app_module, "local_entailment", must_not_be_called)
+
+    attempt = one_attempt_of_a_batch(a_client_with())
+
+    assert attempt["judged_by"] == "expected_phrases"
+
+
+def test_the_server_entry_point_is_the_one_that_loads_the_meaning_model(monkeypatch):
+    """실제로 띄우는 자리에서만 싣는다 — Dockerfile이 부르는 그 자리다."""
+    asks = ScriptedEntailment([])
+    handed: dict[str, object] = {}
+    monkeypatch.setattr(app_module, "local_entailment", lambda: asks)
+    monkeypatch.setattr(
+        app_module, "create_app", lambda **made: handed.update(made) or "an app"
+    )
+
+    assert app_module.serves() == "an app"
+    assert handed == {"asks_entailment": asks}

@@ -10,5 +10,17 @@
       "ko": "답에 이 말이 들어있는지 확인해요"
     },
     "version": "v1"
+  },
+  "nli_entailment": {
+    "example": {
+      "en": "If the expected phrase is \"nice to meet you\", an answer like \"I am glad we could meet\" passes too, because it means the same thing.",
+      "ko": "기대하는 말이 \"반갑습니다\"라면, 답이 \"만나 뵙게 되어 기뻐요\"일 때도 뜻이 같아 통과예요."
+    },
+    "name": "nli_entailment",
+    "plain_description": {
+      "en": "Checks whether the answer means this, even in other words",
+      "ko": "글자가 달라도 답이 그 뜻을 담고 있는지 확인해요"
+    },
+    "version": "v1"
   }
 }

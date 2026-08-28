@@ -103,7 +103,7 @@ pnpm install --frozen-lockfile
 
 export AGENTCANVAS_ADMIN_PASSWORD='local-development-admin-password'
 export AGENTCANVAS_SESSION_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
-uv run --frozen uvicorn agentcanvas_api.app:create_app --factory --reload
+uv run --frozen uvicorn agentcanvas_api.app:serves --factory --reload
 ```
 
 다른 terminal에서:

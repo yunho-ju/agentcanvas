@@ -5,8 +5,8 @@ AgentSpec을 저장하고 지나온 판을 되돌려주는 최초의 서버다.
 ## 띄우기
 
 ```bash
-uv run uvicorn agentcanvas_api.app:create_app --factory --reload   # http://127.0.0.1:8000
-AGENTCANVAS_DB=/tmp/agentcanvas.db uv run uvicorn agentcanvas_api.app:create_app --factory
+uv run uvicorn agentcanvas_api.app:serves --factory --reload   # http://127.0.0.1:8000
+AGENTCANVAS_DB=/tmp/agentcanvas.db uv run uvicorn agentcanvas_api.app:serves --factory
 ```
 
 저장 파일은 기본값 `./agentcanvas.db`이고 `AGENTCANVAS_DB`로 바꾼다.
@@ -18,7 +18,7 @@ AGENTCANVAS_DB=/tmp/agentcanvas.db uv run uvicorn agentcanvas_api.app:create_app
 
 ```bash
 AGENTCANVAS_ALLOWED_ORIGINS=https://studio.example,http://localhost:4321 \
-  uv run uvicorn agentcanvas_api.app:create_app --factory
+  uv run uvicorn agentcanvas_api.app:serves --factory
 ```
 
 ## 문 아홉 개

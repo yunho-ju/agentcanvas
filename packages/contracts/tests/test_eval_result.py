@@ -64,13 +64,29 @@ def test_a_case_result_holds_every_attempt_it_was_given():
     assert [attempt.run_id for attempt in result.attempts] == ["run_1", "run_2"]
 
 
-def test_an_attempt_is_exactly_run_id_passed_output_text_and_missing_phrases():
+def test_an_attempt_is_exactly_these_five_fields():
     assert sorted(EvalAttempt.model_fields) == [
+        "judged_by",
         "missing_phrases",
         "output_text",
         "passed",
         "run_id",
     ]
+
+
+def test_an_attempt_says_which_evaluator_settled_it():
+    """사다리에서 이 회차를 최종 판정한 층의 이름 — 근거를 누가 적었는지가 드러난다."""
+    attempt = an_attempt(judged_by="nli_entailment")
+
+    assert attempt.judged_by == "nli_entailment"
+    assert attempt.model_dump(mode="json")["judged_by"] == "nli_entailment"
+
+
+def test_an_attempt_without_a_judge_name_reads_as_nothing_said():
+    """0층 시절 배치에는 이 자리가 없다 — 없는 이름은 없음이지 빈 문자열이 아니다."""
+    old = {"run_id": "run_1", "passed": False, "output_text": "반갑습니다"}
+
+    assert EvalAttempt.model_validate(old).judged_by is None
 
 
 def test_an_attempt_carries_the_words_the_answer_was_missing():
@@ -112,6 +128,7 @@ def test_an_old_stored_batch_json_still_reads_whole():
     batch = EvalBatch.model_validate(stored)
 
     assert batch.results[0].attempts[0].missing_phrases == []
+    assert batch.results[0].attempts[0].judged_by is None
 
 
 def test_a_case_result_is_exactly_these_five_fields():

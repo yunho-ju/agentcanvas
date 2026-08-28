@@ -147,6 +147,8 @@ def test_a_batch_saved_before_missing_phrases_existed_still_reads(tmp_path: Path
 
     assert found is not None
     assert found.results[0].attempts[0].missing_phrases == []
+    # judged_by도 나중에 생긴 자리다 — 0층만 있던 시절의 줄은 판정한 이름 없이 읽힌다.
+    assert found.results[0].attempts[0].judged_by is None
 
 
 def test_constructing_the_sqlite_store_does_not_touch_the_filesystem(tmp_path: Path):

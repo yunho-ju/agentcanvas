@@ -34,7 +34,7 @@ EXPOSE 8000
 VOLUME ["/data", "/backups"]
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
-CMD ["uvicorn", "agentcanvas_api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "agentcanvas_api.app:serves", "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
 
 FROM node:22.20.0-bookworm-slim AS studio-builder
 WORKDIR /app

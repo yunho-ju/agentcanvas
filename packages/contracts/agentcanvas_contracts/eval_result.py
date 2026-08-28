@@ -18,9 +18,13 @@ class EvalAttempt(ContractModel):
     passed: bool
     #: 판정 대상이 된 최종 출력 원문 — 정규화 전 그대로다.
     output_text: str
-    #: 판정이 남긴 근거 — 기대한 말 중 이 답에 없던 것(사람이 적은 그대로).
+    #: 판정이 남긴 근거 — 기대한 말 중 **최종적으로** 이 답에서 못 건진 것(사람이 적은 그대로).
+    #: 사다리의 윗층(뜻 검사)이 건져 낸 말은 여기 남지 않는다.
     #: 나중에 생긴 자리라 기본은 비어 있다: 이 자리가 없는 옛 저장분도 그대로 읽힌다.
     missing_phrases: list[str] = Field(default_factory=list)
+    #: 이 회차를 최종 판정한 판정기의 이름(카탈로그의 name) — 사다리 어느 층에서 결론이 났는가.
+    #: 0층만 있던 시절의 저장분에는 이 자리가 없다: 없는 이름은 없음으로 읽힌다.
+    judged_by: str | None = None
 
 
 class EvalCaseResult(ContractModel):

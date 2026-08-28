@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from agentcanvas_adapters.case_suggester import SuggestedCase
+from agentcanvas_adapters.entailment import EntailmentCall, local_entailment
 from agentcanvas_adapters.openai_model import OPENAI_API_KEY_REF
 from agentcanvas_adapters.providers import asks_whoever_serves, nobody_to_ask
 from agentcanvas_adapters.secrets import env_vault
@@ -58,6 +59,7 @@ from .eval_dataset_service import (
     EvalDatasetService,
 )
 from .eval_dataset_store import EvalDatasetStore, EvalDatasetSummary
+from .eval_ladder import judging_ladder
 from .eval_service import (
     EvalBatchFailed,
     EvalBatchListing,
@@ -471,6 +473,7 @@ def create_app(
     auth_settings: AuthSettings | None = None,
     job_store: DurableJobStore | None = None,
     durability: bool | None = None,
+    asks_entailment: EntailmentCall | None = None,
 ) -> FastAPI:
     """저장소·시계·일꾼·모델·허용할 자리·인증을 주입해 서버를 만든다.
 
@@ -480,6 +483,9 @@ def create_app(
 
     durability를 적지 않으면 기본 배선일 때만 durable job을 켠다 — 켜지 못하면 까닭을 남긴다.
     True는 켜지 못하는 배선에서 조용히 넘어가지 않고 멈춘다. False는 켜지 않는다.
+
+    뜻 검사(함의) 백엔드도 주입이다: 적어 주지 않으면 판정 사다리는 0층까지만 선다.
+    서버를 만드는 것만으로 모델을 싣지 않는다 — 실제로 싣는 자리는 아래 `serves`뿐이다.
     """
     auth = BuiltinAuth(
         auth_settings if auth_settings is not None else AuthSettings.from_env()
@@ -544,6 +550,9 @@ def create_app(
         else _default_eval_dataset_store(database_path)
     )
     eval_datasets = EvalDatasetService(eval_dataset_store_used)
+    # 판정 사다리는 건네받은 층으로 세운다 — 뜻 검사를 건네주지 않았으면 0층까지만 서고,
+    # 그 사실은 서버 로그가 말한다(조용히 짧아지되 침묵하지는 않는다).
+    ladder = judging_ladder(asks_entailment)
     eval_batches = EvalBatchService(
         datasets=eval_dataset_store_used,
         specs=specs,
@@ -557,6 +566,8 @@ def create_app(
         worker=worker,
         jobs=durable_jobs,
         wake_worker=wake_durable_worker,
+        evaluators=ladder.evaluators,
+        ladder=ladder.order,
     )
     if durable_jobs is not None:
         durable_runtime = DurableJobWorker(durable_jobs, runs, eval_batches)
@@ -989,8 +1000,17 @@ def create_app(
     return app
 
 
-# 서버는 띄울 때 만들어진다 (`uvicorn agentcanvas_api.app:create_app --factory`) —
-# 이 파일을 읽는 것만으로 저장 파일이 생기지 않는다.
+def serves() -> FastAPI:
+    """실제로 띄우는 서버 — 여기서만 뜻 검사 백엔드를 싣는다.
+
+    싣지 못하면(`agentcanvas-adapters[nli]` 미설치, 가중치를 못 읽음) local_entailment가
+    없음을 돌려주고 서버는 그대로 뜬다 — 고른 층 하나가 본체를 막지 않는다.
+    """
+    return create_app(asks_entailment=local_entailment())
+
+
+# 서버는 띄울 때 만들어진다 (`uvicorn agentcanvas_api.app:serves --factory`) —
+# 이 파일을 읽는 것만으로 저장 파일이 생기거나 모델이 실리지 않는다.
 
 __all__ = [
     "ALLOWED_ORIGINS_ENV",
@@ -1022,4 +1042,5 @@ __all__ = [
     "blank_architect_seed",
     "catalog_in",
     "create_app",
+    "serves",
 ]

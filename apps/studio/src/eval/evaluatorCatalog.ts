@@ -8,5 +8,8 @@ export const evaluatorCatalog: Record<string, EvaluatorDef> = catalogData as unk
   EvaluatorDef
 >;
 
-/** v1 유일한 판정기 — 답에 기대하는 말이 들어있는지 본다. */
+/** 사다리 0층 — 답에 기대하는 말이 글자 그대로 들어있는지 본다. */
 export const EXPECTED_PHRASES_EVALUATOR = "expected_phrases";
+
+/** 그 위의 층 — 글자가 달라도 답이 그 뜻을 담고 있는지 본다(서버에 설치됐을 때만 선다). */
+export const NLI_ENTAILMENT_EVALUATOR = "nli_entailment";
