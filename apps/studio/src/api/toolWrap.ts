@@ -19,18 +19,26 @@ export type ToolWrapOutcome =
   | { candidate?: undefined; issues?: undefined; failure: Message };
 
 const OK = 200;
+const DEFAULT_MODEL_REF = "model://openai";
 export const TOOL_WRAP_DEADLINE_MS = 30_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/** 무엇을 물어보는가 — 붙여 넣은 것, 그것이 무엇인지, 어느 문서 위에서, 무엇을 다시 가져오는지. */
+export interface ToolWrapAsk {
+  source: string;
+  sourceKind: ToolSourceKind;
+  baseSpec: AgentSpec;
+  /** 이미 있는 연결을 다시 가져오는 중이면 그 id — 없으면 새 연결을 만드는 것이다 */
+  replacing?: string | null;
+  modelRef?: string;
+}
+
 /** 서버가 만든 연결 제안을 물어본다 — 성공해도 문서에 넣는 것은 사람의 승인이다. */
 export async function wrapToolsOnServer(
-  source: string,
-  sourceKind: ToolSourceKind,
-  baseSpec: AgentSpec,
-  modelRef = "model://openai",
+  ask: ToolWrapAsk,
   options: ServerOptions & { deadline?: AbortSignal } = {},
 ): Promise<ToolWrapOutcome> {
   const send = options.fetch ?? (globalThis.fetch as SendRequest);
@@ -41,10 +49,12 @@ export async function wrapToolsOnServer(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model_ref: modelRef,
-        source_kind: sourceKind,
-        source,
-        base_spec: baseSpec,
+        model_ref: ask.modelRef ?? DEFAULT_MODEL_REF,
+        source_kind: ask.sourceKind,
+        source: ask.source,
+        base_spec: ask.baseSpec,
+        // 다시 가져오는 중일 때만 대상을 싣는다 — 없으면 새 연결을 만드는 요청 그대로다.
+        ...(ask.replacing ? { replacing: ask.replacing } : {}),
       }),
       signal: options.deadline ?? AbortSignal.timeout(TOOL_WRAP_DEADLINE_MS),
     });

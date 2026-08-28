@@ -4651,3 +4651,139 @@ button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ── 팔레트의 문서 도구 칩과 연결 줄의 행동 (DESIGN §7 palette / resources-panel, P2c) ── */
+
+.palette__section {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.palette__tool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.palette__tool:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+
+.palette__tool:active:not(:disabled) {
+  transform: scale(0.99);
+  box-shadow: none;
+}
+
+.palette__tool:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.palette__tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.resources-panel__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* 두 행동은 ghost 문법 그대로다 — 지우기만 글자가 danger다 (§9 붉은 바탕 상시 금지). */
+.resources-panel__reimport,
+.resources-panel__delete {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-label);
+  cursor: pointer;
+}
+
+.resources-panel__delete {
+  color: var(--danger-ink);
+}
+
+.resources-panel__reimport:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.resources-panel__delete:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--surface-hover);
+}
+
+.resources-panel__reimport:active:not(:disabled),
+.resources-panel__delete:active:not(:disabled) {
+  background: var(--surface-active);
+  transform: scale(0.98);
+}
+
+.resources-panel__reimport:focus-visible,
+.resources-panel__delete:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.resources-panel__reimport:disabled,
+.resources-panel__delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.resources-panel__undo {
+  font-size: var(--text-caption);
+  line-height: var(--leading-tight);
+  color: var(--ink-soft);
+}
+
+/* 다시 가져오기 미리보기의 세 묶음 — 빠지는 것도 같은 크기로 말한다. */
+.tool-wrap-card__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tool-wrap-card__group-title {
+  margin: 0;
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+/* 바뀐 연결 정보 — 도구 묶음과 같은 결의 줄 (DESIGN §7 tool-wrap-card 재-import 모드). */
+.tool-wrap-card__fields {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tool-wrap-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tool-wrap-card__was {
+  font-size: var(--text-body);
+  color: var(--ink);
+}

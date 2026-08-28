@@ -23,10 +23,10 @@ describe("연결 제안을 물어보는 문", () => {
       return response(200, { candidate: example, patch: {}, issues: [] });
     };
 
-    const outcome = await wrapToolsOnServer("curl https://x", "curl", example, undefined, {
-      baseUrl: "http://here",
-      fetch,
-    });
+    const outcome = await wrapToolsOnServer(
+      { source: "curl https://x", sourceKind: "curl", baseSpec: example },
+      { baseUrl: "http://here", fetch },
+    );
 
     expect(calls[0].url).toBe("http://here/tools/wrap");
     expect(JSON.parse(calls[0].body ?? "null")).toEqual({
@@ -39,13 +39,34 @@ describe("연결 제안을 물어보는 문", () => {
     expect(outcome).toEqual({ candidate: example, issues: [] });
   });
 
+  it("다시 가져오는 요청만 대상 연결을 함께 싣는다", async () => {
+    const bodies: string[] = [];
+    const fetch = async (_url: string, init: { method: string; body?: string }) => {
+      bodies.push(init.body ?? "");
+      return response(200, { candidate: example, patch: {}, issues: [] });
+    };
+
+    await wrapToolsOnServer(
+      { source: "paste", sourceKind: "openapi", baseSpec: example, replacing: "ref" },
+      { fetch },
+    );
+    await wrapToolsOnServer(
+      { source: "paste", sourceKind: "openapi", baseSpec: example },
+      { fetch },
+    );
+
+    expect(JSON.parse(bodies[0]).replacing).toBe("ref");
+    expect("replacing" in JSON.parse(bodies[1])).toBe(false);
+  });
+
   it("닿지 못한 것과 알 수 없는 답을 가려서 말한다", async () => {
-    const offline = await wrapToolsOnServer("paste", "openapi", example, undefined, {
+    const ask = { source: "paste", sourceKind: "openapi", baseSpec: example } as const;
+    const offline = await wrapToolsOnServer(ask, {
       fetch: async () => {
         throw new TypeError("offline");
       },
     });
-    const strange = await wrapToolsOnServer("paste", "openapi", example, undefined, {
+    const strange = await wrapToolsOnServer(ask, {
       fetch: async () => response(200, { patch: {} }),
     });
 
@@ -54,10 +75,13 @@ describe("연결 제안을 물어보는 문", () => {
   });
 
   it("서버가 물린 까닭을 화면의 말로 옮기고 원문을 옮기지 않는다", async () => {
-    const refused = await wrapToolsOnServer("paste", "prose", example, undefined, {
-      fetch: async () =>
-        response(502, { detail: "provider raw answer sk-never-show-this" }),
-    });
+    const refused = await wrapToolsOnServer(
+      { source: "paste", sourceKind: "prose", baseSpec: example },
+      {
+        fetch: async () =>
+          response(502, { detail: "provider raw answer sk-never-show-this" }),
+      },
+    );
 
     const said = translate("ko", refused.failure!);
     expect(said).toContain("502");

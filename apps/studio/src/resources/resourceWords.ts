@@ -41,12 +41,3 @@ export function needsASecret(binding: ResourceBinding): boolean {
     (tool) => "auth" in tool.call && Boolean(tool.call.auth),
   );
 }
-
-/** 제안된 것 중 이 문서에 아직 없는 연결들 — 승인하면 새로 들어올 것이 이것이다. */
-export function newConnections(
-  proposed: ResourceBinding[],
-  current: ResourceBinding[],
-): ResourceBinding[] {
-  const known = new Set(current.map((binding) => binding.id));
-  return proposed.filter((binding) => !known.has(binding.id));
-}

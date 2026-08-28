@@ -271,12 +271,17 @@ tool-select (고른 연결이 든 도구 중에서 고른다 — config_schema�
 - 고른 연결에 도구가 하나도 없으면 같은 자리에 이유 한 줄 '이 연결에는 아직 도구가 없어요'
 - 고른 결과는 그 자리에서 보인다: 노드 카드의 포트가 그 도구의 모양으로 다시 그려진다(§7 node-card). 그 때문에 값의 모양이 어긋나 끊기는 기존 연결은 편집 영향 알림(§9 — 설정 변경 notice) 그대로 사람에게 말한다. 조용히 지우지 않는다
 
+palette (노드 팔레트 — 독의 노드 패널)
+- 기존 동작의 성문화: registry의 노드 타입 목록(NodeTypeChip), 클릭 = 캔버스에 추가, 실행 중 잠금 + 이유
+- 문서 도구 섹션(P2c): 노드 타입 목록 아래 구분 제목 '이 문서의 도구'(--text-label) + spec.resources의 도구마다 칩 하나 — [도구 이름] + title에 쉬운 설명(plain_description 두 언어). 클릭 = 도구 노드가 **그 연결·도구로 채워진 채** 추가된다(연결 고르기·도구 고르기 두 걸음을 건너뛴다). 추가 1회 = undo 1걸음(기존 addNode와 동일). 잠금 규칙 동일
+- 연결이나 도구가 하나도 없으면 섹션 자체가 없다 — 빈 제목을 세우지 않는다(만드는 길은 resources-panel이 말한다)
+
 resources-panel (문서의 연결과 도구를 보는 독 패널 — API_TOOLS P2b)
 - dock / dock-panel 문법 그대로(glass, 독 옆 슬라이드, 한 번에 하나, Esc/재클릭 닫힘, 독 버튼 36px+tooltip). `DOCK_TOOLS` 표에 한 줄 — 새 표면 발명 금지
 - 내용: 이 문서의 연결(spec.resources) 목록. 연결 한 줄 = 이름(id, --text-label) + 종류의 쉬운 말 캡션(--text-caption, ink-soft — 'http.api' 원문이 아니라 '웹 API 연결' 같은 쉬운 말, 원문은 title로) + 그 연결이 든 도구들(이름 + 쉬운 설명 plain_description 두 언어). 도구가 없는 연결은 '이 연결에는 아직 도구가 없어요'(tool-select와 같은 사전 키 재사용)
 - 빈 상태: '이 문서에는 아직 연결이 없어요' 한 줄 + [새 연결 primary]. 빈 목록을 말없이 던지지 않는다(§9)
 - [새 연결]은 tool-wrap-card(중앙 모달)를 연다. 실행을 보는 동안(잠금)은 비활성 + 이유 title(기존 잠금 규칙 그대로, 새 잠금 로직 금지)
-- 목록은 읽기 전용 — 고치기(재-import)·지우기는 아직 없다. 없는 기능을 있는 것처럼 말하지 않는다(그 사실만 말한다 — P2c 범위)
+- 연결 줄의 행동 2개(P2c): [다시 가져오기](button-ghost — tool-wrap-card를 그 연결의 재-import 모드로 연다) · [지우기](inspector-card 지우기 문법 그대로 — button-ghost 4상태 + 글자만 var(--danger-ink), 확인 대화 없음, title에 이유). 지우기 1회 = undo 1걸음, 캡션 '되돌리기로 언제든 살릴 수 있어요' 재사용. 어떤 노드가 그 연결을 쓰고 있어도 즉시 지운다 — 구조(노드·연결선)는 아무것도 빠지지 않고 노드 뱃지·필드 오류가 후속 상태를 말하므로, 빼기 확인 카드 대신 기존 편집 영향 알림(§9 설정 변경 notice)으로 어느 노드가 연결을 잃었는지 그 자리에서 말한다(조용히 끊지 않는다). 실행 중 잠금은 [새 연결]과 같은 규칙
 
 tool-wrap-card (붙여 넣으면 도구가 된다 — API 문서/curl/산문 → 연결+도구 제안·승인, API_TOOLS P2b)
 - 표면: open-dialog 문법 재사용(중앙 `.layer` 모달급, Esc 체인·초점 복귀 규칙 그대로) — 긴 붙여넣기와 도구 카드 미리보기에 공간이 필요한 집중 작업이다. glass + hairline + radius-card + shadow-float, 새 색·radius·motion token 금지
@@ -286,6 +291,7 @@ tool-wrap-card (붙여 넣으면 도구가 된다 — API 문서/curl/산문 →
 - review 상태: 연결 이름 한 줄 + 도구마다 카드 한 장 — [도구 이름 --text-label] [쉬운 설명 plain_description 두 언어 --text-body] ['무엇을 주면 → 무엇을 받는가' 한 줄 --text-caption: input/output schema의 필드 제목을 쉬운 말로 늘어놓는다, raw JSON 기본 노출 금지]. 비밀 이름(secret://)이 제안되면 이름만 보여 주고 캡션 한 줄로 '열쇠 값은 서버에 따로 둬요 — 여기엔 이름만 적혀요'
 - 버튼 행: [문서에 넣기 primary][다시 적기 ghost]. 승인 1회 = undo 1걸음(architect 승인 규칙). 승인 즉시 모달이 닫히고 resources-panel 목록과 binding-select에 그 연결이 나타난다 — 결과가 그 자리에서 보인다
 - 문구 전부 사전 경유(ko/en 쉬운 말), 4상태는 기존 .control·button 문법 재사용
+- 재-import 모드(P2c): resources-panel의 [다시 가져오기]로 열리면 **대상 연결 하나가 고정**된 채 같은 입력 3종을 받는다(제목이 그 연결 이름을 말한다). review는 diff로 말한다 — [새 도구 / 바뀐 도구 / 빠지는 도구] 세 묶음, **빠지는 것을 침묵하지 않는다**(§9 — P2b에서 조용한 삭제가 blocker였던 바로 그 지점). 승인은 그 연결 하나만 갈아 끼우고(다른 연결·그래프 불변) 1 undo 걸음
 
 run-input-card (실행에 넣을 값 — '실행해 보기'가 물을 것이 있을 때)
 - 언제: 실행 버튼을 눌렀고 그래프의 입력 노드가 받는 값 이름(bindings)이 하나라도 있을 때. 물을 것이 없으면 카드 없이 바로 실행(지금과 동일 — 빈 카드를 띄우지 않는다)

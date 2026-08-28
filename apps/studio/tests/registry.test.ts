@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { ResourceBinding, Node1 as SpecNode } from "../src/generated/agent_spec";
 import type { NodeType } from "../src/generated/node_type";
 import { LOCALES } from "../src/i18n/locale";
-import { nodeTypes, resolvePorts } from "../src/registry/registry";
+import {
+  BINDING_REF_MARKER,
+  TOOL_NAME_FIELD,
+  TOOL_PORTS_MARKER,
+  nodeTypes,
+  resolvePorts,
+  toolHost,
+} from "../src/registry/registry";
 
 function node(type: string, config: Record<string, unknown> = {}): SpecNode {
   return { id: "n", type, position: { x: 0, y: 0 }, config };
@@ -211,5 +218,47 @@ describe("resolvePorts mirrors the Python contract", () => {
       [bindingCarryingLookup({ type: "string" })],
     );
     expect(resolved.outputs.result.schema).toEqual({});
+  });
+});
+
+// 도구를 실을 노드 타입과 그 두 칸의 이름은 registry가 말한다 — 화면이 타입 이름을 외우지 않는다.
+describe("도구를 입는 노드 자리", () => {
+  it("마커를 단 노드 타입과 연결 칸·도구 칸의 이름을 알려 준다", () => {
+    const host = toolHost();
+
+    expect(host).toBeDefined();
+    expect(nodeTypes[host?.type ?? ""]).toBeDefined();
+    expect(host?.bindingField).toBe("resource_ref");
+    expect(host?.toolNameField).toBe("tool_name");
+  });
+
+  // 자격을 갖춘 타입이 둘이 되면 "어느 자리에 놓을까"는 사람이 골라야 할 물음이 된다.
+  // 그때 규칙을 정하기 위한 표식이다 — 지금은 하나뿐이므로 먼저 오는 것이 그 자리다.
+  it("도구를 입는 자리는 지금 정확히 하나다", () => {
+    const hosts = Object.values(nodeTypes).filter((nodeType) => {
+      const schema = nodeType.config_schema as Record<string, unknown>;
+      const plan = schema[TOOL_PORTS_MARKER] as Record<string, unknown> | undefined;
+      const properties = (schema.properties ?? {}) as Record<
+        string,
+        Record<string, unknown>
+      >;
+      const binds = Object.values(properties).some(
+        (field) => field[BINDING_REF_MARKER] === true,
+      );
+      return typeof plan?.[TOOL_NAME_FIELD] === "string" && binds;
+    });
+
+    expect(hosts.map((nodeType) => nodeType.type)).toEqual([toolHost()?.type]);
+  });
+
+  it("그 자리는 두 칸을 모두 가진 타입에서만 나온다", () => {
+    const host = toolHost();
+    const schema = nodeTypes[host?.type ?? ""].config_schema as Record<string, unknown>;
+    const properties = schema.properties as Record<string, Record<string, unknown>>;
+
+    expect(properties[host?.bindingField ?? ""][BINDING_REF_MARKER]).toBe(true);
+    expect(
+      (schema[TOOL_PORTS_MARKER] as Record<string, unknown>)[TOOL_NAME_FIELD],
+    ).toBe(host?.toolNameField);
   });
 });

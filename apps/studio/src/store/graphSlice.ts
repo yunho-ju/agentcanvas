@@ -42,6 +42,8 @@ import {
 } from "../history/graphCommands";
 import { renameDoc } from "../history/docCommands";
 import { nodeTypes } from "../registry/registry";
+import { dropConnection } from "../history/docCommands";
+import { nodesUsing } from "../graph/connections";
 import type { EditorState } from "./editor";
 import { CLOSED_TOOL_WRAP } from "./toolWrapSlice";
 
@@ -61,7 +63,10 @@ export interface GraphSlice extends FlowGraph {
    * 시험 케이스를 저장하든 문서를 여는 문은 이 하나뿐이다(승격 관용구를 세 곳에 흩어 두지 않는다).
    */
   ensureDoc: () => void;
-  addNode: (type: string, position: Position) => void;
+  /** 팔레트에서 노드를 놓는다. 이미 정해진 설정이 있으면 그 값을 실은 채로 놓인다 */
+  addNode: (type: string, position: Position, config?: Record<string, unknown>) => void;
+  /** 연결 하나를 문서에서 뺀다 — 되돌리기 한 걸음이고, 잃은 노드가 있으면 말한다 */
+  dropConnection: (id: string) => void;
   /** 손을 놓은 자리(at)는 이을 수 없을 때 그 이유가 설 자리다 (DESIGN §7 connection-hint) */
   connect: (connection: Connection, at: Position) => void;
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
@@ -218,7 +223,7 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
       });
     },
 
-    addNode: (type, position) => {
+    addNode: (type, position, config = {}) => {
       const nodeType = nodeTypes[type];
       if (!nodeType) return;
       get().ensureDoc();
@@ -226,11 +231,18 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
         nodeType,
         position,
         get().nodes.map((node) => node.id),
+        config,
+        get().spec?.resources ?? [],
       );
       get().runCommand(addNodeCommand(node));
       // 팔레트로 놓은 사람에게도 다음 걸음을 건넨다 — 입구가 달라도 초대는 같다 (DESIGN §7).
       // 이 입구에는 손이 있던 화면의 점이 없다: 자리는 가리킨 포트를 화면이 찾아 정한다.
       get().inviteFirstLink(node, CANVAS_ORIGIN);
+    },
+
+    dropConnection: (id) => {
+      const current = get().spec?.resources ?? [];
+      get().runCommand(dropConnection(current, id, nodesUsing(get().nodes, id)));
     },
 
     connect: (connection, at) => {

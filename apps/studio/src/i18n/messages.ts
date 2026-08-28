@@ -273,6 +273,7 @@ const TEXTS = {
     ko: "캔버스에 새 노드를 놓는다",
     en: "Puts a new node on the canvas",
   },
+  "palette.docTools": { ko: "이 문서의 도구", en: "Tools in this document" },
   "tray.title": { ko: "보관함", en: "Shelf" },
   "tray.hint": {
     ko: "캔버스에서 뺀 노드가 설정을 지닌 채 기다린다",
@@ -303,6 +304,16 @@ const TEXTS = {
   "resources.new.hint": {
     ko: "쓰는 API 문서나 예시를 붙여 넣으면 도구로 바꿔 드려요",
     en: "Paste the API docs or an example and we turn it into tools",
+  },
+  "resources.reimport": { ko: "다시 가져오기", en: "Bring it in again" },
+  "resources.reimport.hint": {
+    ko: "이 연결의 도구를 문서·예시에서 다시 읽어 와요",
+    en: "Read this connection's tools again from docs or an example",
+  },
+  "resources.delete": { ko: "지우기", en: "Delete" },
+  "resources.delete.hint": {
+    ko: "이 연결을 문서에서 빼요 — 되돌리기로 언제든 살릴 수 있어요",
+    en: "Takes this connection out — undo brings it right back",
   },
   "resources.kind.httpApi": { ko: "웹 API 연결", en: "Web API connection" },
   "resources.kind.mcpToolset": {
@@ -361,6 +372,31 @@ const TEXTS = {
     ko: "새로 들어올 연결이 없어요 — 붙여 넣은 내용을 조금 더 자세히 적고 다시 해보세요",
     en: "No new connection came back — add more detail to what you pasted and try again",
   },
+  "toolWrap.reimport.title": {
+    ko: "'{id}'을 다시 가져와요",
+    en: "Bringing '{id}' in again",
+  },
+  "toolWrap.diff.added": { ko: "새 도구", en: "New tools" },
+  "toolWrap.diff.changed": { ko: "바뀐 도구", en: "Tools that changed" },
+  "toolWrap.diff.removed": { ko: "빠지는 도구", en: "Tools that go away" },
+  "toolWrap.diff.fields": { ko: "바뀐 연결 정보", en: "What else changed" },
+  "toolWrap.field.kind": { ko: "연결 종류", en: "Kind of connection" },
+  "toolWrap.field.serverRef": { ko: "가리키는 서버 이름", en: "Server it points at" },
+  "toolWrap.field.allowedTools": {
+    ko: "쓸 수 있는 도구 이름",
+    en: "Tool names it may use",
+  },
+  "toolWrap.field.approvalPolicy": {
+    ko: "사람 확인 규칙",
+    en: "When a person has to say yes",
+  },
+  "toolWrap.field.change": { ko: "{before} → {after}", en: "{before} → {after}" },
+  "toolWrap.field.none": { ko: "없음", en: "none" },
+  "toolWrap.error.nothingSwapped": {
+    ko: "이 연결에 대한 답이 오지 않았어요 — 붙여 넣은 내용을 확인하고 다시 해보세요",
+    en: "Nothing came back for this connection — check what you pasted and try again",
+  },
+  "toolWrap.diff.none": { ko: "없어요", en: "None" },
   "toolWrap.review.title": { ko: "이 연결을 넣을까요", en: "Add this connection?" },
   "toolWrap.review.name": { ko: "연결 이름", en: "Connection name" },
   "toolWrap.tool.io": {
@@ -454,9 +490,18 @@ const TEXTS = {
   "edit.nothing": { ko: "그대로 두기", en: "Leaving it as it is" },
   "edit.rename": { ko: "문서 이름 바꾸기", en: "Renaming the document" },
   "edit.takeInConnection": { ko: "연결 들이기", en: "Taking in a connection" },
+  "edit.dropConnection": { ko: "연결 지우기", en: "Deleting a connection to tools" },
+  "edit.reimportConnection": {
+    ko: "연결 다시 가져오기",
+    en: "Bringing a connection in again",
+  },
   "edit.adoptRun": {
     ko: "지난 실행의 설정 가져오기",
     en: "Taking the settings from an earlier run",
+  },
+  "edit.dropConnection.notice": {
+    ko: "'{id}' 연결을 지웠다 — {nodes} 노드가 쓰던 연결이라 다시 골라야 한다",
+    en: "'{id}' is gone — {nodes} used it, so those need a connection again",
   },
   "edit.detach.notice": {
     ko: "'{id}' 노드를 보관함에 넣었다 — 언제든 다시 꽂을 수 있다",
@@ -469,6 +514,10 @@ const TEXTS = {
   "edit.detach.gone": {
     ko: "'{id}' 노드는 이미 캔버스에 없다",
     en: "'{id}' is not on the canvas any more",
+  },
+  "edit.reimportConnection.notice": {
+    ko: "'{id}' 연결을 다시 가져와서 {impact}",
+    en: "Bringing '{id}' in again left this — {impact}",
   },
   "edit.config.notice": {
     ko: "'{id}' 노드의 설정을 바꿔서 {impact}",

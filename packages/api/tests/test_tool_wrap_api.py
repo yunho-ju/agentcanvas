@@ -320,3 +320,95 @@ def test_a_provider_that_is_not_configured_never_reaches_a_model():
 
     assert response.status_code == 503
     assert asked == []
+
+
+def swap_answer(base_revision: str, resource_id: str) -> str:
+    return json.dumps(
+        {
+            "schema_version": "agent.patch/v1",
+            "base_revision": base_revision,
+            "operations": [
+                {
+                    "op": "replace_resource",
+                    "resource": {
+                        "id": resource_id,
+                        "kind": "mcp.toolset",
+                        "server_ref": "mcp://clinical-reference",
+                        "allowed_tools": [],
+                        "approval_policy": "read_only_auto",
+                        "tools": [a_tool()],
+                    },
+                }
+            ],
+        }
+    )
+
+
+def reimport_body(base: dict, replacing: str) -> dict:
+    return {**wrap_body(base, "openapi", OPENAPI_PASTE), "replacing": replacing}
+
+
+def test_bringing_a_connection_in_again_swaps_only_that_connection():
+    base = spec_payload()
+    taken = base["resources"][0]["id"]
+    client = a_client(
+        ModelSaid(
+            input_tokens=1, output_tokens=1, text=swap_answer(base["revision"], taken)
+        )
+    )
+
+    response = client.post("/tools/wrap", json=reimport_body(base, taken))
+
+    assert response.status_code == 200
+    candidate = AgentSpec.model_validate(response.json()["candidate"])
+    assert [resource.id for resource in candidate.resources] == [taken]
+    assert [tool.name for tool in candidate.resources[0].tools] == ["search_articles"]
+
+
+def test_bringing_one_connection_in_again_may_not_reach_another():
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=swap_answer(base["revision"], "some-other-connection"),
+        )
+    )
+
+    response = client.post(
+        "/tools/wrap", json=reimport_body(base, base["resources"][0]["id"])
+    )
+
+    assert response.status_code == 502
+
+
+def test_bringing_a_connection_in_again_may_not_add_one():
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1, output_tokens=1, text=connection_answer(base["revision"])
+        )
+    )
+
+    response = client.post(
+        "/tools/wrap", json=reimport_body(base, base["resources"][0]["id"])
+    )
+
+    assert response.status_code == 502
+
+
+def test_a_request_without_a_target_is_still_add_only():
+    """P2b 회귀 금지 — 대상 연결이 없으면 표는 그대로 더하기 하나다."""
+    base = spec_payload()
+    taken = base["resources"][0]["id"]
+    client = a_client(
+        ModelSaid(
+            input_tokens=1, output_tokens=1, text=swap_answer(base["revision"], taken)
+        )
+    )
+
+    response = client.post(
+        "/tools/wrap", json=wrap_body(base, "openapi", OPENAPI_PASTE)
+    )
+
+    assert response.status_code == 502

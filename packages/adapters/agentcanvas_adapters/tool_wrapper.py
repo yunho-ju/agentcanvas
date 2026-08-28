@@ -16,6 +16,7 @@ from agentcanvas_engine.model_call import ModelAsk, ModelCall
 
 from .architect import (
     ARCHITECT_PATCH_SCHEMA_NAME,
+    OPERATION_NOT_ALLOWED_MESSAGE,
     ArchitectBalked,
     ArchitectSaid,
     patch_said,
@@ -23,10 +24,20 @@ from .architect import (
 
 TOOL_WRAPPER_PROMPT_REF = "prompt://tool-wrapper@1"
 
-#: 이 서비스가 쓸 수 있는 작업 — 연결을 **더하는** 것 하나뿐이다.
-#: 화면은 새로 들어올 연결만 보여 주므로, 고치기·지우기를 허용하면 사람이 보지 못한 채
-#: 기존 연결이 사라진다. 그 두 작업은 재-import·삭제 화면이 생기는 P2c에서 연다.
+#: 새 연결을 만들러 왔을 때 쓸 수 있는 작업 — 연결을 **더하는** 것 하나뿐이다.
+#: 화면은 새로 들어올 연결만 보여 주므로, 고치기를 함께 허용하면 사람이 보지 못한 채
+#: 기존 연결이 바뀐다.
 TOOL_WRAPPER_ALLOWED_OPERATIONS = ("add_resource",)
+
+#: 이미 있는 연결 하나를 다시 가져올 때 쓸 수 있는 작업 — 그 하나를 갈아 끼우는 것뿐이다.
+#: 지우기는 서버가 할 일이 아니다(화면의 로컬 편집) — `remove_resource`는 열지 않는다.
+TOOL_WRAPPER_REIMPORT_OPERATIONS = ("replace_resource",)
+
+#: 무엇을 하러 왔는가 → 쓸 수 있는 작업 (모드 → 표, 분기 대신 표).
+OPERATIONS_BY_MODE: dict[bool, tuple[str, ...]] = {
+    False: TOOL_WRAPPER_ALLOWED_OPERATIONS,
+    True: TOOL_WRAPPER_REIMPORT_OPERATIONS,
+}
 
 
 class ToolSource(str, Enum):
@@ -49,6 +60,16 @@ ADD_ONLY = (
     "Add new connections only. Do not remove or replace a connection that is already "
     "there, and do not touch nodes, edges, schemas, or execution."
 )
+
+
+def _reimport_only(replacing: str) -> str:
+    return (
+        f"Replace the connection whose id is {replacing!r} and keep that exact id. "
+        "Read the tools out of what the person pasted; tools that are no longer there "
+        "must be left out. Touch no other connection, and do not touch nodes, edges, "
+        "schemas, or execution."
+    )
+
 
 SHAPE_OF_A_CONNECTION = (
     'Each connection uses kind "http.api", an approval_policy, and a server_ref that '
@@ -76,6 +97,8 @@ class ToolWrapRequest:
     source_kind: ToolSource
     source: str
     model_ref: str
+    #: 이미 있는 연결을 다시 가져오는 중이면 그 id — 없으면 새 연결을 만드는 것이다.
+    replacing: str | None = None
     prompt_ref: str = TOOL_WRAPPER_PROMPT_REF
 
 
@@ -85,7 +108,7 @@ type ToolWrapCall = Callable[[ToolWrapRequest], ArchitectSaid | ArchitectBalked]
 def _tool_wrapper_prompt(asked: ToolWrapRequest) -> str:
     """모델에게 보내는 입력 — 붙여 넣은 것을 연결 하나와 그 도구들로 옮기게 한다."""
 
-    operations = ", ".join(TOOL_WRAPPER_ALLOWED_OPERATIONS)
+    operations = ", ".join(operations_for(asked.replacing))
     taken = ", ".join(resource.id for resource in asked.base_spec.resources) or "none"
     return "\n".join(
         [
@@ -93,9 +116,10 @@ def _tool_wrapper_prompt(asked: ToolWrapRequest) -> str:
             "Return JSON only. Do not return markdown, prose, or executable code.",
             f"The exact base revision is {asked.base_spec.revision}.",
             f"Use schema_version agent.patch/v1 and only this operation: {operations}.",
-            ADD_ONLY,
+            ADD_ONLY if asked.replacing is None else _reimport_only(asked.replacing),
             SHAPE_OF_A_CONNECTION,
-            f"Connection ids already used in this document: {taken}. Pick a new id.",
+            f"Connection ids already used in this document: {taken}."
+            + (" Pick a new id." if asked.replacing is None else ""),
             SHAPE_OF_A_TOOL,
             KEYS_STAY_ON_THE_SERVER,
             f"What the person pasted is {SOURCE_WORDS[asked.source_kind]}:",
@@ -122,21 +146,47 @@ def _ask_for(asked: ToolWrapRequest) -> ModelAsk:
     )
 
 
+def operations_for(replacing: str | None) -> tuple[str, ...]:
+    """이 요청이 쓸 수 있는 작업 — 대상 연결을 들고 왔는가가 표를 고른다."""
+    return OPERATIONS_BY_MODE[replacing is not None]
+
+
+def _reaches_past(patch: AgentSpecPatch, replacing: str | None) -> bool:
+    """제안이 대상 연결 밖을 만지는가 — 화면이 보여 주지 않는 것은 바뀌지 않는다."""
+    if replacing is None:
+        return False
+    return any(
+        getattr(operation, "resource", None) is not None
+        and operation.resource.id != replacing
+        for operation in patch.operations
+    )
+
+
 def tool_wrapper_from(model: ModelCall) -> ToolWrapCall:
     """기존 ModelCall을 연결 patch 반환 자리로 감싼다."""
 
     def asks(asked: ToolWrapRequest) -> ArchitectSaid | ArchitectBalked:
-        return patch_said(model(_ask_for(asked)), TOOL_WRAPPER_ALLOWED_OPERATIONS)
+        said = patch_said(model(_ask_for(asked)), operations_for(asked.replacing))
+        if isinstance(said, ArchitectSaid) and _reaches_past(
+            said.patch, asked.replacing
+        ):
+            return ArchitectBalked(
+                reason="invalid_patch", message=OPERATION_NOT_ALLOWED_MESSAGE
+            )
+        return said
 
     return asks
 
 
 __all__ = [
+    "OPERATIONS_BY_MODE",
     "SOURCE_WORDS",
     "TOOL_WRAPPER_ALLOWED_OPERATIONS",
     "TOOL_WRAPPER_PROMPT_REF",
+    "TOOL_WRAPPER_REIMPORT_OPERATIONS",
     "ToolSource",
     "ToolWrapCall",
     "ToolWrapRequest",
+    "operations_for",
     "tool_wrapper_from",
 ]

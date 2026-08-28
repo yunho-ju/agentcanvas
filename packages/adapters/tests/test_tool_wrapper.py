@@ -51,12 +51,14 @@ def a_spec() -> AgentSpec:
 def a_request(
     source_kind: ToolSource = ToolSource.OPENAPI,
     source: str = OPENAPI_SOURCE,
+    replacing: str | None = None,
 ) -> ToolWrapRequest:
     return ToolWrapRequest(
         base_spec=a_spec(),
         source_kind=source_kind,
         source=source,
         model_ref="model://openai",
+        replacing=replacing,
     )
 
 
@@ -245,3 +247,73 @@ def test_a_provider_that_could_not_answer_is_carried_through():
 
     assert isinstance(result, ArchitectBalked)
     assert result.reason == "provider_error"
+
+
+def replacement_answer(base_revision: str, resource_id: str = "article-api") -> str:
+    return json.dumps(
+        {
+            "schema_version": "agent.patch/v1",
+            "base_revision": base_revision,
+            "operations": [
+                {
+                    "op": "replace_resource",
+                    "resource": {
+                        "id": resource_id,
+                        "kind": "http.api",
+                        "server_ref": "api://article-api",
+                        "approval_policy": "read_only_auto",
+                        "tools": [],
+                    },
+                }
+            ],
+        }
+    )
+
+
+def test_bringing_a_connection_in_again_swaps_that_one_connection():
+    """다시 가져오기는 대상 하나를 갈아 끼운다 — 이때만 replace 표가 열린다."""
+    spec = a_spec()
+    _seen, wraps = asked_with(replacement_answer(spec.revision))
+
+    result = wraps(a_request(replacing="article-api"))
+
+    assert isinstance(result, ArchitectSaid)
+    assert [operation.op for operation in result.patch.operations] == [
+        "replace_resource"
+    ]
+
+
+def test_adding_a_connection_is_outside_the_table_while_bringing_one_in_again():
+    """다시 가져오는 중에는 더하기가 표 밖이다 — 화면은 그 연결 하나의 diff만 말한다."""
+    spec = a_spec()
+    _seen, wraps = asked_with(resource_answer(spec.revision))
+
+    result = wraps(a_request(replacing="article-api"))
+
+    assert isinstance(result, ArchitectBalked)
+    assert result.reason == "invalid_patch"
+
+
+def test_a_replacement_that_reaches_a_different_connection_is_refused():
+    """대상 밖은 건드리지 않는다 — 보이지 않는 연결이 바뀌게 두지 않는다."""
+    spec = a_spec()
+    _seen, wraps = asked_with(
+        replacement_answer(spec.revision, resource_id="other-api")
+    )
+
+    result = wraps(a_request(replacing="article-api"))
+
+    assert isinstance(result, ArchitectBalked)
+    assert result.reason == "invalid_patch"
+
+
+def test_the_prompt_names_the_connection_being_brought_in_again():
+    spec = a_spec()
+    seen, wraps = asked_with(replacement_answer(spec.revision))
+
+    wraps(a_request(replacing="article-api"))
+
+    instruction = seen[0].instruction
+    assert "article-api" in instruction
+    assert "replace_resource" in instruction
+    assert "add_resource" not in instruction

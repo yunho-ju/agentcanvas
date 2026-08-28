@@ -250,3 +250,239 @@ describe("붙여 넣으면 도구가 된다", () => {
     );
   });
 });
+
+// 만든 연결을 고치고 지우는 길 (API_TOOLS P2c) — P2b의 "바꿀 수 있는가 ❌"를 닫는다.
+describe("연결을 고치고 지우기", () => {
+  function connectionRow() {
+    return within(screen.getByRole("region", { name: "연결" })).getByRole("listitem", {
+      name: "clinical-reference",
+    });
+  }
+
+  it("연결 줄마다 다시 가져오기와 지우기가 있다", async () => {
+    render(<App />);
+    await openPanel();
+
+    expect(
+      within(connectionRow()).getByRole("button", { name: "다시 가져오기" }),
+    ).toBeEnabled();
+    const remove = within(connectionRow()).getByRole("button", { name: "지우기" });
+    expect(remove).toBeEnabled();
+    expect(remove).toHaveAttribute("title", expect.stringContaining("되돌리기"));
+    // 되묻지 않는 대신 무섭지 않다고 말하는 한 줄 — inspector의 그 문장을 그대로 쓴다.
+    expect(
+      within(connectionRow()).getByText("되돌리기로 언제든 살릴 수 있어요"),
+    ).toBeInTheDocument();
+  });
+
+  it("지우면 목록에서 곧바로 빠지고, 잃은 노드를 말한다", async () => {
+    render(<App />);
+    await openPanel();
+
+    await userEvent.click(within(connectionRow()).getByRole("button", { name: "지우기" }));
+
+    expect(
+      within(screen.getByRole("region", { name: "연결" })).getByText(
+        "이 문서에는 아직 연결이 없어요",
+      ),
+    ).toBeInTheDocument();
+    expect(store().notice?.key).toBe("edit.dropConnection.notice");
+    act(() => store().undo());
+    expect(store().spec?.resources).toHaveLength(1);
+  });
+
+  it("실행을 보는 동안에는 두 행동 모두 잠기고 까닭을 말한다", async () => {
+    render(<App />);
+    await openPanel();
+    await act(async () => {
+      await runOnServer({
+        runId: "run_example",
+        startedAt: new Date("2026-08-01T12:30:00.000Z"),
+      });
+    });
+
+    for (const name of ["다시 가져오기", "지우기"]) {
+      const button = within(connectionRow()).getByRole("button", { name });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("title", expect.stringContaining("실행"));
+    }
+  });
+
+  it("다시 가져오기는 그 연결을 제목에 걸고 카드를 연다", async () => {
+    render(<App />);
+    await openPanel();
+
+    await userEvent.click(
+      within(connectionRow()).getByRole("button", { name: "다시 가져오기" }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "'clinical-reference'을 다시 가져와요" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "붙여 넣은 내용" })).toHaveFocus();
+  });
+
+  it("카드를 닫으면 손은 그 연결을 부른 자리로 돌아간다", async () => {
+    render(<App />);
+    await openPanel();
+    const opener = within(connectionRow()).getByRole("button", {
+      name: "다시 가져오기",
+    });
+
+    await userEvent.click(opener);
+    await userEvent.keyboard("{Escape}");
+    await userEvent.keyboard("{Escape}");
+
+    expect(
+      screen.queryByRole("dialog", { name: /다시 가져와요/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(connectionRow()).getByRole("button", { name: "다시 가져오기" }),
+    ).toHaveFocus();
+  });
+
+  /** 다시 가져오기 미리보기까지 간다 — 서버가 무엇을 돌려주는지는 부르는 쪽이 정한다. */
+  async function reviewReimport(candidateOf: () => AgentSpec) {
+    useEditor.setState({
+      wrapToolsOnServer: async () => ({ candidate: candidateOf(), issues: [] }),
+    } as never);
+    render(<App />);
+    await openPanel();
+    await userEvent.click(
+      within(connectionRow()).getByRole("button", { name: "다시 가져오기" }),
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "붙여 넣은 내용" }),
+      "openapi 3.1.0",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "도구로 바꾸기" }));
+    return screen.getByRole("dialog", { name: /다시 가져와요/ });
+  }
+
+  it("연결 자체가 바뀌면 그 칸도 함께 말한다 — 도구만 보고 승인하지 않는다", async () => {
+    const card = await reviewReimport(() => {
+      const spec = store().exportSpec();
+      return {
+        ...spec,
+        resources: [
+          {
+            ...(spec.resources ?? [])[0],
+            // 쓸 수 있는 도구 이름이 통째로 비워진다 — 승인하면 문서에서도 사라진다.
+            allowed_tools: [],
+            server_ref: "mcp://clinical-reference-v2",
+          },
+        ],
+      } as AgentSpec;
+    });
+
+    expect(within(card).getByText("바뀐 연결 정보")).toBeInTheDocument();
+    expect(within(card).getByText(/쓸 수 있는 도구 이름/)).toBeInTheDocument();
+    expect(within(card).getByText(/search_article, get_article/)).toBeInTheDocument();
+    expect(within(card).getByText(/mcp:\/\/clinical-reference-v2/)).toBeInTheDocument();
+  });
+
+  it("연결 정보가 그대로면 그 자리를 세우지 않는다", async () => {
+    const card = await reviewReimport(() => store().exportSpec());
+
+    expect(within(card).queryByText("바뀐 연결 정보")).not.toBeInTheDocument();
+  });
+
+  it("비밀 이름이 제안되면 여기서도 값이 어디 있는지 말한다", async () => {
+    const card = await reviewReimport(() => {
+      const spec = store().exportSpec();
+      const binding = (spec.resources ?? [])[0];
+      return {
+        ...spec,
+        resources: [
+          {
+            ...binding,
+            tools: [
+              {
+                ...(binding.tools ?? [])[0],
+                call: {
+                  transport: "http",
+                  method: "GET",
+                  url_template: "https://api.example.com/search",
+                  auth: "secret://clinical-key",
+                },
+              },
+            ],
+          },
+        ],
+      } as AgentSpec;
+    });
+
+    expect(within(card).getByText(/열쇠 값은 서버에 따로 둬요/)).toBeInTheDocument();
+  });
+
+  it("대상 연결에 대한 답이 오지 않으면 넣기를 내리고 까닭을 말한다", async () => {
+    const card = await reviewReimport(() => {
+      const spec = store().exportSpec();
+      return { ...spec, resources: [] } as AgentSpec;
+    });
+
+    expect(within(card).getByRole("alert")).toHaveTextContent(
+      /이 연결에 대한 답이 오지 않았어요/,
+    );
+    expect(
+      within(card).queryByRole("button", { name: "문서에 넣기" }),
+    ).not.toBeInTheDocument();
+    expect(store().spec?.resources?.[0].tools).toHaveLength(2);
+  });
+
+  it("미리보기는 새 도구·바뀐 도구·빠지는 도구를 모두 말한다", async () => {
+    useEditor.setState({
+      wrapToolsOnServer: async () => {
+        const spec = store().exportSpec();
+        return {
+          candidate: {
+            ...spec,
+            resources: [
+              {
+                ...(spec.resources ?? [])[0],
+                tools: [
+                  // 이름은 같지만 내용이 달라진 도구
+                  {
+                    ...((spec.resources ?? [])[0].tools ?? [])[0],
+                    timeout_ms: 12000,
+                  },
+                  // 새로 생긴 도구 (get_article은 빠진다)
+                  {
+                    ...((spec.resources ?? [])[0].tools ?? [])[0],
+                    name: "cite_article",
+                  },
+                ],
+              },
+            ],
+          },
+          issues: [],
+        };
+      },
+    } as never);
+    render(<App />);
+    await openPanel();
+    await userEvent.click(
+      within(connectionRow()).getByRole("button", { name: "다시 가져오기" }),
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "붙여 넣은 내용" }),
+      "openapi 3.1.0",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "도구로 바꾸기" }));
+
+    const card = screen.getByRole("dialog", { name: /다시 가져와요/ });
+    expect(within(card).getByText("새 도구")).toBeInTheDocument();
+    expect(within(card).getByText("바뀐 도구")).toBeInTheDocument();
+    expect(within(card).getByText("빠지는 도구")).toBeInTheDocument();
+    expect(within(card).getByText("cite_article")).toBeInTheDocument();
+    expect(within(card).getByText("get_article")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "문서에 넣기" }));
+
+    const tools = store().spec?.resources?.[0].tools ?? [];
+    expect(tools.map((tool) => tool.name)).toEqual(["search_article", "cite_article"]);
+    expect(
+      within(screen.getByRole("region", { name: "연결" })).getByText("cite_article"),
+    ).toBeInTheDocument();
+  });
+});

@@ -258,6 +258,8 @@ class ToolWrapBody(BaseModel):
     source_kind: ToolSource
     source: NonEmptyText
     base_spec: AgentSpec
+    #: 이미 있는 연결을 다시 가져오는 중이면 그 id — 없으면 새 연결을 만드는 것이다.
+    replacing: NonEmptyText | None = None
 
 
 class ArchitectCostEvidence(BaseModel):
@@ -851,6 +853,7 @@ def create_app(
                 source=asked.source,
                 source_kind=asked.source_kind,
                 model_ref=asked.model_ref,
+                replacing=asked.replacing,
             ),
             guided=True,
         )

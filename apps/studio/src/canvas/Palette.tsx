@@ -5,6 +5,7 @@ import { LOCKED_HINT } from "../run/lockWords";
 import { nodeTypes } from "../registry/registry";
 import { useEditor } from "../store/editor";
 import { isRunning } from "../store/runSlice";
+import { DocTools } from "./DocTools";
 import { NodeTypeChip } from "./NodeTypeChip";
 
 export function Palette() {
@@ -13,6 +14,11 @@ export function Palette() {
   const running = useEditor(isRunning);
   const locale = useLocale();
   const t = useT();
+  // 놓이는 자리는 이미 놓인 노드 수를 따라 조금씩 어긋난다 — 카드가 서로를 가리지 않는다.
+  const placedAt = (offset: number) => ({
+    x: 120 + (count + offset) * 24,
+    y: 120 + (count + offset) * 24,
+  });
 
   return (
     <section className="palette" aria-label={t("palette.title")}>
@@ -27,9 +33,7 @@ export function Palette() {
               title={
                 running ? t(LOCKED_HINT) : localized(nodeType.plain_description, locale)
               }
-              onClick={() =>
-                addNode(nodeType.type, { x: 120 + count * 24, y: 120 + count * 24 })
-              }
+              onClick={() => addNode(nodeType.type, placedAt(0))}
             >
               {/* 캔버스의 카드와 같은 칩 — 놓기 전에 무엇인지 알아본다. */}
               <NodeTypeChip type={nodeType.type} />
@@ -41,6 +45,7 @@ export function Palette() {
           </li>
         ))}
       </ul>
+      <DocTools at={(index) => placedAt(index)} />
     </section>
   );
 }

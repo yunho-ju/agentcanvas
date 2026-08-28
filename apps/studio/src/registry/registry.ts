@@ -135,3 +135,37 @@ export function resolvePorts(
   wearTool(node, nodeType, resources, resolved);
   return resolved;
 }
+
+/** 도구 하나를 그대로 실을 수 있는 자리 — 어느 노드 타입의, 어느 두 칸인가. */
+export interface ToolHost {
+  type: string;
+  /** 연결 이름을 적는 칸 (x-binding-ref) */
+  bindingField: string;
+  /** 도구 이름을 적는 칸 (x-tool-ports.tool_name_field) */
+  toolNameField: string;
+}
+
+function bindingField(nodeType: NodeType): string | undefined {
+  const properties = asRecord(nodeType.config_schema.properties) ?? {};
+  return Object.entries(properties).find(
+    ([, field]) => asRecord(field)?.[BINDING_REF_MARKER] === true,
+  )?.[0];
+}
+
+/**
+ * 도구를 실을 자리를 registry에게 묻는다 — 화면은 노드 타입 이름을 외우지 않는다.
+ * 두 칸(연결·도구 이름)을 모두 가진 타입이 그 자리다. 없으면 없다고 답한다.
+ * 지금 그런 타입은 하나뿐이다(registry 테스트가 그 사실을 지킨다) — 둘이 되는 날
+ * "어느 자리에 놓을까"는 사람이 고를 물음이 되므로, 그때 고르는 규칙을 정한다.
+ */
+export function toolHost(): ToolHost | undefined {
+  for (const nodeType of Object.values(nodeTypes)) {
+    const plan = asRecord(nodeType.config_schema[TOOL_PORTS_MARKER]);
+    const toolNameField = plan?.[TOOL_NAME_FIELD];
+    const binding = bindingField(nodeType);
+    if (typeof toolNameField === "string" && binding !== undefined) {
+      return { type: nodeType.type, bindingField: binding, toolNameField };
+    }
+  }
+  return undefined;
+}

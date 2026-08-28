@@ -1,6 +1,6 @@
 // 아직 없던 것을 계약에 맞게 지어 내는 자리 — 빈 초안과 갓 놓인 노드.
 // 팔레트에서 놓든 피커에서 고르든 새 노드의 모습은 하나다.
-import type { AgentSpec } from "../generated/agent_spec";
+import type { AgentSpec, Resources } from "../generated/agent_spec";
 import type { NodeType } from "../generated/node_type";
 import { resolvePorts } from "../registry/registry";
 import { uniqueId } from "./ids";
@@ -30,18 +30,24 @@ export function newDraftSpec(makeId: () => string): AgentSpec {
   };
 }
 
-/** 갓 놓인 노드. config는 비어 있다 — 값 입력은 inspector 몫이다. */
+/**
+ * 갓 놓인 노드. config는 대개 비어 있다 — 값 입력은 inspector 몫이다.
+ * 이미 무엇을 할지 알고 놓는 입구(팔레트의 문서 도구 칩)는 그 값을 함께 건네고,
+ * 그때 포트는 놓이는 순간 그 도구의 모양이 된다 (문서의 연결이 함께 와야 한다).
+ */
 export function newNode(
   nodeType: NodeType,
   position: { x: number; y: number },
   taken: string[],
+  config: Record<string, unknown> = {},
+  resources: Resources = [],
 ): FlowNode {
   const id = uniqueId(nodeType.type.split(".").pop() ?? nodeType.type, taken);
-  const spec = { id, type: nodeType.type, position, config: {} };
+  const spec = { id, type: nodeType.type, position, config };
   return {
     id,
     type: "agentNode" as const,
     position,
-    data: { spec, nodeType, ports: resolvePorts(spec, nodeType) },
+    data: { spec, nodeType, ports: resolvePorts(spec, nodeType, undefined, resources) },
   };
 }

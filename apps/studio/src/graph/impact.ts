@@ -38,7 +38,7 @@ function reachedIds(graph: FlowGraph): Set<string> {
 }
 
 /** 지금 그래프에서 바뀐 그래프로 갈 때 잃는 것. 이미 잃은 것은 이 편집의 탓이 아니다. */
-function impactBetween(before: FlowGraph, after: FlowGraph): Impact {
+export function impactBetween(before: FlowGraph, after: FlowGraph): Impact {
   const keptEdges = new Set(after.edges.map((edge) => edge.id));
   const reachedBefore = reachedIds(before);
   const reachedAfter = reachedIds(after);

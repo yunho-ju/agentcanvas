@@ -61,17 +61,23 @@ function endpoints(edge: FlowEdge) {
  * 이 편집을 하고도 이 연결이 남아 있을 수 있는가.
  * 포트가 사라졌으면 남을 수 없고, 남았어도 값의 모양이 어긋나면 그을 수 없는 연결이다.
  * 판정은 새로 쓰지 않는다 — 그을 때 쓰는 `checkConnection`에게 그대로 묻는다.
+ * 바뀐 노드가 여럿일 수 있다(연결을 다시 가져오면 그 연결을 쓰던 노드가 모두 바뀐다).
  */
 function stillConnected(
   edge: FlowEdge,
-  node: FlowNode,
+  changed: FlowNode[],
   before: ConnectableSpec,
   after: ConnectableSpec,
 ): boolean {
-  const { inputs, outputs } = node.data.ports;
-  if (edge.source === node.id && !(edge.sourceHandle in outputs)) return false;
-  if (edge.target === node.id && !(edge.targetHandle in inputs)) return false;
-  if (edge.source !== node.id && edge.target !== node.id) return true;
+  const touched = changed.filter(
+    (node) => edge.source === node.id || edge.target === node.id,
+  );
+  if (touched.length === 0) return true;
+  for (const node of touched) {
+    const { inputs, outputs } = node.data.ports;
+    if (edge.source === node.id && !(edge.sourceHandle in outputs)) return false;
+    if (edge.target === node.id && !(edge.targetHandle in inputs)) return false;
+  }
 
   const [source, target] = endpoints(edge);
   if (checkConnection(after, source, target).ok) return true;
@@ -94,7 +100,39 @@ export function withNodeConfig(
   const nodes = graph.nodes.map((node) => (node.id === id ? next : node));
   const before = asSpec(graph.nodes, inputSchema, resources);
   const after = asSpec(nodes, inputSchema, resources);
-  const kept = (edge: FlowEdge) => stillConnected(edge, next, before, after);
+  const kept = (edge: FlowEdge) => stillConnected(edge, [next], before, after);
+  return {
+    graph: { nodes, edges: graph.edges.filter(kept) },
+    removedEdges: graph.edges.filter((edge) => !kept(edge)),
+  };
+}
+
+/**
+ * 연결(spec.resources) 하나를 갈아 끼우고, 그 때문에 끊어지는 연결선을 함께 알려준다.
+ * 그 연결을 쓰던 노드의 포트는 새 도구의 모양으로 다시 그려진다. 판정은 설정을 바꿀 때와
+ * 같은 자리(`stillConnected` → `checkConnection`)의 답이다 — 새 규칙을 만들지 않는다.
+ */
+export function withSwappedConnection(
+  graph: FlowGraph,
+  usedBy: string[],
+  before: Resources,
+  after: Resources,
+  inputSchema?: JsonSchema,
+): ConfigChange {
+  const changed = graph.nodes
+    .filter((node) => usedBy.includes(node.id))
+    .map((node) => reconfigured(node, node.data.spec.config ?? {}, inputSchema, after));
+  if (changed.length === 0) return { graph, removedEdges: [] };
+
+  const fresh = new Map(changed.map((node) => [node.id, node]));
+  const nodes = graph.nodes.map((node) => fresh.get(node.id) ?? node);
+  const kept = (edge: FlowEdge) =>
+    stillConnected(
+      edge,
+      changed,
+      asSpec(graph.nodes, inputSchema, before),
+      asSpec(nodes, inputSchema, after),
+    );
   return {
     graph: { nodes, edges: graph.edges.filter(kept) },
     removedEdges: graph.edges.filter((edge) => !kept(edge)),

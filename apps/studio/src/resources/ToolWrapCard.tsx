@@ -2,13 +2,12 @@
 // 한 시점에 하나만 묻는다: 무엇을 붙여 넣었나 -> 이 연결을 넣을까. 승인 전에는 문서가 그대로다.
 import { useEffect, useRef } from "react";
 import type { ToolSourceKind } from "../api/toolWrap";
-import type { ResourceBinding } from "../generated/agent_spec";
-import type { MessageKey } from "../i18n/messages";
+import { newConnections } from "../graph/connections";
+import { type MessageKey, msg } from "../i18n/messages";
 import { useT } from "../i18n/useT";
 import { useDocResources } from "../inspector/useDocResources";
 import { useEditor } from "../store/editor";
-import { ToolLines } from "./ToolList";
-import { needsASecret, newConnections } from "./resourceWords";
+import { Reviewing, ReviewingSwap } from "./ToolWrapReview";
 
 /** 붙여 넣을 수 있는 것 — 서버의 표와 같은 이름이고, 새 종류는 여기 한 줄이다. */
 const SOURCE_KINDS: { kind: ToolSourceKind; name: MessageKey }[] = [
@@ -17,26 +16,12 @@ const SOURCE_KINDS: { kind: ToolSourceKind; name: MessageKey }[] = [
   { kind: "prose", name: "toolWrap.kind.prose" },
 ];
 
-function ProposedConnection({ binding }: { binding: ResourceBinding }) {
-  const t = useT();
-
-  return (
-    <li className="tool-wrap-card__connection">
-      <span className="tool-wrap-card__label">{t("toolWrap.review.name")}</span>
-      <span className="tool-wrap-card__name">{binding.id}</span>
-      <ul className="tool-wrap-card__tools">
-        {(binding.tools ?? []).map((tool) => (
-          <li className="tool-wrap-card__tool" key={tool.name}>
-            <ToolLines tool={tool} />
-          </li>
-        ))}
-      </ul>
-      {/* 비밀은 이름만 온다 — 값이 어디에 있는지 그 자리에서 말한다. */}
-      {needsASecret(binding) ? (
-        <span className="tool-wrap-card__secret">{t("toolWrap.secret")}</span>
-      ) : null}
-    </li>
-  );
+/** 그 연결 줄의 다시 가져오기 버튼 — 카드를 부른 자리다. */
+function rowOf(id: string): HTMLElement | null {
+  // 연결 이름은 사람이 지은 글자다 — 선택자에 그대로 끼워 넣지 않고 읽어서 견준다.
+  const rows = [...document.querySelectorAll(".resources-panel__connection")];
+  const row = rows.find((one) => one.getAttribute("aria-label") === id);
+  return row?.querySelector<HTMLElement>(".resources-panel__reimport") ?? null;
 }
 
 function Asking() {
@@ -124,77 +109,47 @@ function Asking() {
   );
 }
 
-function Reviewing({ proposed }: { proposed: ResourceBinding[] }) {
-  const apply = useEditor((state) => state.applyToolWrap);
-  const rewrite = useEditor((state) => state.rewriteToolWrap);
-  const error = useEditor((state) => state.toolWrapError);
-  const t = useT();
-  // 넣을 것이 없는 제안을 말없이 되돌리지 않는다 — 무슨 일이 있었는지 말하고 다음 걸음을 준다.
-  const nothingNew = proposed.length === 0;
-
-  return (
-    <>
-      <ul className="tool-wrap-card__proposed">
-        {proposed.map((binding) => (
-          <ProposedConnection binding={binding} key={binding.id} />
-        ))}
-      </ul>
-      {nothingNew ? (
-        <p className="tool-wrap-card__error" role="alert">
-          {t("toolWrap.error.nothingNew")}
-        </p>
-      ) : error ? (
-        <p className="tool-wrap-card__error" role="alert">
-          {t(error)}
-        </p>
-      ) : null}
-      <div className="tool-wrap-card__actions">
-        {nothingNew ? null : (
-          <button
-            type="button"
-            className="button-primary"
-            title={t("toolWrap.apply.hint")}
-            onClick={apply}
-          >
-            {t("toolWrap.apply")}
-          </button>
-        )}
-        <button
-          type="button"
-          className="button-ghost"
-          title={t("toolWrap.back.hint")}
-          onClick={rewrite}
-        >
-          {t("toolWrap.back")}
-        </button>
-      </div>
-    </>
-  );
-}
-
 export function ToolWrapCard() {
   const mode = useEditor((state) => state.toolWrapMode);
   const candidate = useEditor((state) => state.toolWrapCandidate);
+  const replacing = useEditor((state) => state.toolWrapReplacing);
   const { bindings } = useDocResources();
   const t = useT();
 
   // 카드가 물러나면 손은 이 카드를 부른 버튼으로 돌아간다 (open-dialog와 같은 규칙).
+  // 부른 자리는 둘이다 — 새 연결 버튼, 또는 그 연결 줄의 다시 가져오기 버튼.
+  const opener = useRef<string | null>(null);
+  if (mode !== "closed") opener.current = replacing;
   useEffect(() => {
     if (mode !== "closed") return;
-    document.querySelector<HTMLElement>(".resources-panel__new")?.focus();
+    const called = opener.current;
+    const row = called === null ? null : rowOf(called);
+    (row ?? document.querySelector<HTMLElement>(".resources-panel__new"))?.focus();
+    opener.current = null;
   }, [mode]);
 
   if (mode === "closed") return null;
-  const proposed = candidate
-    ? newConnections(candidate.resources ?? [], bindings)
-    : [];
+  const proposed = candidate ? newConnections(candidate.resources ?? [], bindings) : [];
   const reviewing = mode === "review";
-  const title = reviewing ? "toolWrap.review.title" : "toolWrap.title";
+  // 다시 가져오는 중에는 제목이 대상 연결의 이름을 말한다 — 무엇을 고치는 중인지 잊지 않는다.
+  const heading = replacing
+    ? msg("toolWrap.reimport.title", { id: replacing })
+    : msg(reviewing ? "toolWrap.review.title" : "toolWrap.title");
+  const before = bindings.find((binding) => binding.id === replacing);
+  const after = (candidate?.resources ?? []).find(
+    (binding) => binding.id === replacing,
+  );
 
   return (
-    <section className="tool-wrap-card layer" role="dialog" aria-label={t(title)}>
-      <h2 className="tool-wrap-card__title">{t(title)}</h2>
-      {reviewing ? <Reviewing proposed={proposed} /> : <Asking />}
+    <section className="tool-wrap-card layer" role="dialog" aria-label={t(heading)}>
+      <h2 className="tool-wrap-card__title">{t(heading)}</h2>
+      {!reviewing ? (
+        <Asking />
+      ) : replacing && before ? (
+        <ReviewingSwap before={before} after={after} />
+      ) : (
+        <Reviewing proposed={proposed} />
+      )}
     </section>
   );
 }

@@ -29,6 +29,7 @@ class ToolWrapperService:
         source: str,
         source_kind: ToolSource,
         model_ref: str,
+        replacing: str | None = None,
     ) -> ArchitectPreviewOutcome:
         # 화면이 보낸 문서는 아직 저장되지 않은 지금의 캔버스다 — 판을 매기는 권위는
         # 저장에 있으므로, 이 미리보기 안에서만 통하는 base revision을 여기서 셈한다.
@@ -38,6 +39,7 @@ class ToolWrapperService:
             source_kind=source_kind,
             source=source,
             model_ref=model_ref,
+            replacing=replacing,
         )
         return preview_of(base, self._wrap(asked))
 

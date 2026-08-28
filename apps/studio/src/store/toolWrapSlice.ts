@@ -1,12 +1,18 @@
 // 붙여 넣은 API 설명 -> 연결 제안 -> 사람의 승인. 승인 전에는 문서를 건드리지 않는다.
 // 제안을 만드는 일은 서버가, 문서에 들이는 일은 되돌릴 수 있는 명령 하나가 한다.
 import type { StateCreator } from "zustand";
-import { type ToolSourceKind, type ToolWrapOutcome, wrapToolsOnServer } from "../api/toolWrap";
+import {
+  type ToolWrapAsk,
+  type ToolSourceKind,
+  type ToolWrapOutcome,
+  wrapToolsOnServer,
+} from "../api/toolWrap";
 import type { AgentSpec } from "../generated/agent_spec";
-import { takeInConnections } from "../history/docCommands";
+import { sceneOf } from "../graph/scene";
+import { swapConnection, takeInConnections } from "../history/docCommands";
 import { LOCKED_HINT } from "../run/lockWords";
 import type { Message } from "../i18n/messages";
-import { newConnections } from "../resources/resourceWords";
+import { newConnections } from "../graph/connections";
 import type { EditorState } from "./editor";
 import { isRunning } from "./runSlice";
 
@@ -18,15 +24,15 @@ export interface ToolWrapSlice {
   toolWrapKind: ToolSourceKind;
   toolWrapSource: string;
   toolWrapCandidate: AgentSpec | null;
+  /** 다시 가져오는 중인 연결의 id — 없으면 새 연결을 만드는 중이다 */
+  toolWrapReplacing: string | null;
   toolWrapError: Message | null;
   toolWrapLoading: boolean;
   /** 서버에 묻는 길 — 테스트는 이 자리만 갈아 끼운다 (선례: requestArchitectDraft) */
-  wrapToolsOnServer: (
-    source: string,
-    sourceKind: ToolSourceKind,
-    baseSpec: AgentSpec,
-  ) => Promise<ToolWrapOutcome>;
+  wrapToolsOnServer: (ask: ToolWrapAsk) => Promise<ToolWrapOutcome>;
   openToolWrap: () => void;
+  /** 이미 있는 연결을 다시 가져온다 — 대상 하나를 든 채 같은 카드가 열린다 */
+  reimportConnection: (id: string) => void;
   closeToolWrap: () => void;
   setToolWrapKind: (kind: ToolSourceKind) => void;
   setToolWrapSource: (source: string) => void;
@@ -41,6 +47,7 @@ export const CLOSED_TOOL_WRAP = {
   toolWrapKind: "openapi",
   toolWrapSource: "",
   toolWrapCandidate: null,
+  toolWrapReplacing: null,
   toolWrapError: null,
   toolWrapLoading: false,
 } as const;
@@ -53,13 +60,16 @@ export const createToolWrapSlice: StateCreator<EditorState, [], [], ToolWrapSlic
 
   return {
     ...CLOSED_TOOL_WRAP,
-    wrapToolsOnServer: (source, sourceKind, baseSpec) =>
-      wrapToolsOnServer(source, sourceKind, baseSpec),
+    wrapToolsOnServer,
 
     // 실행을 보는 동안 그래프는 잠겨 있다 — 잠금 규칙은 기존 것을 그대로 묻는다.
     openToolWrap: () => {
       if (isRunning(get())) return;
-      set({ toolWrapMode: "input", toolWrapError: null });
+      set({ ...CLOSED_TOOL_WRAP, toolWrapMode: "input" });
+    },
+    reimportConnection: (id) => {
+      if (isRunning(get())) return;
+      set({ ...CLOSED_TOOL_WRAP, toolWrapMode: "input", toolWrapReplacing: id });
     },
     closeToolWrap: () => {
       askSequence += 1;
@@ -80,11 +90,12 @@ export const createToolWrapSlice: StateCreator<EditorState, [], [], ToolWrapSlic
 
       let outcome: ToolWrapOutcome;
       try {
-        outcome = await get().wrapToolsOnServer(
+        outcome = await get().wrapToolsOnServer({
           source,
-          get().toolWrapKind,
-          get().exportSpec(),
-        );
+          sourceKind: get().toolWrapKind,
+          baseSpec: get().exportSpec(),
+          replacing: get().toolWrapReplacing,
+        });
       } catch {
         outcome = { failure: { key: "toolWrap.error.offline" } };
       }
@@ -120,11 +131,24 @@ export const createToolWrapSlice: StateCreator<EditorState, [], [], ToolWrapSlic
         return;
       }
       get().ensureDoc();
-      // 넣는 것은 미리보기가 보여 준 것 — 새로 들어올 연결뿐이다. 화면이 보여 주지 않은
-      // 삭제·교체를 승인이 대신 옮기지 않는다 (서버 표도 더하기 하나로 좁혀져 있다).
+      // 넣는 것은 미리보기가 보여 준 것뿐이다 — 다시 가져오는 중이면 그 연결 하나,
+      // 아니면 새로 들어올 연결들. 화면이 보여 주지 않은 변화를 승인이 대신 옮기지 않는다.
       const current = get().spec?.resources ?? [];
-      const arriving = newConnections(candidate.resources ?? [], current);
-      get().runCommand(takeInConnections(current, [...current, ...arriving]));
+      const replacing = get().toolWrapReplacing;
+      const proposed = candidate.resources ?? [];
+      if (replacing !== null) {
+        const swapped = proposed.find((binding) => binding.id === replacing);
+        if (!swapped) {
+          set({ toolWrapError: { key: "toolWrap.error.nothingNew" } });
+          return;
+        }
+        get().runCommand(
+          swapConnection(sceneOf(get()), swapped, get().spec?.input_schema),
+        );
+      } else {
+        const arriving = newConnections(proposed, current);
+        get().runCommand(takeInConnections(current, [...current, ...arriving]));
+      }
       askSequence += 1;
       set(CLOSED_TOOL_WRAP);
     },
