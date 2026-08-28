@@ -72,10 +72,10 @@ def test_an_open_database_from_a_newer_version_is_not_guessed_at(tmp_path: Path)
         )
         connection.executemany(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+            # 이 서버가 아는 마지막 판보다 한 판 더 나간 파일 — 판 수가 늘어도 뜻은 그대로다.
             [
-                (1, "2026-08-26T00:00:00+00:00"),
-                (2, "2026-08-26T00:01:00+00:00"),
-                (3, "2026-08-26T00:02:00+00:00"),
+                (version, f"2026-08-26T00:0{version}:00+00:00")
+                for version in range(1, CURRENT_SCHEMA_VERSION + 2)
             ],
         )
 
@@ -185,10 +185,10 @@ def test_a_database_from_a_newer_version_is_not_guessed_at(tmp_path: Path):
         )
         connection.executemany(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+            # 이 서버가 아는 마지막 판보다 한 판 더 나간 파일 — 판 수가 늘어도 뜻은 그대로다.
             [
-                (1, "2026-08-26T00:00:00+00:00"),
-                (2, "2026-08-26T00:01:00+00:00"),
-                (3, "2026-08-26T00:02:00+00:00"),
+                (version, f"2026-08-26T00:0{version}:00+00:00")
+                for version in range(1, CURRENT_SCHEMA_VERSION + 2)
             ],
         )
 

@@ -7,6 +7,7 @@ from agentcanvas_contracts.refs import (
     PromptRef,
     SchemaRef,
     SecretRef,
+    ServerRef,
     no_raw_secrets,
 )
 from pydantic import BaseModel, ValidationError
@@ -14,6 +15,10 @@ from pydantic import BaseModel, ValidationError
 
 class PromptHolder(BaseModel):
     ref: PromptRef
+
+
+class ServerHolder(BaseModel):
+    ref: ServerRef
 
 
 class ModelHolder(BaseModel):
@@ -91,6 +96,52 @@ def test_schema_ref_accepts_revision():
 
 def test_mcp_ref_accepts_server():
     assert McpHolder(ref="mcp://clinical-reference").ref == "mcp://clinical-reference"
+
+
+@pytest.mark.parametrize("ref", ["api://clinical-ref", "api://clinical-ref@2"])
+def test_server_ref_accepts_an_api_server(ref):
+    assert ServerHolder(ref=ref).ref == ref
+
+
+@pytest.mark.parametrize("ref", ["mcp://clinical-reference", "mcp://a@1"])
+def test_server_ref_still_accepts_an_mcp_server(ref):
+    """도구 서버가 둘이 되어도 이미 저장된 mcp 바인딩은 그대로 읽힌다."""
+    assert ServerHolder(ref=ref).ref == ref
+
+
+def test_server_ref_rejects_another_scheme_in_words_a_person_can_act_on():
+    with pytest.raises(ValidationError) as exc:
+        ServerHolder(ref="http://clinical-ref")
+    assert "must look like mcp://name[@revision] or api://name[@revision]" in str(
+        exc.value
+    )
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "mcp://a",
+        "api://a@1",
+        "api://a\n",
+        " api://a",
+        "http://a",
+        "clinical-reference",
+        "api://",
+    ],
+)
+def test_the_server_pattern_accepts_exactly_what_the_model_accepts(ref):
+    """두 scheme을 하나의 정규식으로 실었어도 런타임 판정과 같은 집합을 뜻한다."""
+    pattern = ServerHolder.model_json_schema()["properties"]["ref"]["pattern"]
+    accepted_by_schema = re.fullmatch(pattern, ref) is not None
+
+    try:
+        ServerHolder(ref=ref)
+    except ValidationError:
+        accepted_by_model = False
+    else:
+        accepted_by_model = True
+
+    assert accepted_by_schema is accepted_by_model
 
 
 def test_ref_rejects_empty_name():

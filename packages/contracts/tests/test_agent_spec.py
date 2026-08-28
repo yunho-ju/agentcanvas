@@ -223,6 +223,36 @@ def test_resource_binding_requires_mcp_server_ref():
     assert exc.value.errors()[0]["loc"] == ("server_ref",)
 
 
+def binding_dict(**overrides):
+    return {
+        "id": "clinical-reference",
+        "kind": "http.api",
+        "server_ref": "api://clinical-ref",
+        "allowed_tools": [],
+        "approval_policy": "read_only_auto",
+        **overrides,
+    }
+
+
+@pytest.mark.parametrize(
+    "server_ref", ["api://clinical-ref", "api://clinical-ref@2", "mcp://clinical-ref"]
+)
+def test_resource_binding_accepts_both_tool_server_schemes(server_ref):
+    assert (
+        ResourceBinding.model_validate(binding_dict(server_ref=server_ref)).server_ref
+        == server_ref
+    )
+
+
+def test_resource_binding_rejects_a_plain_http_url_as_server_ref():
+    with pytest.raises(ValidationError) as exc:
+        ResourceBinding.model_validate(binding_dict(server_ref="http://clinical-ref"))
+    assert exc.value.errors()[0]["loc"] == ("server_ref",)
+    assert "must look like mcp://name[@revision] or api://name[@revision]" in str(
+        exc.value
+    )
+
+
 def test_json_round_trip_is_stable():
     spec = AgentSpec.model_validate(MINIMAL_SPEC)
     dumped = spec.model_dump(mode="json")

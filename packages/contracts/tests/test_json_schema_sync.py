@@ -267,10 +267,43 @@ def test_resource_binding_server_ref_carries_its_ref_pattern():
     pattern = server_ref["pattern"]
     assert re.fullmatch(pattern, "mcp://clinical-reference")
     assert re.fullmatch(pattern, "mcp://clinical-reference@7")
+    assert re.fullmatch(pattern, "api://clinical-ref")
+    assert re.fullmatch(pattern, "api://clinical-ref@2")
+    assert not re.fullmatch(pattern, "http://clinical-ref")
     assert not re.fullmatch(pattern, "clinical-reference")
     assert not re.fullmatch(pattern, "secret://clinical-reference")
     # 정규식 자체에 개행 자리가 없어야 한다 — 소비자의 엔진이 `$`를 무엇으로 읽든.
     assert not re.fullmatch(pattern, "mcp://clinical-reference\n")
+
+
+def test_committed_agent_spec_schema_carries_the_tool_contract():
+    """도구는 spec의 일부다 — 파이썬 밖 소비자도 스키마만 보고 도구를 읽고 쓸 수 있어야 한다."""
+    schema = json.loads(
+        (JSON_SCHEMA_DIR / "agent_spec.json").read_text(encoding="utf-8")
+    )
+    defs = schema["$defs"]
+    assert defs["ResourceBinding"]["properties"]["tools"]["items"] == {
+        "$ref": "#/$defs/ToolDef"
+    }
+    assert {"HttpCall", "McpCall"} <= set(defs)
+    assert defs["ToolDef"]["properties"]["call"]["discriminator"]["propertyName"] == (
+        "transport"
+    )
+    assert (
+        defs["ToolDef"]["properties"]["result_handling"]["discriminator"][
+            "propertyName"
+        ]
+        == "mode"
+    )
+
+
+def test_generated_typescript_carries_the_tool_contract():
+    """생성 타입은 계약의 투영이다 — 손으로 적지 않고 스키마에서 나온다."""
+    generated = (
+        Path(__file__).resolve().parents[3] / "apps/studio/src/generated/agent_spec.ts"
+    ).read_text(encoding="utf-8")
+    assert "ToolDef" in generated
+    assert "HttpCall" in generated and "McpCall" in generated
 
 
 def test_example_agent_spec_validates_against_committed_schema():

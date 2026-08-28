@@ -6,21 +6,14 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Annotated, Any, Literal
 
-from pydantic import (
-    AfterValidator,
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    model_validator,
-)
+from pydantic import AfterValidator, AwareDatetime, Field, model_validator
 
-from .refs import McpRef, no_raw_secrets
+from .base import ContractModel, JsonSchema, NonEmptyText
+from .refs import ServerRef
 from .revision import REVISION_PATTERN, compute_revision
+from .tool_def import ToolDef
 
 SCHEMA_VERSION = "agent.spec/v1"
-
-JsonSchema = dict[str, Any]
 
 
 def _must_be_utc(value: datetime) -> datetime:
@@ -30,16 +23,6 @@ def _must_be_utc(value: datetime) -> datetime:
 
 
 UtcDatetime = Annotated[AwareDatetime, AfterValidator(_must_be_utc)]
-
-
-def _must_not_be_blank(value: str) -> str:
-    if not value.strip():
-        raise ValueError("must not be blank")
-    return value
-
-
-# min_length는 JSON Schema에도 실린다 — 파이썬만 아는 규칙은 다른 언어에서 지켜지지 않는다.
-NonEmptyText = Annotated[str, Field(min_length=1), AfterValidator(_must_not_be_blank)]
 
 
 class AgentStatus(str, Enum):
@@ -54,18 +37,6 @@ class EdgeKind(str, Enum):
     DATA = "data"
     CONTROL = "control"
     APPROVAL = "approval"
-
-
-class ContractModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="after")
-    def _reject_raw_secrets(self):
-        """자유 dict/list 필드에는 raw secret이 들어올 수 없다."""
-        for name, value in self:
-            if isinstance(value, (dict, list, tuple)):
-                no_raw_secrets(value, name)
-        return self
 
 
 class Position(ContractModel):
@@ -113,9 +84,22 @@ class ExecutionConfig(ContractModel):
 class ResourceBinding(ContractModel):
     id: str = Field(min_length=1)
     kind: str = Field(min_length=1)
-    server_ref: McpRef
+    server_ref: ServerRef
     allowed_tools: list[str] = Field(default_factory=list)
     approval_policy: str = Field(min_length=1)
+    tools: list[ToolDef] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _tool_names_are_unique(self):
+        """노드는 이름으로 도구를 고른다 — 한 바인딩 안에 같은 이름이 둘이면 고를 수 없다."""
+        names = [tool.name for tool in self.tools]
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        if repeated:
+            raise ValueError(
+                "tool names must be unique within a binding, "
+                f"but these are used more than once: {', '.join(repeated)}"
+            )
+        return self
 
 
 class AgentSpec(ContractModel):

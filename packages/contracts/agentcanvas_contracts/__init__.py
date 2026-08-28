@@ -56,6 +56,18 @@ from .revision import canonical_json, compute_revision
 from .run import RUN_ENDINGS, ApprovalAnswer, Run, RunStatus, run_status
 from .run_events import EventType, RunEvent, assert_monotonic_seq
 from .schema_catalog import DEFAULT_SCHEMA_CATALOG, SchemaDef, resolve_schema
+from .tool_def import (
+    ChunkRule,
+    DigestResult,
+    FullResult,
+    HttpCall,
+    HttpMethod,
+    McpCall,
+    RetrieveResult,
+    SectionsResult,
+    ToolCall,
+    ToolDef,
+)
 
 __all__ = [
     "DEFAULT_EVALUATOR_CATALOG",
@@ -73,6 +85,8 @@ __all__ = [
     "AgentStatus",
     "Approval",
     "ApprovalAnswer",
+    "ChunkRule",
+    "DigestResult",
     "Edge",
     "EdgeCondition",
     "EdgeEndpoint",
@@ -86,9 +100,13 @@ __all__ = [
     "EventType",
     "ExecutionConfig",
     "ExecutionLimits",
+    "FullResult",
+    "HttpCall",
+    "HttpMethod",
     "InstructionPresetDef",
     "JsonSchema",
     "LocalizedText",
+    "McpCall",
     "McpRef",
     "ModelDef",
     "ModelRef",
@@ -107,12 +125,16 @@ __all__ = [
     "ReplaceNodeConfigOperation",
     "ResolvedPorts",
     "ResourceBinding",
+    "RetrieveResult",
     "Run",
     "RunEvent",
     "RunStatus",
     "SchemaDef",
     "SchemaRef",
     "SecretRef",
+    "SectionsResult",
+    "ToolCall",
+    "ToolDef",
     "UtcDatetime",
     "assert_monotonic_seq",
     "canonical_json",

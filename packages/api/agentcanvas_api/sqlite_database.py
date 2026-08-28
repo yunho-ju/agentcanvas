@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fcntl
+import json
 import os
 import sqlite3
 import threading
@@ -13,7 +14,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 2
+from agentcanvas_contracts.agent_spec import AgentSpec
+
+CURRENT_SCHEMA_VERSION = 3
 BACKUP_DIR_ENV = "AGENTCANVAS_BACKUP_DIR"
 BACKUP_RETENTION_ENV = "AGENTCANVAS_BACKUP_RETENTION"
 DEFAULT_BACKUP_RETENTION = 10
@@ -85,7 +88,12 @@ _SCHEMA_V2_CONTRACT = {
         ("terminal_at", "TEXT", 0, 0),
     ),
 }
-_SCHEMA_CONTRACTS = {1: _SCHEMA_V1_CONTRACT, 2: _SCHEMA_V2_CONTRACT}
+# v3은 표의 모양을 바꾸지 않는다 — 바뀐 것은 저장된 그래프의 canonical revision뿐이다.
+_SCHEMA_CONTRACTS = {
+    1: _SCHEMA_V1_CONTRACT,
+    2: _SCHEMA_V2_CONTRACT,
+    3: _SCHEMA_V2_CONTRACT,
+}
 _INDEX_CONTRACTS: Mapping[int, Mapping[str, tuple[int, tuple[str, ...]]]] = {
     1: {},
     2: {
@@ -97,6 +105,7 @@ _INDEX_CONTRACTS: Mapping[int, Mapping[str, tuple[int, tuple[str, ...]]]] = {
         ),
     },
 }
+_INDEX_CONTRACTS = {**_INDEX_CONTRACTS, 3: _INDEX_CONTRACTS[2]}
 
 _SCHEMA_V1 = (
     """
@@ -227,9 +236,79 @@ def _migration_to_v2(connection: sqlite3.Connection, applied_at: str) -> None:
     )
 
 
+def _restamped_specs(connection: sqlite3.Connection) -> dict[str, str]:
+    """저장된 그래프를 지금의 계약으로 다시 적는다 — 돌려주는 것은 옛 revision → 새 revision.
+
+    계약에 자리가 하나 늘면 같은 그래프도 다른 revision을 낸다. 읽을 수 없는 줄은
+    이 마이그레이션이 손대지 않는다 (저장소가 읽지 못하는 줄은 옮길 곳도 없다).
+    """
+    moved: dict[str, str] = {}
+    rows = connection.execute(
+        "SELECT spec_id, version, revision, spec_json FROM spec_revisions"
+    ).fetchall()
+    for spec_id, version, revision, spec_json in rows:
+        try:
+            spec = AgentSpec.model_validate(json.loads(spec_json))
+        except (ValueError, TypeError):
+            continue
+        recomputed = spec.computed_revision()
+        if recomputed == revision:
+            continue
+        moved[str(revision)] = recomputed
+        restamped = spec.model_copy(update={"revision": recomputed})
+        connection.execute(
+            "UPDATE spec_revisions SET revision = ?, spec_json = ?"
+            " WHERE spec_id = ? AND version = ?",
+            (
+                recomputed,
+                json.dumps(restamped.model_dump(mode="json"), ensure_ascii=False),
+                spec_id,
+                version,
+            ),
+        )
+    return moved
+
+
+def _repoint_runs(connection: sqlite3.Connection, moved: Mapping[str, str]) -> None:
+    """실행이 시작한 판을 같이 옮긴다 — 저장된 문자열끼리의 대조가 계속 맞아야 한다."""
+    for old, new in moved.items():
+        connection.execute(
+            "UPDATE runs SET spec_revision = ? WHERE spec_revision = ?", (new, old)
+        )
+
+
+def _repoint_eval_batches(
+    connection: sqlite3.Connection, moved: Mapping[str, str]
+) -> None:
+    """배치가 판정한 판도 같이 옮긴다 — 판정 결과 자체는 그대로 둔다."""
+    rows = connection.execute(
+        "SELECT batch_id, batch_json FROM eval_batches"
+    ).fetchall()
+    for batch_id, batch_json in rows:
+        batch = json.loads(batch_json)
+        new = moved.get(str(batch.get("spec_revision")))
+        if new is None:
+            continue
+        connection.execute(
+            "UPDATE eval_batches SET batch_json = ? WHERE batch_id = ?",
+            (json.dumps({**batch, "spec_revision": new}, ensure_ascii=False), batch_id),
+        )
+
+
+def _migration_to_v3(connection: sqlite3.Connection, applied_at: str) -> None:
+    moved = _restamped_specs(connection)
+    _repoint_runs(connection, moved)
+    _repoint_eval_batches(connection, moved)
+    connection.execute(
+        "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+        (3, applied_at),
+    )
+
+
 _MIGRATIONS: Mapping[int, Migration] = {
     1: _migration_to_v1,
     2: _migration_to_v2,
+    3: _migration_to_v3,
 }
 
 

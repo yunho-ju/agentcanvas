@@ -27,7 +27,14 @@ export function asServerAnswer(spec: AgentSpec): AgentSpec {
       target: { node: edge.target.node, port: edge.target.port },
       condition: edge.condition ?? null,
     })),
-    resources: spec.resources ?? [],
+    resources: (spec.resources ?? []).map((resource) => ({
+      id: resource.id,
+      kind: resource.kind,
+      server_ref: resource.server_ref,
+      allowed_tools: resource.allowed_tools ?? [],
+      approval_policy: resource.approval_policy,
+      tools: resource.tools ?? [],
+    })),
     execution: spec.execution ?? null,
   };
 }

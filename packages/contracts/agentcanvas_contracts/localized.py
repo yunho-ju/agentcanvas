@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .agent_spec import ContractModel, NonEmptyText
+from .base import ContractModel, NonEmptyText
 
 
 class LocalizedText(ContractModel):
