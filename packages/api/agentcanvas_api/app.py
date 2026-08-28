@@ -136,6 +136,10 @@ LOCAL_MODEL_REF = "model://local"
 #: 모두 있어야 catalog에 추가하며, 비용·가용성이 변하는 외부 기본값은 두지 않는다.
 OPENAI_MODEL_ENV = "AGENTCANVAS_OPENAI_MODEL"
 
+#: 심판이 부를 모델 이름을 서버를 띄운 자리가 고르는 자리 — 적지 않으면 기본 이름 그대로다.
+#: 여기 적은 이름이 이 서버에서 열리지 않으면 심판은 서지 않는다(가용성 판정이 그대로 본다).
+JUDGE_MODEL_ENV = "AGENTCANVAS_JUDGE_MODEL"
+
 #: 그 모델이 그래프에서 갖는 이름 — 열쇠가 있는 서버에서만 생긴다.
 OPENAI_MODEL_REF = "model://openai"
 # Guided는 현재 provider 실증 대상이므로 기존 `model://default`와 분리한다.
@@ -466,6 +470,11 @@ def _a_judge_for(
     return llm_judge_entailment(asks_a_model, judge_model_ref)
 
 
+def _judge_model_ref_in(env: Mapping[str, str]) -> str:
+    """심판이 부를 이름 — 서버를 띄운 자리가 고르고, 고르지 않았으면 기본 이름이다."""
+    return env.get(JUDGE_MODEL_ENV, "").strip() or JUDGE_MODEL_REF
+
+
 def _origins_from_env() -> list[str]:
     """서버를 띄운 자리가 일러 주는 허용 목록 — 쉼표로 나눠 적는다."""
     written = os.environ.get(ALLOWED_ORIGINS_ENV, "")
@@ -596,13 +605,13 @@ def create_app(
     eval_datasets = EvalDatasetService(eval_dataset_store_used)
     # 판정 사다리는 건네받은 층으로 세운다 — 뜻 검사를 건네주지 않았으면 0층까지만 서고,
     # 그 사실은 서버 로그가 말한다(조용히 짧아지되 침묵하지는 않는다).
-    # 심판이 부를 이름은 여기서 정한다 — 바꾸려면 이 한 줄이고, 그 이름이 이 서버에서
-    # 열리지 않으면 심판은 서지 않는다(청해도 싼 층까지만 돈다).
+    # 심판이 부를 이름은 서버를 띄운 자리가 고른다(AGENTCANVAS_JUDGE_MODEL). 고르지 않았으면
+    # 기본 이름이고, 고른 이름이 이 서버에서 열리지 않으면 심판은 서지 않는다(싼 층까지만 돈다).
     ladder = judging_ladder(
         asks_entailment,
         judge=_a_judge_for(
             asks_a_model,
-            JUDGE_MODEL_REF,
+            _judge_model_ref_in(os.environ),
             # 서버가 스스로 고른 배선에서만 env가 판단의 근거다(주입된 모델은 주입한 쪽의 것).
             os.environ if model is None else None,
         ),

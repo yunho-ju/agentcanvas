@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 from agentcanvas_adapters.anthropic_model import ANTHROPIC_API_KEY_REF
-from agentcanvas_adapters.llm_judge import JUDGE_PROMPT_REF
+from agentcanvas_adapters.llm_judge import JUDGE_MODEL_REF, JUDGE_PROMPT_REF
 from agentcanvas_adapters.scripted import ScriptedEntailment
 from agentcanvas_adapters.secrets import env_name
 from agentcanvas_api import app as app_module
-from agentcanvas_api.app import LOCAL_MODEL_ENV, create_app
+from agentcanvas_api.app import JUDGE_MODEL_ENV, LOCAL_MODEL_ENV, create_app
 from agentcanvas_api.eval_service import JUDGE_WAS_NOT_THERE
 from agentcanvas_api.memory_eval_batch_store import InMemoryEvalBatchStore
 from agentcanvas_api.memory_eval_dataset_store import InMemoryEvalDatasetStore
@@ -366,10 +366,13 @@ class SaysOneThingAndJudges:
         self._contained = contained
         #: 심판으로 불린 물음들 — 몇 번 불렸는지는 시험이 직접 센다.
         self.judged: list[str] = []
+        #: 심판으로 불릴 때 댄 이름들 — 운영자가 고른 그 이름인지 시험이 읽는다.
+        self.judged_refs: list[str] = []
 
     def __call__(self, ask):
         if ask.prompt_ref == JUDGE_PROMPT_REF:
             self.judged.append(ask.instruction or "")
+            self.judged_refs.append(ask.model_ref)
             return ModelSaid(
                 input_tokens=1,
                 output_tokens=1,
@@ -493,6 +496,67 @@ def test_a_judge_stands_where_its_own_model_can_be_asked(monkeypatch):
     assert attempt["judged_by"] == "llm_judge"
 
 
+def test_a_server_that_was_told_no_judge_model_asks_the_default_one(monkeypatch):
+    """JUDGE_REF ①: 아무것도 적지 않은 서버는 예전 그대로 기본 이름으로 심판을 세운다."""
+    model = SaysOneThingAndJudges()
+
+    one_attempt_of_a_batch(
+        a_server_that_picks_its_own_model(
+            monkeypatch,
+            {env_name(ANTHROPIC_API_KEY_REF): "sk-a-key"},
+            model,
+        ),
+        use_judge=True,
+    )
+
+    assert model.judged_refs == [JUDGE_MODEL_REF]
+
+
+def test_the_judge_asks_the_model_the_operator_picked(monkeypatch):
+    """JUDGE_REF ②: 심판이 부를 이름은 서버를 띄운 자리가 고른다 — 그 이름 그대로 묻는다."""
+    model = SaysOneThingAndJudges()
+
+    attempt = one_attempt_of_a_batch(
+        a_server_that_picks_its_own_model(
+            monkeypatch,
+            {
+                env_name(ANTHROPIC_API_KEY_REF): "sk-a-key",
+                JUDGE_MODEL_ENV: "model://claude-haiku",
+            },
+            model,
+        ),
+        use_judge=True,
+    )
+
+    assert attempt["judged_by"] == "llm_judge"
+    assert model.judged_refs == ["model://claude-haiku"]
+
+
+@pytest.mark.parametrize("picked", ["model://nowhere", "claude-haiku"])
+def test_a_judge_the_operator_picked_but_this_server_cannot_ask_does_not_stand(
+    monkeypatch, caplog, picked
+):
+    """JUDGE_REF ③: 고른 이름이 이 서버에서 열리지 않으면 심판 자리는 비고, 로그가 말한다."""
+    model = SaysOneThingAndJudges()
+
+    with caplog.at_level(logging.WARNING, logger="agentcanvas_api.eval_service"):
+        attempt = one_attempt_of_a_batch(
+            a_server_that_picks_its_own_model(
+                monkeypatch,
+                {
+                    env_name(ANTHROPIC_API_KEY_REF): "sk-a-key",
+                    JUDGE_MODEL_ENV: picked,
+                },
+                model,
+            ),
+            use_judge=True,
+        )
+
+    assert model.judged == []
+    assert attempt["judged_by"] == "expected_phrases"
+    assert JUDGE_WAS_NOT_THERE in caplog.text
+
+
 def layers_standing_in(client: TestClient) -> dict[str, bool]:
     """이 서버가 내려주는 '지금 선 판정 층' — 이름을 그대로 서는지 여부에 맺어 읽는다."""
     answer = client.get("/eval/evaluators")
@@ -513,6 +577,22 @@ def test_the_meaning_check_stands_only_where_a_meaning_backend_was_handed_in():
         layers_standing_in(a_client_with(ScriptedEntailment([])))["nli_entailment"]
         is True
     )
+
+
+def test_the_judge_the_operator_picked_but_cannot_be_asked_is_not_called_standing(
+    monkeypatch,
+):
+    """JUDGE_REF ③: 화면도 같은 판단을 읽는다 — 고른 이름이 열리지 않으면 선다고 말하지 않는다."""
+    a_server = a_server_that_picks_its_own_model(
+        monkeypatch,
+        {
+            env_name(ANTHROPIC_API_KEY_REF): "sk-a-key",
+            JUDGE_MODEL_ENV: "model://nowhere",
+        },
+        SaysOneThingAndJudges(),
+    )
+
+    assert layers_standing_in(a_server)["llm_judge"] is False
 
 
 def test_the_judge_stands_only_where_its_own_model_can_be_asked(monkeypatch):

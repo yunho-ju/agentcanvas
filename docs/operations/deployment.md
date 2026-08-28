@@ -26,6 +26,8 @@ Create `.env` from `.env.example` with mode 0600. At minimum set distinct values
 
 Provider configuration is optional. OpenAI requires both `AGENTCANVAS_SECRET_OPENAI_API_KEY` and an explicit `AGENTCANVAS_OPENAI_MODEL`. No external OpenAI model is selected by default.
 
+`AGENTCANVAS_JUDGE_MODEL` picks the model ref the eval LLM judge asks (default `model://default`). If the ref you name is not one this server can reach, the judge layer simply does not stand and batches stop at the cheaper layers; the API log says so.
+
 ## Start and health
 
 ```bash
