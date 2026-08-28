@@ -1,0 +1,92 @@
+[
+  {
+    "name": "a tool node with nothing filled in",
+    "node_type": "tool.mcp",
+    "config": {},
+    "valid": false
+  },
+  {
+    "name": "a tool node missing only the tool name",
+    "node_type": "tool.mcp",
+    "config": { "resource_ref": "clinical-reference" },
+    "valid": false
+  },
+  {
+    "name": "a tool node with both fields filled in",
+    "node_type": "tool.mcp",
+    "config": { "resource_ref": "clinical-reference", "tool_name": "lookup" },
+    "valid": true
+  },
+  {
+    "name": "an agent whose turn count is not a number",
+    "node_type": "llm.agent",
+    "config": { "model_ref": "model://default", "max_turns": "three" },
+    "valid": false
+  },
+  {
+    "name": "an agent whose turn count is below the minimum",
+    "node_type": "llm.agent",
+    "config": { "model_ref": "model://default", "max_turns": 0 },
+    "valid": false
+  },
+  {
+    "name": "an agent sitting right on the smallest allowed turn count",
+    "node_type": "llm.agent",
+    "config": { "model_ref": "model://default", "max_turns": 1 },
+    "valid": true
+  },
+  {
+    "name": "an agent naming its connections as a single word instead of a list",
+    "node_type": "llm.agent",
+    "config": { "model_ref": "model://default", "toolset_refs": "clinical-reference" },
+    "valid": false
+  },
+  {
+    "name": "an agent naming its connections as a list of numbers",
+    "node_type": "llm.agent",
+    "config": { "model_ref": "model://default", "toolset_refs": [5] },
+    "valid": false
+  },
+  {
+    "name": "an agent with no model to call",
+    "node_type": "llm.agent",
+    "config": { "instruction": "Answer the question." },
+    "valid": false
+  },
+  {
+    "name": "an output node with nowhere to read the answer from",
+    "node_type": "core.output",
+    "config": {},
+    "valid": false
+  },
+  {
+    "name": "an output node that says where the answer sits",
+    "node_type": "core.output",
+    "config": { "binding": "state.answer" },
+    "valid": true
+  },
+  {
+    "name": "an input node whose values to bring in are not pairs",
+    "node_type": "core.input",
+    "config": { "bindings": "input.question" },
+    "valid": false
+  },
+  {
+    "name": "an input node whose value path is not text",
+    "node_type": "core.input",
+    "config": { "bindings": { "question": 5 } },
+    "valid": false
+  },
+  {
+    "name": "an input node bringing one value in",
+    "node_type": "core.input",
+    "config": { "bindings": { "question": "input.question" } },
+    "valid": true
+  },
+  {
+    "name": "a human check with no shape for the review screen",
+    "node_type": "control.human_gate",
+    "config": {},
+    "valid": false
+  }
+]

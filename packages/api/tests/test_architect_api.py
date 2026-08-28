@@ -247,6 +247,61 @@ def test_graph_validation_error_is_not_returned_as_a_candidate():
     assert "orphan" not in response.text
 
 
+def unfinished_config_answer(base_revision: str) -> str:
+    """모델은 설정 칸을 모른 채 노드를 제안한다 — 사람 확인은 통째로, 에이전트는 모델 이름이 빈 채로."""
+    return json.dumps(
+        {
+            "schema_version": "agent.patch/v1",
+            "base_revision": base_revision,
+            "operations": [
+                {
+                    "op": "add_node",
+                    "node": {
+                        "id": "second-gate",
+                        "type": "control.human_gate",
+                        "position": {"x": 900, "y": 200},
+                        "config": {},
+                    },
+                },
+                {
+                    "op": "add_node",
+                    "node": {
+                        "id": "second-agent",
+                        "type": "llm.agent",
+                        "position": {"x": 900, "y": 400},
+                        "config": {"instruction": "summarise the answer"},
+                    },
+                },
+            ],
+        }
+    )
+
+
+def test_a_patch_whose_settings_are_not_filled_in_yet_is_still_previewed():
+    """초안은 설정이 덜 찬 채로도 미리 볼 수 있다 — 빈 칸은 inspector에서 채우는 것이다.
+
+    (짝: test_graph_validation_error_is_not_returned_as_a_candidate — 구조가 깨진
+    제안은 여전히 거절된다.)
+    """
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=unfinished_config_answer(base["revision"]),
+        )
+    )
+
+    response = client.post("/architect/patch", json=request_body(base))
+
+    assert response.status_code == 200
+    body = response.json()
+    unfinished = [
+        issue for issue in body["issues"] if issue["code"] == "node.invalid_config"
+    ]
+    assert {issue["node_id"] for issue in unfinished} == {"second-gate", "second-agent"}
+
+
 def test_blank_architect_seed_is_canonical_and_not_saved():
     seed = blank_architect_seed("draft-seed")
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from jsonschema import Draft7Validator
+from jsonschema.exceptions import ValidationError
 from pydantic import Field
 
 from .agent_spec import ContractModel, JsonSchema, Node
@@ -57,25 +59,52 @@ def _input_bindings(node: Node) -> dict[str, str]:
     }
 
 
-def config_issues(node: Node, node_type: NodeType) -> list[str]:
-    """config가 포트 해석에 쓰이기에 부적합한 이유들을 사람이 읽을 문장으로 돌려준다."""
-    if node_type.type != INPUT_NODE_TYPE:
-        return []
+def _where(error: ValidationError) -> str:
+    """오류가 난 자리 — studio가 필드 옆에 붙이는 것과 같은 경로를 글로 적는다."""
+    return ".".join(["config", *(str(part) for part in error.absolute_path)])
 
+
+def _schema_issues(config: dict, config_schema: JsonSchema) -> list[str]:
+    """registry의 config_schema(JSON Schema)가 말하는 어긋남 — 타입 이름으로 분기하지 않는다.
+
+    studio의 ajv(draft-07)와 같은 판정을 내야 한다. 새 규칙을 config_schema에 더할 때는
+    두 쪽 판정이 같은지 먼저 본다 — `pattern`은 정규식 방언이 갈려 아직 결정되지 않았다
+    (guard: tests/test_node_registry.py::test_the_registry_asks_for_no_pattern).
+    """
+    try:
+        Draft7Validator.check_schema(config_schema)
+        errors = list(Draft7Validator(config_schema).iter_errors(config))
+    except Exception:  # noqa: BLE001 — 검증기의 사정으로 사용자의 편집을 막지 않는다.
+        # 우리가 읽을 수 없는 schema로 사용자의 편집을 막지는 않는다
+        # (studio validatorFor와 같은 규칙). 형식이 틀린 schema든, 가리키는 곳이
+        # 없는 $ref든, 이유를 가리지 않고 검사를 생략한다 — 여기서 예외는 나가지 않는다.
+        return []
+    return [
+        f"{_where(error)}: {error.message}"
+        for error in sorted(errors, key=lambda error: (_where(error), error.message))
+    ]
+
+
+def _input_binding_issues(node: Node) -> list[str]:
+    """core.input만의, config_schema가 표현하지 못하는 규칙 — 이름 하나하나가 출력 포트가 된다.
+
+    bindings의 존재와 타입은 schema가 이미 말한다 — 한 실수를 두 번 말하지 않는다.
+    """
     bindings = node.config.get("bindings")
     if not isinstance(bindings, dict):
-        return [
-            f"config.bindings must be an object of name -> path, got {type(bindings).__name__}"
-        ]
+        return []
+    return [
+        f"config.bindings has an empty port name ({key!r})"
+        for key in bindings
+        if not isinstance(key, str) or not key.strip()
+    ]
 
-    issues = []
-    for key, value in bindings.items():
-        if not isinstance(key, str) or not key.strip():
-            issues.append(f"config.bindings has an empty port name ({key!r})")
-        elif not isinstance(value, str):
-            issues.append(
-                f"config.bindings[{key!r}] must be a string path, got {type(value).__name__}"
-            )
+
+def config_issues(node: Node, node_type: NodeType) -> list[str]:
+    """config가 노드에 쓰이기에 부적합한 이유들을 사람이 읽을 문장으로 돌려준다 (예외 없음)."""
+    issues = _schema_issues(node.config, node_type.config_schema)
+    if node_type.type == INPUT_NODE_TYPE:
+        issues.extend(_input_binding_issues(node))
     return issues
 
 

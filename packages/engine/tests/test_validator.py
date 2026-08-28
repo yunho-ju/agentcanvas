@@ -322,18 +322,20 @@ def test_tool_node_pointing_at_a_missing_binding_is_an_error():
     assert "ghost" in issues[0].message
 
 
-def test_a_tool_node_with_no_reference_at_all_is_reported_by_no_rule_today():
-    """빈 참조는 바인딩 규칙의 몫이 아니다 — 그리고 지금 서버에는 그것을 잡는 규칙이 없다.
+def test_a_tool_node_with_no_reference_at_all_is_left_to_the_config_rule():
+    """빈 참조는 바인딩 규칙의 몫이 아니다 — 필수 칸이 비었다고 config 규칙이 말한다.
 
-    필수 값 강제는 studio의 ajv 경로에만 있고, 서버 `config_issues`는 core.input만 본다.
-    서버 쪽 확장은 별도 티켓 — 그때 이 단언이 깨져서 재검토를 강제하는 것이 의도다.
+    서버도 registry의 config_schema로 검사하므로(CONFIG_MIRROR) 화면을 거치지 않은
+    그래프에서도 필수 칸이 잡힌다. 없는 이름을 가리킨다는 말은 여기서 나오지 않는다.
     """
     spec = build_spec(
         [input_node(), tool_node()],
         [edge("e1", ("input", "question"), ("tool", "input"))],
         [binding("clinical-reference")],
     )
-    assert validate_graph(spec) == []
+    issues = validate_graph(spec)
+    assert codes(issues, Severity.ERROR) == ["node.invalid_config"]
+    assert "resource_ref" in issues[0].message
 
 
 def test_each_unknown_toolset_of_an_agent_is_reported_on_its_own():
@@ -390,24 +392,30 @@ def test_bindings_of_an_unknown_node_type_are_not_checked():
 
 
 @pytest.mark.parametrize(
-    ("node", "port"),
+    ("node", "port", "field"),
     [
-        (tool_node(resource_ref=5), "input"),
-        (agent_node("tool", toolset_refs="clinical-reference"), "messages"),
-        (agent_node("tool", toolset_refs=[5, None]), "messages"),
+        (tool_node(resource_ref=5), "input", "resource_ref"),
+        (
+            agent_node("tool", toolset_refs="clinical-reference"),
+            "messages",
+            "toolset_refs",
+        ),
+        (agent_node("tool", toolset_refs=[5, None]), "messages", "toolset_refs"),
     ],
 )
-def test_a_reference_that_is_not_text_is_reported_by_no_rule_today(node, port):
-    """바인딩 규칙은 글자만 본다 — 그리고 잘못된 타입을 잡는 서버 규칙은 아직 없다.
+def test_a_reference_that_is_not_text_is_left_to_the_config_rule(node, port, field):
+    """바인딩 규칙은 글자만 본다 — 글자가 아닌 값은 config 규칙이 잡는다.
 
-    (위 케이스와 같은 이유: 서버 `config_issues`는 core.input만 검사한다.)
+    같은 값을 두 규칙이 겹쳐 말하지 않는다: 없는 이름을 가리킨다는 말은 나오지 않는다.
     """
     spec = build_spec(
         [input_node(), node],
         [edge("e1", ("input", "question"), ("tool", port))],
         [binding("clinical-reference")],
     )
-    assert validate_graph(spec) == []
+    issues = validate_graph(spec)
+    assert set(codes(issues, Severity.ERROR)) == {"node.invalid_config"}
+    assert all(field in issue.message for issue in issues)
 
 
 def registry_with_tool_config_schema(config_schema: dict) -> dict:

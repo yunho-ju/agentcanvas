@@ -4,7 +4,7 @@ version = "0.1.0a1"
 description = "AgentCanvas core contracts (AgentSpec, RunEvent, NodeType, ReleaseManifest)"
 license = "Apache-2.0"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.7"]
+dependencies = ["jsonschema>=4.21", "pydantic>=2.7"]
 
 [build-system]
 requires = ["hatchling"]

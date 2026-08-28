@@ -105,8 +105,18 @@ def blank_architect_seed(draft_id: str) -> AgentSpec:
     return seed.model_copy(update={"revision": seed.computed_revision()})
 
 
+# 설정이 덜 찬 것은 초안의 정상 상태다 — 모델은 config 칸을 모른 채 그림만 그려 주고,
+# 빈 칸은 사람이 inspector에서 채운다. 완성 강제는 승인·실행 게이트의 몫이다.
+UNFINISHED_CONFIG_CODE = "node.invalid_config"
+
+
+def _blocks_a_preview(issue: ValidationIssue) -> bool:
+    """미리보기를 막는 것은 그림 자체가 깨진 경우뿐 — 덜 채운 설정은 보여 주고 알려 준다."""
+    return issue.severity == Severity.ERROR and issue.code != UNFINISHED_CONFIG_CODE
+
+
 class ArchitectService:
-    """모델에게 patch를 물어보고, 유효한 draft candidate만 미리 보여 준다."""
+    """모델에게 patch를 물어보고, 그림이 성립하는 draft candidate만 미리 보여 준다."""
 
     def __init__(self, model: ModelCall) -> None:
         self._architect = architect_from(model)
@@ -143,7 +153,7 @@ class ArchitectService:
             return ArchitectPreviewRefused(reason=reason, message=str(error))
 
         issues = validate_graph(candidate)
-        if any(issue.severity == Severity.ERROR for issue in issues):
+        if any(_blocks_a_preview(issue) for issue in issues):
             return ArchitectPreviewRefused(
                 reason="graph_invalid",
                 message="the proposed patch leaves graph validation errors",

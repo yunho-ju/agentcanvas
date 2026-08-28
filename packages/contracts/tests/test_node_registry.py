@@ -368,18 +368,142 @@ def test_config_issues_reports_broken_input_bindings(config):
     )
 
 
+@pytest.mark.parametrize(
+    "config",
+    [{}, {"bindings": "question"}, {"bindings": {"question": 5}}],
+)
+def test_config_issues_says_one_mistake_only_once(config):
+    """한 실수를 schema 검사와 core.input 규칙이 겹쳐 말하지 않는다."""
+    assert (
+        len(config_issues(node("core.input", config), DEFAULT_NODE_TYPES["core.input"]))
+        == 1
+    )
+
+
+def test_config_issues_still_catches_a_name_that_cannot_be_a_port():
+    """schema가 표현하지 못하는 규칙은 core.input 쪽에 남는다 — 빈 이름은 포트가 될 수 없다."""
+    issues = config_issues(
+        node("core.input", {"bindings": {"  ": "input.question"}}),
+        DEFAULT_NODE_TYPES["core.input"],
+    )
+    assert len(issues) == 1
+    assert "port name" in issues[0]
+
+
 def test_config_issues_is_empty_for_a_well_formed_input_node():
     valid = node("core.input", {"bindings": {"question": "input.question"}})
     assert config_issues(valid, DEFAULT_NODE_TYPES["core.input"]) == []
 
 
-def test_config_issues_ignores_other_node_types():
+def test_config_issues_applies_the_bindings_rule_only_to_the_input_node():
+    """core.input의 bindings 규칙은 다른 타입에 번지지 않는다 — 그쪽 schema만이 판정한다."""
     assert (
         config_issues(
-            node("llm.agent", {"bindings": 5}), DEFAULT_NODE_TYPES["llm.agent"]
+            node("llm.agent", {"model_ref": "model://default", "bindings": 5}),
+            DEFAULT_NODE_TYPES["llm.agent"],
         )
         == []
     )
+
+
+def test_config_issues_reports_every_required_field_left_empty():
+    issues = config_issues(node("tool.mcp", {}), DEFAULT_NODE_TYPES["tool.mcp"])
+    assert len(issues) == 2
+    assert any("resource_ref" in issue for issue in issues)
+    assert any("tool_name" in issue for issue in issues)
+
+
+def test_config_issues_reports_a_value_of_the_wrong_kind():
+    issues = config_issues(
+        node("llm.agent", {"model_ref": "model://default", "max_turns": "three"}),
+        DEFAULT_NODE_TYPES["llm.agent"],
+    )
+    assert len(issues) == 1
+    assert "max_turns" in issues[0]
+
+
+def test_config_issues_reports_a_number_below_the_allowed_minimum():
+    issues = config_issues(
+        node("llm.agent", {"model_ref": "model://default", "max_turns": 0}),
+        DEFAULT_NODE_TYPES["llm.agent"],
+    )
+    assert len(issues) == 1
+    assert "max_turns" in issues[0]
+
+
+def test_config_issues_says_nothing_about_a_config_the_schema_accepts():
+    assert (
+        config_issues(
+            node(
+                "tool.mcp", {"resource_ref": "clinical-reference", "tool_name": "get"}
+            ),
+            DEFAULT_NODE_TYPES["tool.mcp"],
+        )
+        == []
+    )
+
+
+def test_config_issues_accepts_anything_when_the_schema_names_no_fields():
+    free_type = NodeType.model_validate(
+        {**VALID_NODE_TYPE, "config_schema": {"type": "object"}}
+    )
+    assert config_issues(node("custom.echo", {"whatever": 1}), free_type) == []
+
+
+@pytest.mark.parametrize(
+    "config_schema",
+    [
+        {"type": "object", "properties": "not an object"},
+        {"type": "object", "properties": {"whatever": "not a schema"}},
+        {"type": "not-a-type"},
+    ],
+)
+def test_config_issues_says_nothing_when_the_schema_cannot_be_read(config_schema):
+    """읽을 수 없는 schema로 사용자의 편집을 막지 않는다 (studio validatorFor와 같은 규칙)."""
+    broken = NodeType.model_validate(
+        {**VALID_NODE_TYPE, "config_schema": config_schema}
+    )
+    assert config_issues(node("custom.echo", {"whatever": 1}), broken) == []
+
+
+def keywords_used(schema: object) -> set[str]:
+    if isinstance(schema, dict):
+        return set(schema) | {
+            keyword for value in schema.values() for keyword in keywords_used(value)
+        }
+    if isinstance(schema, list):
+        return {keyword for item in schema for keyword in keywords_used(item)}
+    return set()
+
+
+def test_the_registry_asks_for_no_pattern():
+    """`pattern`은 두 언어가 같은 답을 낸다고 말할 수 없는 규칙이다 — 쓰기 전에 결정이 필요하다.
+
+    정규식 방언이 다르다(Python `re` vs ECMAScript). 게다가 Python이 읽지 못하는 정규식은
+    `config_issues`가 검사를 통째로 생략하는 쪽으로 안전하게 물러서는데, studio ajv는 그대로
+    검사한다 — 미러가 조용히 갈린다. 이 단언이 깨지면 그 갈림을 먼저 결정하라
+    (예: 미러 케이스로 방언 차이를 고정하거나, pattern 대신 enum·format을 쓴다).
+    """
+    with_pattern = sorted(
+        node_type.type
+        for node_type in DEFAULT_NODE_TYPES.values()
+        if "pattern" in keywords_used(node_type.config_schema)
+    )
+    assert with_pattern == []
+
+
+def test_config_issues_says_nothing_when_a_schema_points_at_a_missing_piece():
+    """$ref가 가리키는 곳이 없어도 예외 대신 검사 생략이다 (studio ajv도 같은 답을 낸다)."""
+    dangling = NodeType.model_validate(
+        {
+            **VALID_NODE_TYPE,
+            "config_schema": {
+                "type": "object",
+                "properties": {"whatever": {"$ref": "#/definitions/gone"}},
+            },
+        }
+    )
+    assert config_issues(node("custom.echo", {"whatever": 1}), dangling) == []
 
 
 def test_input_port_schema_comes_from_the_agent_input_schema():
