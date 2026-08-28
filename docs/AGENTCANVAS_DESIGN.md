@@ -149,14 +149,15 @@ Readiness는 provider를 호출하지 않으며 provider availability, queue emp
 - account, role, tenant 또는 shared workspace
 - release storage/UI, deployment와 rollback
 - 게시된 에이전트와 이야기하는 자리, 대화(thread) 개념, 대화 분석 — `AgentStatus.published`는 계약 enum 값일 뿐 아무도 읽지 않고, `runs`에는 대화나 말한 이가 없습니다
-- Prompt Studio, LLM judge, safety suite 또는 Model Matrix
+- Prompt Studio, safety suite 또는 Model Matrix (시험 사다리의 LLM judge rung은 **있습니다** — 문구·NLI 다음의 선택적 단)
 - Investigation Agent와 Issue Chat
+- Optimizer — 시험·실행 증거에서 개선 후보 revision을 제안·비교하는 자리, run 증거의 token/latency/cost 텔레메트리
 - real MCP client/executor 또는 LangGraph adapter
 - PostgreSQL, multi-process coordination guarantee 또는 horizontal scaling
 - full prompt/tool/context provenance와 checkpoint fork replay
 - 3D Runtime World
 
-이 영역의 제안은 [`vision/product-architecture.md`](vision/product-architecture.md), [`vision/workspace-canvas.md`](vision/workspace-canvas.md), [`vision/prompt-eval-release.md`](vision/prompt-eval-release.md), [`vision/investigation-mode.md`](vision/investigation-mode.md), [`vision/live-chat-and-analytics.md`](vision/live-chat-and-analytics.md)를 참고하세요.
+이 영역의 제안은 [`vision/product-architecture.md`](vision/product-architecture.md), [`vision/workspace-canvas.md`](vision/workspace-canvas.md), [`vision/prompt-eval-release.md`](vision/prompt-eval-release.md), [`vision/investigation-mode.md`](vision/investigation-mode.md), [`vision/live-chat-and-analytics.md`](vision/live-chat-and-analytics.md), [`vision/optimize.md`](vision/optimize.md)를 참고하세요.
 
 ## 11. Source layout
 
