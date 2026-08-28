@@ -7,6 +7,7 @@ import { DocCard } from "./shell/DocCard";
 import { HistoryControls } from "./shell/HistoryControls";
 import { ModeSegment } from "./shell/ModeSegment";
 import { OpenDialog } from "./shell/OpenDialog";
+import { ToolWrapCard } from "./resources/ToolWrapCard";
 import { RunControls } from "./shell/RunControls";
 import { useDockPanel } from "./shell/useDockPanel";
 import {
@@ -16,6 +17,7 @@ import {
   isGateFieldFocused,
   isPreviewFocused,
   isRunInputFieldFocused,
+  isToolWrapFieldFocused,
   shortcutName,
 } from "./canvas/shortcuts";
 import { EvalPanel } from "./eval/EvalPanel";
@@ -89,6 +91,8 @@ export function App() {
         docListOpen: docListIsOpen(editor),
         askingBeforeOpen: askingBeforeOpen(editor) !== null,
         fileOpenAsking: fileOpenIsAsking(editor),
+        toolWrapOpen: editor.toolWrapMode !== "closed",
+        onToolWrapField: isToolWrapFieldFocused(event.target),
       });
       if (!action) return;
       event.preventDefault();
@@ -125,6 +129,8 @@ export function App() {
         <EvalCompareView />
         {/* 무엇을 열지 고르는 자리도 한가운데다 — 고르는 동안 캔버스는 뒤에 있다. */}
         <OpenDialog />
+        {/* 붙여 넣은 API 설명을 연결로 바꾸는 자리도 한가운데다 — 승인 전에는 문서가 그대로다. */}
+        <ToolWrapCard />
         <div className="layer-right">
           <Inspector panelRef={inspectorRef} />
           <EventList />

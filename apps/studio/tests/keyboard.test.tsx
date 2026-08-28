@@ -392,6 +392,8 @@ describe("saving when saving is not possible", () => {
     docListOpen: true,
     askingBeforeOpen: true,
     fileOpenAsking: true,
+    toolWrapOpen: true,
+    onToolWrapField: true,
   };
 
   it("저장할 수 없는 자리에서도 그 키는 앱이 받는다 — 브라우저가 가져가지 않는다", () => {
@@ -447,6 +449,8 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
     docListOpen: false,
     askingBeforeOpen: false,
     fileOpenAsking: false,
+    toolWrapOpen: false,
+    onToolWrapField: false,
   };
 
   /** Esc 한 번이 무엇을 물렸는지 — 걸음은 하나뿐이어야 한다. */
@@ -461,6 +465,7 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
       cancelFileOpen: () => done.push("file.ask"),
       setGateCardOpen: () => done.push("gate.card"),
       closeDocList: () => done.push("docList"),
+      closeToolWrap: () => done.push("toolWrap"),
       clearCompare: () => done.push("compare"),
       stopRun: () => done.push("run"),
       clearSelection: () => done.push("selection"),
@@ -602,5 +607,38 @@ describe("keys when nothing in the app holds the focus", () => {
     await userEvent.keyboard("{Meta>}z{/Meta}");
 
     expect(store().nodes).toHaveLength(grown - 1);
+  });
+});
+
+// 붙여 넣는 칸은 글을 적는 자리다 — 그 칸의 Esc는 그 칸의 것이고, 카드는 한 걸음 뒤에 닫힌다
+// (DESIGN §1 ①′ — gate-card·run-input-card와 같은 규칙).
+describe("붙여 넣어 만드는 카드에서 Esc가 물러나는 순서", () => {
+  async function openTheCard() {
+    render(<App />);
+    await userEvent.click(screen.getByRole("button", { name: "연결" }));
+    await userEvent.click(screen.getByRole("button", { name: "새 연결" }));
+    return screen.getByRole("textbox", { name: "붙여 넣은 내용" });
+  }
+
+  it("적던 칸에서 한 번 누르면 손만 떼고 카드는 그대로 서 있다", async () => {
+    const box = await openTheCard();
+    expect(box).toHaveFocus();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(box).not.toHaveFocus();
+    expect(screen.getByRole("dialog", { name: "무엇을 연결할까요" })).toBeInTheDocument();
+  });
+
+  it("한 번 더 누르면 카드가 물러난다 — 독 패널은 그대로 열려 있다", async () => {
+    await openTheCard();
+
+    await userEvent.keyboard("{Escape}");
+    await userEvent.keyboard("{Escape}");
+
+    expect(
+      screen.queryByRole("dialog", { name: "무엇을 연결할까요" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "연결" })).toBeInTheDocument();
   });
 });

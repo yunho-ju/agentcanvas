@@ -43,6 +43,7 @@ import {
 import { renameDoc } from "../history/docCommands";
 import { nodeTypes } from "../registry/registry";
 import type { EditorState } from "./editor";
+import { CLOSED_TOOL_WRAP } from "./toolWrapSlice";
 
 export interface GraphSlice extends FlowGraph {
   spec: AgentSpec | null;
@@ -193,6 +194,8 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
         feedbackNotice: null,
         saving: false,
         architectLoading: false,
+        // 만들던 연결도 그 문서의 것이었다 (DESIGN §7 tool-wrap-card).
+        ...CLOSED_TOOL_WRAP,
       });
       // 듣고 있던 이벤트도, 서버에 부탁해 둔 실행도 그 그래프의 것이었다.
       get().abandonRuns();

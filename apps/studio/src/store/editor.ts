@@ -21,6 +21,7 @@ import { type PickerSlice, createPickerSlice } from "./pickerSlice";
 import { type RunSlice, createRunSlice } from "./runSlice";
 import { type SaveSlice, createSaveSlice } from "./saveSlice";
 import { type SelectionSlice, createSelectionSlice } from "./selectionSlice";
+import { type ToolWrapSlice, createToolWrapSlice } from "./toolWrapSlice";
 import { type ViewSlice, createViewSlice } from "./viewSlice";
 
 export type EditorState = GraphSlice &
@@ -42,7 +43,8 @@ export type EditorState = GraphSlice &
   EvalDatasetSlice &
   EvalHistorySlice &
   EvalStandingSlice &
-  ArchitectSlice;
+  ArchitectSlice &
+  ToolWrapSlice;
 
 export function selectedNode(state: EditorState): FlowNode | undefined {
   return selectedNodeOf(state);
@@ -54,6 +56,7 @@ export function selectedEdge(state: EditorState): FlowEdge | undefined {
 
 export const useEditor = create<EditorState>()((...args) => ({
   ...createArchitectSlice(...args),
+  ...createToolWrapSlice(...args),
   ...createHistorySlice(...args),
   ...createSelectionSlice(...args),
   ...createDetachSlice(...args),

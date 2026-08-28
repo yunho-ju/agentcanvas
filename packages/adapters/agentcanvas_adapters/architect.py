@@ -27,6 +27,9 @@ from pydantic import ValidationError
 ARCHITECT_PATCH_SCHEMA_NAME = "agent_spec_patch"
 ARCHITECT_PROMPT_REF = "prompt://architect@2"
 INVALID_PATCH_MESSAGE = "the model returned a patch that does not match agent.patch/v1"
+OPERATION_NOT_ALLOWED_MESSAGE = (
+    "the model returned an operation this service is not allowed to make"
+)
 ALLOWED_OPERATIONS = (
     "add_node",
     "remove_node",
@@ -157,30 +160,44 @@ def _ask_for(asked: ArchitectRequest) -> ModelAsk:
     )
 
 
-def _invalid_patch() -> ArchitectBalked:
-    return ArchitectBalked(reason="invalid_patch", message=INVALID_PATCH_MESSAGE)
+def _invalid_patch(message: str = INVALID_PATCH_MESSAGE) -> ArchitectBalked:
+    return ArchitectBalked(reason="invalid_patch", message=message)
+
+
+def patch_said(
+    said: ModelSaid | ModelBalked, allowed: tuple[str, ...] | None = None
+) -> ArchitectSaid | ArchitectBalked:
+    """모델이 말한 것을 patch 계약으로 옮긴다 — 고쳐 쓰지 않고, 아니면 물러선다.
+
+    `allowed` 표를 건넨 서비스는 그 표 밖의 작업이 섞여 오면 통째로 물러선다.
+    """
+
+    if isinstance(said, ModelBalked):
+        return ArchitectBalked(reason=said.reason, message=said.message)
+    if not isinstance(said, ModelSaid) or not said.text:
+        return _invalid_patch()
+    try:
+        patch = AgentSpecPatch.model_validate(json.loads(said.text))
+    except (json.JSONDecodeError, TypeError, ValidationError):
+        return _invalid_patch()
+    if allowed is not None and any(
+        operation.op not in allowed for operation in patch.operations
+    ):
+        return _invalid_patch(OPERATION_NOT_ALLOWED_MESSAGE)
+    return ArchitectSaid(
+        patch=patch,
+        input_tokens=said.input_tokens,
+        output_tokens=said.output_tokens,
+        prompt=said.prompt,
+        evidence=said.evidence,
+    )
 
 
 def architect_from(model: ModelCall) -> ArchitectCall:
     """기존 ModelCall을 Architect patch 반환 자리로 감싼다."""
 
     def asks(asked: ArchitectRequest) -> ArchitectSaid | ArchitectBalked:
-        said = model(_ask_for(asked))
-        if isinstance(said, ModelBalked):
-            return ArchitectBalked(reason=said.reason, message=said.message)
-        if not isinstance(said, ModelSaid) or not said.text:
-            return _invalid_patch()
-        try:
-            patch = AgentSpecPatch.model_validate(json.loads(said.text))
-        except (json.JSONDecodeError, TypeError, ValidationError):
-            return _invalid_patch()
-        return ArchitectSaid(
-            patch=patch,
-            input_tokens=said.input_tokens,
-            output_tokens=said.output_tokens,
-            prompt=said.prompt,
-            evidence=said.evidence,
-        )
+        return patch_said(model(_ask_for(asked)))
 
     return asks
 
@@ -189,10 +206,12 @@ __all__ = [
     "ALLOWED_OPERATIONS",
     "ARCHITECT_PATCH_SCHEMA_NAME",
     "ARCHITECT_PROMPT_REF",
+    "OPERATION_NOT_ALLOWED_MESSAGE",
     "ArchitectBalked",
     "ArchitectCall",
     "ArchitectRequest",
     "ArchitectSaid",
     "ArchitectTrouble",
     "architect_from",
+    "patch_said",
 ]

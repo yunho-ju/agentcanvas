@@ -305,14 +305,20 @@ def example_spec_paths() -> list[Path]:
     )
 
 
-def test_the_examples_written_before_tools_existed_are_still_read():
-    """하위 호환 — 도구를 모르는 채로 적힌 예제도 그대로 읽힌다."""
+def test_an_example_document_carries_a_connection_with_tools():
+    """예제 하나는 도구를 든 연결을 갖는다 — 도구 고르기가 빈 목록으로 시작하지 않는다."""
     specs = [
         AgentSpec.model_validate(json.loads(path.read_text(encoding="utf-8")))
         for path in example_spec_paths()
+        if path.name == "agent_spec.json"
     ]
-    assert len(specs) >= 3
-    assert all(binding.tools == [] for spec in specs for binding in spec.resources)
+    assert len(specs) >= 2
+    assert [
+        tool.name
+        for spec in specs
+        for binding in spec.resources
+        for tool in binding.tools
+    ]
 
 
 def test_changing_a_tool_makes_a_different_revision():

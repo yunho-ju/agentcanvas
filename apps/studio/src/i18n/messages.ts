@@ -289,6 +289,99 @@ const TEXTS = {
     en: "Read the graph as a list instead of a picture",
   },
   "nodeList.detach": { ko: "{id} 빼기", en: "Take {id} off" },
+  // 연결 패널과 도구 만들기 (DESIGN §7 resources-panel / tool-wrap-card)
+  "resources.title": { ko: "연결", en: "Connections" },
+  "resources.hint": {
+    ko: "이 문서가 쓰는 바깥 도구를 보고, 새로 만든다",
+    en: "See the outside tools this document uses, and make a new one",
+  },
+  "resources.empty": {
+    ko: "이 문서에는 아직 연결이 없어요",
+    en: "This document has no connections yet",
+  },
+  "resources.new": { ko: "새 연결", en: "New connection" },
+  "resources.new.hint": {
+    ko: "쓰는 API 문서나 예시를 붙여 넣으면 도구로 바꿔 드려요",
+    en: "Paste the API docs or an example and we turn it into tools",
+  },
+  "resources.kind.httpApi": { ko: "웹 API 연결", en: "Web API connection" },
+  "resources.kind.mcpToolset": {
+    ko: "도구 서버 연결",
+    en: "Tool server connection",
+  },
+  "toolWrap.title": { ko: "무엇을 연결할까요", en: "What should we connect?" },
+  "toolWrap.description": {
+    ko: "쓰는 API 문서나 예시를 붙여 넣으면 도구로 바꿔 드려요",
+    en: "Paste the API docs or an example, and we turn it into tools",
+  },
+  "toolWrap.kind.label": { ko: "붙여 넣는 것", en: "What you are pasting" },
+  "toolWrap.kind.openapi": { ko: "API 문서 붙여넣기", en: "Paste API docs" },
+  "toolWrap.kind.curl": { ko: "요청 예시(curl)", en: "Example request (curl)" },
+  "toolWrap.kind.prose": { ko: "말로 설명", en: "Describe it in words" },
+  "toolWrap.source.label": { ko: "붙여 넣은 내용", en: "What you pasted" },
+  "toolWrap.source.placeholder": {
+    ko: "여기에 붙여 넣어요 — 문서 전체를 그대로 넣어도 돼요",
+    en: "Paste it here — the whole document is fine",
+  },
+  "toolWrap.build": { ko: "도구로 바꾸기", en: "Turn it into tools" },
+  "toolWrap.build.hint": {
+    ko: "붙여 넣은 것을 읽고 연결과 도구를 제안해요",
+    en: "Reads what you pasted and proposes a connection with tools",
+  },
+  "toolWrap.build.disabled": {
+    ko: "먼저 붙여 넣어 주세요",
+    en: "Paste something first",
+  },
+  "toolWrap.cancel": { ko: "그만두기", en: "Never mind" },
+  "toolWrap.cancel.hint": {
+    ko: "문서를 그대로 두고 닫아요",
+    en: "Close it and leave the document as it is",
+  },
+  "toolWrap.loading": {
+    ko: "붙여 넣은 것을 도구로 바꾸는 중이에요",
+    en: "Turning what you pasted into tools",
+  },
+  "toolWrap.error.empty": {
+    ko: "무엇을 연결할지 붙여 넣어 주세요.",
+    en: "Paste what you want to connect.",
+  },
+  "toolWrap.error.offline": {
+    ko: "서버에 닿지 못했어요 — 서버가 켜져 있는지 확인하고 다시 해보세요",
+    en: "Could not reach the server — check that it is running and try again",
+  },
+  "toolWrap.error.strange": {
+    ko: "알 수 없는 답이 왔어요 — 잠시 뒤 다시 해보세요",
+    en: "The answer could not be read — try again in a moment",
+  },
+  "toolWrap.error.failed": {
+    ko: "도구로 바꾸지 못했어요 ({status}) — 붙여 넣은 내용을 줄이거나 다시 해보세요",
+    en: "Could not turn it into tools ({status}) — shorten what you pasted, or try again",
+  },
+  "toolWrap.error.nothingNew": {
+    ko: "새로 들어올 연결이 없어요 — 붙여 넣은 내용을 조금 더 자세히 적고 다시 해보세요",
+    en: "No new connection came back — add more detail to what you pasted and try again",
+  },
+  "toolWrap.review.title": { ko: "이 연결을 넣을까요", en: "Add this connection?" },
+  "toolWrap.review.name": { ko: "연결 이름", en: "Connection name" },
+  "toolWrap.tool.io": {
+    ko: "{inputs}을(를) 주면 {outputs}을(를) 받아요",
+    en: "Give it {inputs}, and get back {outputs}",
+  },
+  "toolWrap.tool.io.unknown": { ko: "적히지 않음", en: "not written" },
+  "toolWrap.secret": {
+    ko: "열쇠 값은 서버에 따로 둬요 — 여기엔 이름만 적혀요",
+    en: "The key itself stays on the server — only its name is written here",
+  },
+  "toolWrap.apply": { ko: "문서에 넣기", en: "Add it to the document" },
+  "toolWrap.apply.hint": {
+    ko: "이 연결을 문서에 넣어요 — 되돌리기로 언제든 뺄 수 있어요",
+    en: "Adds this connection — undo takes it right back out",
+  },
+  "toolWrap.back": { ko: "다시 적기", en: "Write it again" },
+  "toolWrap.back.hint": {
+    ko: "붙여 넣는 자리로 돌아가요",
+    en: "Go back to what you pasted",
+  },
   "nodeList.focus.hint": {
     ko: "두 번 누르면 캔버스가 그 노드로 데려간다",
     en: "Double-click and the canvas takes you to that node",
@@ -360,6 +453,7 @@ const TEXTS = {
   "edit.restore": { ko: "보관함에서 꺼내기", en: "Taking a node off the shelf" },
   "edit.nothing": { ko: "그대로 두기", en: "Leaving it as it is" },
   "edit.rename": { ko: "문서 이름 바꾸기", en: "Renaming the document" },
+  "edit.takeInConnection": { ko: "연결 들이기", en: "Taking in a connection" },
   "edit.adoptRun": {
     ko: "지난 실행의 설정 가져오기",
     en: "Taking the settings from an earlier run",
@@ -779,8 +873,8 @@ const TEXTS = {
   "control.preset.custom": { ko: "직접 적기…", en: "Type it yourself…" },
   // 고를 것이 없을 때는 빈 목록을 던지지 않고 왜 비었는지 말한다 (DESIGN §7 binding-select).
   "control.bindingSelect.empty": {
-    ko: "이 문서에는 아직 연결이 없어요",
-    en: "This document has no connections yet",
+    ko: "이 문서에는 아직 연결이 없어요 — 왼쪽 연결 패널에서 만들 수 있어요",
+    en: "This document has no connections yet — the connections panel on the left makes one",
   },
   "control.toolSelect.needsBinding": {
     ko: "먼저 연결을 고르세요",

@@ -156,7 +156,9 @@ describe("the connection a tool node runs on", () => {
   it("says why the list is empty instead of handing over an empty one", () => {
     open(withTools({ resource_ref: "", tool_name: "" }, []));
 
-    expect(screen.getByText("이 문서에는 아직 연결이 없어요")).toBeInTheDocument();
+    expect(
+      screen.getByText("이 문서에는 아직 연결이 없어요 — 왼쪽 연결 패널에서 만들 수 있어요"),
+    ).toBeInTheDocument();
     // 목록이 비어도 칸은 살아 있다 — 손으로 적는 길까지 막지는 않는다.
     expect(connectionField()).not.toBeDisabled();
     expect(portsOf(TOOL_NODE)?.inputs.input).toBeDefined();
@@ -239,7 +241,11 @@ describe("the tool a tool node runs", () => {
     act(() => setLocale("en"));
     open(withTools({ resource_ref: "", tool_name: "" }, []));
 
-    expect(screen.getByText("This document has no connections yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This document has no connections yet — the connections panel on the left makes one",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Pick a connection first")).toBeInTheDocument();
   });
 });

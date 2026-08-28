@@ -4,7 +4,7 @@
     "run_id": "run_example",
     "event_type": "run.started",
     "timestamp": "2026-08-01T12:30:00.000Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "spec_id": "clinical-assistant"
     }
@@ -14,7 +14,7 @@
     "run_id": "run_example",
     "event_type": "node.queued",
     "timestamp": "2026-08-01T12:30:00.400Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "core.input"
     },
@@ -25,7 +25,7 @@
     "run_id": "run_example",
     "event_type": "node.started",
     "timestamp": "2026-08-01T12:30:00.800Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "core.input"
     },
@@ -36,7 +36,7 @@
     "run_id": "run_example",
     "event_type": "node.completed",
     "timestamp": "2026-08-01T12:30:01.200Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "core.input"
     },
@@ -47,7 +47,7 @@
     "run_id": "run_example",
     "event_type": "node.queued",
     "timestamp": "2026-08-01T12:30:01.600Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "llm.router"
     },
@@ -58,7 +58,7 @@
     "run_id": "run_example",
     "event_type": "node.started",
     "timestamp": "2026-08-01T12:30:02.000Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "llm.router"
     },
@@ -69,7 +69,7 @@
     "run_id": "run_example",
     "event_type": "prompt.compiled",
     "timestamp": "2026-08-01T12:30:02.400Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "prompt_ref": "prompt://triage@2",
       "blocks": [
@@ -88,7 +88,7 @@
     "run_id": "run_example",
     "event_type": "llm.requested",
     "timestamp": "2026-08-01T12:30:02.800Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "model_ref": "model://default"
     },
@@ -99,7 +99,7 @@
     "run_id": "run_example",
     "event_type": "llm.completed",
     "timestamp": "2026-08-01T12:30:03.200Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "model_ref": "model://default",
       "output_tokens": 128
@@ -111,7 +111,7 @@
     "run_id": "run_example",
     "event_type": "node.completed",
     "timestamp": "2026-08-01T12:30:03.600Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "llm.router"
     },
@@ -122,7 +122,7 @@
     "run_id": "run_example",
     "event_type": "state.patch",
     "timestamp": "2026-08-01T12:30:04.000Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "edge_id": "triage-agent",
       "from": "triage",
@@ -141,7 +141,7 @@
     "run_id": "run_example",
     "event_type": "node.queued",
     "timestamp": "2026-08-01T12:30:04.400Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "llm.agent"
     },
@@ -152,7 +152,7 @@
     "run_id": "run_example",
     "event_type": "node.started",
     "timestamp": "2026-08-01T12:30:04.800Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "llm.agent"
     },
@@ -163,7 +163,7 @@
     "run_id": "run_example",
     "event_type": "prompt.compiled",
     "timestamp": "2026-08-01T12:30:05.200Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "prompt_ref": "prompt://clinical@7",
       "blocks": [
@@ -182,7 +182,7 @@
     "run_id": "run_example",
     "event_type": "llm.requested",
     "timestamp": "2026-08-01T12:30:05.600Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "model_ref": "model://default"
     },
@@ -193,7 +193,7 @@
     "run_id": "run_example",
     "event_type": "llm.completed",
     "timestamp": "2026-08-01T12:30:06.000Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "model_ref": "model://default",
       "output_tokens": 128
@@ -205,7 +205,7 @@
     "run_id": "run_example",
     "event_type": "node.completed",
     "timestamp": "2026-08-01T12:30:06.400Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "llm.agent"
     },
@@ -216,7 +216,7 @@
     "run_id": "run_example",
     "event_type": "node.queued",
     "timestamp": "2026-08-01T12:30:06.800Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "control.human_gate"
     },
@@ -227,7 +227,7 @@
     "run_id": "run_example",
     "event_type": "node.started",
     "timestamp": "2026-08-01T12:30:07.200Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "control.human_gate"
     },
@@ -238,7 +238,7 @@
     "run_id": "run_example",
     "event_type": "human.approval_requested",
     "timestamp": "2026-08-01T12:30:07.600Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "approval_schema_ref": "schema://answer-review@1"
     },
@@ -249,7 +249,7 @@
     "run_id": "run_example",
     "event_type": "run.paused",
     "timestamp": "2026-08-01T12:30:08.000Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "waiting_for": "human-gate"
     },
@@ -260,7 +260,7 @@
     "run_id": "run_example",
     "event_type": "run.resumed",
     "timestamp": "2026-08-01T12:30:08.400Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "waiting_for": "human-gate",
       "approved": true
@@ -272,7 +272,7 @@
     "run_id": "run_example",
     "event_type": "node.completed",
     "timestamp": "2026-08-01T12:30:08.800Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "control.human_gate"
     },
@@ -283,7 +283,7 @@
     "run_id": "run_example",
     "event_type": "node.queued",
     "timestamp": "2026-08-01T12:30:09.200Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "core.output"
     },
@@ -294,7 +294,7 @@
     "run_id": "run_example",
     "event_type": "node.started",
     "timestamp": "2026-08-01T12:30:09.600Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "core.output"
     },
@@ -305,7 +305,7 @@
     "run_id": "run_example",
     "event_type": "node.completed",
     "timestamp": "2026-08-01T12:30:10.000Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_type": "core.output"
     },
@@ -316,7 +316,7 @@
     "run_id": "run_example",
     "event_type": "run.completed",
     "timestamp": "2026-08-01T12:30:10.400Z",
-    "spec_revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+    "spec_revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
     "payload": {
       "node_count": 5
     }

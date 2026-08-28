@@ -258,7 +258,7 @@ preset-fill (긴 글 필드를 프리셋으로 시작한다 — instruction 등 
 binding-select (문서가 가진 연결 중에서 고른다 — config_schema가 `x-binding-ref`로 표시한 필드)
 - preset-select 문법을 그대로 물려받는다(셀렉트 .control 스펙·'직접 적기…'·값 보존·고름 1회 = undo 1걸음·4상태). 새 시각 발명 금지 — 아래는 **다른 점만** 적는다
 - 옵션 출처가 전역 카탈로그가 아니라 **지금 이 문서의 연결 목록**(spec.resources)이다. 옵션 이름 = 연결 id(사람이 문서에서 부르는 그 이름), 저장값 = 같은 id
-- 문서에 연결이 하나도 없으면: 셀렉트 아래 var(--space-1) 간격에 --text-caption/var(--ink-soft) 한 줄 '이 문서에는 아직 연결이 없어요'(사전 경유). 빈 목록을 말없이 던지지 않는다(§9 조용한 무시 금지). 연결을 **만드는** 길은 아직 없다 — 없는 기능을 있는 것처럼 말하지 않는다(그 사실만 말한다)
+- 문서에 연결이 하나도 없으면: 셀렉트 아래 var(--space-1) 간격에 --text-caption/var(--ink-soft) 한 줄 '이 문서에는 아직 연결이 없어요 — 왼쪽 연결 패널에서 만들 수 있어요'(사전 경유). 빈 목록을 말없이 던지지 않고, 만드는 길(§7 resources-panel)을 가리킨다
 - 목록에 없는 값이 이미 저장돼 있으면 preset-select 규칙 그대로 '직접 적기…' 상태로 그 값을 보여준다. 값이 틀렸다는 판정은 이 컨트롤이 하지 않는다 — 필드 오류(§7 inspector)와 노드 뱃지가 이미 말한다(같은 말을 두 번 하지 않는다)
 
 tool-select (고른 연결이 든 도구 중에서 고른다 — config_schema의 `x-tool-ports.tool_name_field`가 가리키는 필드)
@@ -270,6 +270,22 @@ tool-select (고른 연결이 든 도구 중에서 고른다 — config_schema�
 - 이유 한 줄의 자리: 그 칸의 마지막 요소 아래 var(--space-1)('직접 적기…'가 열려 있으면 입력 상자 아래). 이유는 aria-describedby로 칸에 매여 schema 설명과 함께 읽힌다
 - 고른 연결에 도구가 하나도 없으면 같은 자리에 이유 한 줄 '이 연결에는 아직 도구가 없어요'
 - 고른 결과는 그 자리에서 보인다: 노드 카드의 포트가 그 도구의 모양으로 다시 그려진다(§7 node-card). 그 때문에 값의 모양이 어긋나 끊기는 기존 연결은 편집 영향 알림(§9 — 설정 변경 notice) 그대로 사람에게 말한다. 조용히 지우지 않는다
+
+resources-panel (문서의 연결과 도구를 보는 독 패널 — API_TOOLS P2b)
+- dock / dock-panel 문법 그대로(glass, 독 옆 슬라이드, 한 번에 하나, Esc/재클릭 닫힘, 독 버튼 36px+tooltip). `DOCK_TOOLS` 표에 한 줄 — 새 표면 발명 금지
+- 내용: 이 문서의 연결(spec.resources) 목록. 연결 한 줄 = 이름(id, --text-label) + 종류의 쉬운 말 캡션(--text-caption, ink-soft — 'http.api' 원문이 아니라 '웹 API 연결' 같은 쉬운 말, 원문은 title로) + 그 연결이 든 도구들(이름 + 쉬운 설명 plain_description 두 언어). 도구가 없는 연결은 '이 연결에는 아직 도구가 없어요'(tool-select와 같은 사전 키 재사용)
+- 빈 상태: '이 문서에는 아직 연결이 없어요' 한 줄 + [새 연결 primary]. 빈 목록을 말없이 던지지 않는다(§9)
+- [새 연결]은 tool-wrap-card(중앙 모달)를 연다. 실행을 보는 동안(잠금)은 비활성 + 이유 title(기존 잠금 규칙 그대로, 새 잠금 로직 금지)
+- 목록은 읽기 전용 — 고치기(재-import)·지우기는 아직 없다. 없는 기능을 있는 것처럼 말하지 않는다(그 사실만 말한다 — P2c 범위)
+
+tool-wrap-card (붙여 넣으면 도구가 된다 — API 문서/curl/산문 → 연결+도구 제안·승인, API_TOOLS P2b)
+- 표면: open-dialog 문법 재사용(중앙 `.layer` 모달급, Esc 체인·초점 복귀 규칙 그대로) — 긴 붙여넣기와 도구 카드 미리보기에 공간이 필요한 집중 작업이다. glass + hairline + radius-card + shadow-float, 새 색·radius·motion token 금지
+- 원칙은 guided-architect-card를 물려받는다: 한 시점에 하나만 묻는다(입력 상태 ↔ review 상태), **승인 전 spec 불변**, provider 실패를 성공으로 둔갑시키지 않는다
+- 입력 상태: 제목('무엇을 연결할까요' --text-title) + 쉬운 설명 한 줄(--text-body — "쓰는 API 문서나 예시를 붙여 넣으면 도구로 바꿔 드려요") + 입력 종류 세그먼트 3종(API 문서 붙여넣기 / 요청 예시(curl) / 말로 설명) + textarea(.control 문법, placeholder는 초대말이지 값이 아님) + [도구로 바꾸기 primary][그만두기 ghost]. 빈 입력은 primary disabled + title로 이유
+- 기다림·실패: 비동기 loading/error는 guided 카드 문법. 실패는 쉬운 말 + 다음 걸음으로 말하고, raw 모델 응답·서버 message 원문을 화면에 쓰지 않는다(§9). 실패해도 적은 입력은 보존된다
+- review 상태: 연결 이름 한 줄 + 도구마다 카드 한 장 — [도구 이름 --text-label] [쉬운 설명 plain_description 두 언어 --text-body] ['무엇을 주면 → 무엇을 받는가' 한 줄 --text-caption: input/output schema의 필드 제목을 쉬운 말로 늘어놓는다, raw JSON 기본 노출 금지]. 비밀 이름(secret://)이 제안되면 이름만 보여 주고 캡션 한 줄로 '열쇠 값은 서버에 따로 둬요 — 여기엔 이름만 적혀요'
+- 버튼 행: [문서에 넣기 primary][다시 적기 ghost]. 승인 1회 = undo 1걸음(architect 승인 규칙). 승인 즉시 모달이 닫히고 resources-panel 목록과 binding-select에 그 연결이 나타난다 — 결과가 그 자리에서 보인다
+- 문구 전부 사전 경유(ko/en 쉬운 말), 4상태는 기존 .control·button 문법 재사용
 
 run-input-card (실행에 넣을 값 — '실행해 보기'가 물을 것이 있을 때)
 - 언제: 실행 버튼을 눌렀고 그래프의 입력 노드가 받는 값 이름(bindings)이 하나라도 있을 때. 물을 것이 없으면 카드 없이 바로 실행(지금과 동일 — 빈 카드를 띄우지 않는다)

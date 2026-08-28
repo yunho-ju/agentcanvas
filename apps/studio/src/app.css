@@ -4424,3 +4424,230 @@ button:disabled {
   color: var(--ink);
   border-color: var(--hairline-strong);
 }
+
+/* ── 연결 패널과 도구 만들기 카드 (DESIGN §7 resources-panel / tool-wrap-card) ── */
+
+.resources-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.resources-panel__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.resources-panel__list,
+.resources-panel__tools,
+.tool-wrap-card__proposed,
+.tool-wrap-card__tools {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.resources-panel__connection,
+.tool-wrap-card__connection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.resources-panel__name,
+.tool-wrap-card__name {
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.resources-panel__kind,
+.resources-panel__no-tools,
+.resources-panel__empty,
+.tool-wrap-card__label,
+.tool-wrap-card__secret,
+.tool-wrap-card__status,
+.tool-lines__shape {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}
+
+.resources-panel__empty {
+  margin: 0;
+}
+
+.resources-panel__tool,
+.tool-wrap-card__tool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+
+.tool-lines__name {
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+
+.tool-lines__what {
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.tool-wrap-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(var(--panel-open), calc(100% - var(--space-6) * 2));
+  max-height: calc(100vh - var(--space-6) * 2);
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.tool-wrap-card__title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--weight-semibold);
+}
+
+.tool-wrap-card__description {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-soft);
+}
+
+.tool-wrap-card__error {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--danger-ink);
+}
+
+.tool-wrap-card__source {
+  min-height: calc(var(--space-6) * 4);
+  resize: vertical;
+}
+
+.tool-wrap-card__kinds {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.tool-wrap-card__kind {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.tool-wrap-card__kind:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.tool-wrap-card__kind:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.tool-wrap-card__kind:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.tool-wrap-card__kind:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-wrap-card__kind[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.tool-wrap-card__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.resources-panel__new,
+.tool-wrap-card__actions button {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.resources-panel__new,
+.tool-wrap-card__actions .button-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.resources-panel__new:hover:not(:disabled),
+.tool-wrap-card__actions .button-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.resources-panel__new:active:not(:disabled),
+.tool-wrap-card__actions .button-primary:active:not(:disabled) {
+  background: var(--accent-active);
+  transform: scale(0.98);
+}
+
+.tool-wrap-card__actions .button-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.tool-wrap-card__actions .button-ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.tool-wrap-card__actions .button-ghost:active:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+  transform: scale(0.98);
+}
+
+.resources-panel__new:focus-visible,
+.tool-wrap-card__actions .button-primary:focus-visible,
+.tool-wrap-card__actions .button-ghost:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.resources-panel__new:disabled,
+.tool-wrap-card__actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

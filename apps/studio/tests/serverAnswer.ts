@@ -33,7 +33,11 @@ export function asServerAnswer(spec: AgentSpec): AgentSpec {
       server_ref: resource.server_ref,
       allowed_tools: resource.allowed_tools ?? [],
       approval_policy: resource.approval_policy,
-      tools: resource.tools ?? [],
+      // 도구의 처리 방법은 아무 말이 없으면 계약이 "통째로"라고 대신 적어 준다.
+      tools: (resource.tools ?? []).map((tool) => ({
+        ...tool,
+        result_handling: tool.result_handling ?? { mode: "full" },
+      })),
     })),
     execution: spec.execution ?? null,
   };

@@ -115,6 +115,53 @@ def _blocks_a_preview(issue: ValidationIssue) -> bool:
     return issue.severity == Severity.ERROR and issue.code != UNFINISHED_CONFIG_CODE
 
 
+def preview_of(
+    base_spec: AgentSpec, result: ArchitectSaid | ArchitectBalked
+) -> ArchitectPreviewOutcome:
+    """모델이 말한 patch를 미리보기로 옮기는 하나뿐인 문 — 저장하지 않고 게이트만 지킨다.
+
+    patch를 물어본 서비스가 무엇이든(그림을 그리는 Architect든, 연결을 만드는 래퍼든)
+    통과 규칙은 여기 하나다: 계약 → base revision → 그림 검사.
+    """
+
+    if isinstance(result, ArchitectBalked):
+        return ArchitectPreviewRefused(
+            reason=result.reason,
+            message=result.message,
+        )
+    if not isinstance(result, ArchitectSaid):
+        return ArchitectPreviewRefused(
+            reason="provider_error",
+            message="the Architect provider returned no usable result",
+        )
+
+    try:
+        candidate = apply_patch(base_spec, result.patch)
+    except PatchApplyError as error:
+        if error.reason == "invalid_base_revision":
+            reason: ArchitectRefusal = "invalid_base_revision"
+        elif error.reason == "stale_revision":
+            reason = "stale_revision"
+        else:
+            reason = "patch_conflict"
+        return ArchitectPreviewRefused(reason=reason, message=str(error))
+
+    issues = validate_graph(candidate)
+    if any(_blocks_a_preview(issue) for issue in issues):
+        return ArchitectPreviewRefused(
+            reason="graph_invalid",
+            message="the proposed patch leaves graph validation errors",
+        )
+    return ArchitectPreview(
+        patch=result.patch,
+        candidate=candidate,
+        issues=issues,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        evidence=result.evidence,
+    )
+
+
 class ArchitectService:
     """모델에게 patch를 물어보고, 그림이 성립하는 draft candidate만 미리 보여 준다."""
 
@@ -129,43 +176,7 @@ class ArchitectService:
             request=request,
             model_ref=model_ref,
         )
-        result = self._architect(asked)
-        if isinstance(result, ArchitectBalked):
-            return ArchitectPreviewRefused(
-                reason=result.reason,
-                message=result.message,
-            )
-        if not isinstance(result, ArchitectSaid):
-            return ArchitectPreviewRefused(
-                reason="provider_error",
-                message="the Architect provider returned no usable result",
-            )
-
-        try:
-            candidate = apply_patch(base_spec, result.patch)
-        except PatchApplyError as error:
-            if error.reason == "invalid_base_revision":
-                reason: ArchitectRefusal = "invalid_base_revision"
-            elif error.reason == "stale_revision":
-                reason = "stale_revision"
-            else:
-                reason = "patch_conflict"
-            return ArchitectPreviewRefused(reason=reason, message=str(error))
-
-        issues = validate_graph(candidate)
-        if any(_blocks_a_preview(issue) for issue in issues):
-            return ArchitectPreviewRefused(
-                reason="graph_invalid",
-                message="the proposed patch leaves graph validation errors",
-            )
-        return ArchitectPreview(
-            patch=result.patch,
-            candidate=candidate,
-            issues=issues,
-            input_tokens=result.input_tokens,
-            output_tokens=result.output_tokens,
-            evidence=result.evidence,
-        )
+        return preview_of(base_spec, self._architect(asked))
 
     def preview_new(
         self, draft_id: str, request: str, model_ref: str
@@ -187,4 +198,5 @@ __all__ = [
     "ArchitectService",
     "architect_request_fingerprint",
     "blank_architect_seed",
+    "preview_of",
 ]

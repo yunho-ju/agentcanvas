@@ -4,8 +4,9 @@ import type { MessageKey } from "../i18n/messages";
 import { NodeList } from "../canvas/NodeList";
 import { Palette } from "../canvas/Palette";
 import { Tray } from "../canvas/Tray";
+import { ResourcesPanel } from "../resources/ResourcesPanel";
 
-export type DockPanelId = "palette" | "tray" | "nodes";
+export type DockPanelId = "palette" | "tray" | "nodes" | "resources";
 
 export interface DockTool {
   id: DockPanelId;
@@ -32,6 +33,13 @@ export const DOCK_TOOLS: DockTool[] = [
     hint: "tray.hint",
     mark: "▤",
     panel: Tray,
+  },
+  {
+    id: "resources",
+    name: "resources.title",
+    hint: "resources.hint",
+    mark: "⇄",
+    panel: ResourcesPanel,
   },
   {
     id: "nodes",

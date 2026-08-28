@@ -23,6 +23,7 @@ from agentcanvas_adapters.providers import (
     nobody_to_ask,
 )
 from agentcanvas_adapters.secrets import env_vault
+from agentcanvas_adapters.tool_wrapper import ToolSource
 from agentcanvas_contracts.agent_spec import AgentSpec, NonEmptyText
 from agentcanvas_contracts.architect_patch import AgentSpecPatch
 from agentcanvas_contracts.eval_case import EvalDataset
@@ -115,6 +116,7 @@ from .sqlite_job_store import SqliteJobStore
 from .sqlite_run_store import SqliteRunStore
 from .sqlite_store import SqliteSpecStore
 from .store import SpecRevision, SpecStore, StoredSpec
+from .tool_wrapper_service import ToolWrapperService
 
 _logger = logging.getLogger(__name__)
 
@@ -245,6 +247,17 @@ class ArchitectDraftRequest(BaseModel):
     model_ref: ModelRef
     request: NonEmptyText
     draft_id: NonEmptyText
+
+
+class ToolWrapBody(BaseModel):
+    """붙여 넣은 것을 연결로 바꿔 달라는 청 — 승인 전에는 문서를 건드리지 않는다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_ref: ModelRef
+    source_kind: ToolSource
+    source: NonEmptyText
+    base_spec: AgentSpec
 
 
 class ArchitectCostEvidence(BaseModel):
@@ -566,6 +579,7 @@ def create_app(
     guided_provider_is_live = model is None
     asks_a_model = model if model is not None else _default_model_call()
     architect = ArchitectService(asks_a_model)
+    tool_wrapper = ToolWrapperService(asks_a_model)
     case_suggestions = EvalCaseSuggestionService(asks_a_model)
     durable_jobs = job_store
     if durable_jobs is None and durability is not False:
@@ -803,19 +817,19 @@ def create_app(
             request=asked.request,
         )
 
+    def _live_provider_or_503(model_ref: str) -> None:
+        """provider가 실제로 서 있을 때만 물어본다 — 서버 fallback을 답으로 둔갑시키지 않는다."""
+        if model_ref != GUIDED_MODEL_REF or (
+            guided_provider_is_live and GUIDED_MODEL_REF not in catalog_in(os.environ)
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="architect provider is not configured",
+            )
+
     @app.post("/architect/draft", response_model=ArchitectPatchResponse)
     def architect_draft(asked: ArchitectDraftRequest) -> ArchitectPatchResponse:
-        if asked.model_ref != GUIDED_MODEL_REF:
-            raise HTTPException(
-                status_code=503,
-                detail="architect provider is not configured",
-            )
-        if guided_provider_is_live and GUIDED_MODEL_REF not in catalog_in(os.environ):
-            # 일반 run의 deterministic fallback은 유지하되, Guided 실증에는 쓰지 않는다.
-            raise HTTPException(
-                status_code=503,
-                detail="architect provider is not configured",
-            )
+        _live_provider_or_503(asked.model_ref)
         return _architected(
             architect.preview_new(
                 draft_id=asked.draft_id,
@@ -824,6 +838,20 @@ def create_app(
             ),
             model_ref=asked.model_ref,
             request=asked.request,
+            guided=True,
+        )
+
+    @app.post("/tools/wrap", response_model=ArchitectPatchResponse)
+    def wrap_tools(asked: ToolWrapBody) -> ArchitectPatchResponse:
+        """붙여 넣은 API 설명 하나 = 연결 제안 하나. 승인은 화면의 몫이고 여기서 저장하지 않는다."""
+        _live_provider_or_503(asked.model_ref)
+        return _architected(
+            tool_wrapper.preview(
+                base_spec=asked.base_spec,
+                source=asked.source,
+                source_kind=asked.source_kind,
+                model_ref=asked.model_ref,
+            ),
             guided=True,
         )
 
@@ -1111,6 +1139,7 @@ __all__ = [
     "EvalBatchStartResponse",
     "SavedSpec",
     "SpecHistory",
+    "ToolWrapBody",
     "asks_the_model_in",
     "blank_architect_seed",
     "catalog_in",

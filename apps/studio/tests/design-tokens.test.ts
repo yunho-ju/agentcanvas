@@ -261,6 +261,10 @@ describe("정보 위계 — 감춘 것은 반드시 다시 나타난다", () => 
       ".doc-menu__open-server",
       ".revision-history__retry",
       ".first-steps__hide",
+      ".resources-panel__new",
+      ".tool-wrap-card__kind",
+      ".tool-wrap-card__actions .button-primary",
+      ".tool-wrap-card__actions .button-ghost",
     ]) {
       const missing = [":hover", ":active", ":focus-visible"].filter(
         (state) => !app.includes(`${base}${state}`),

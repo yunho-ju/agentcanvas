@@ -31,13 +31,21 @@ export const createHistorySlice: StateCreator<EditorState, [], [], HistorySlice>
   set,
   get,
 ) => {
-  /** 되돌리기가 다룬 것들을 화면의 상태로 옮긴다 — 이름은 문서(spec)에 적힌다. */
+  /** 되돌리기가 다룬 것들을 화면의 상태로 옮긴다 — 이름과 연결은 문서(spec)에 적힌다. */
   const applied = (next: Scene) => ({
     nodes: next.nodes,
     edges: next.edges,
     tray: next.tray,
     // 이름 칸은 이름이 없어도 자리를 지킨다 — 서버도 늘 그 자리를 적어 보낸다.
-    ...(get().spec ? { spec: { ...(get().spec as AgentSpec), name: next.name } } : {}),
+    ...(get().spec
+      ? {
+          spec: {
+            ...(get().spec as AgentSpec),
+            name: next.name,
+            resources: next.resources,
+          },
+        }
+      : {}),
   });
 
   const scene = (): Scene => sceneOf(get());

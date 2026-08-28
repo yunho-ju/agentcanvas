@@ -62,6 +62,12 @@ export function isRunInputFieldFocused(target: EventTarget | null): boolean {
   return isEditingElement(target) && target.closest(".run-input-card__form") !== null;
 }
 
+/** 붙여 넣는 칸에 손이 있는가 — 그 칸의 Esc는 손을 떼는 일이다 (DESIGN §7 tool-wrap-card). */
+export function isToolWrapFieldFocused(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return isEditingElement(target) && target.closest(".tool-wrap-card") !== null;
+}
+
 /** 빼기 전 경고 자체에 초점이 있는가 — 그 안의 버튼은 자기 키를 스스로 받는다. */
 export function isPreviewFocused(target: EventTarget | null): boolean {
   return focusedWithin(target, '[role="alertdialog"]');
@@ -147,6 +153,10 @@ export interface ShortcutContext {
   askingBeforeOpen: boolean;
   /** 파일을 열기 전에 저장하지 않은 작업을 확인하고 있는가 */
   fileOpenAsking: boolean;
+  /** 붙여 넣은 것을 연결로 바꾸는 카드가 떠 있는가 */
+  toolWrapOpen: boolean;
+  /** 손이 그 카드의 붙여 넣는 칸 안에 있는가 */
+  onToolWrapField: boolean;
 }
 
 /** 물러나는 한 걸음 — 이 자리에 있으면(when) 이 일을 한다(step). */
@@ -173,6 +183,9 @@ const ESCAPE_CHAIN: RetreatStep[] = [
   { when: (it) => it.onGateField, step: ({ blurField }) => blurField() },
   { when: (it) => it.gateAsking, step: ({ editor }) => editor.setGateCardOpen(false) },
   { when: (it) => it.docListOpen, step: ({ editor }) => editor.closeDocList() },
+  // 붙여 넣던 칸에 손이 있으면 그 손만 뗀다 — 긴 붙여넣기를 한 번의 Esc로 잃지 않는다.
+  { when: (it) => it.onToolWrapField, step: ({ blurField }) => blurField() },
+  { when: (it) => it.toolWrapOpen, step: ({ editor }) => editor.closeToolWrap() },
   { when: (it) => it.panelOpen, step: ({ closePanel }) => closePanel() },
   { when: (it) => it.comparing, step: ({ editor }) => editor.clearCompare() },
   { when: (it) => it.running, step: ({ editor }) => editor.stopRun() },
@@ -189,7 +202,10 @@ export function findShortcut(
   const typingException =
     WHILE_TYPING.has(name) ||
     (name === "Escape" &&
-      (context.pickerOpen || context.onGateField || context.onRunInputField));
+      (context.pickerOpen ||
+        context.onGateField ||
+        context.onRunInputField ||
+        context.onToolWrapField));
   if (context.editing && !typingException) return undefined;
   // Esc는 언제나 체인이 답한다 — 손이 어디에 있든 물러나는 순서는 같다.
   if (name === "Escape") return ESCAPE_CHAIN.find((retreat) => retreat.when(context))?.step;

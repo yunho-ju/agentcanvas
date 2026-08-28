@@ -2,7 +2,7 @@
   "schema_version": "agent.spec/v1",
   "id": "clinical-assistant",
   "version": 3,
-  "revision": "sha256:39cb63dae37d5f6c07a3051593db923cba87b96e9de8762c7b3cc91ead4735b1",
+  "revision": "sha256:2247ea51e0f3c52fee8679b0f817f08580960e935af9a8011c5f1e6a7a81431a",
   "status": "draft",
   "input_schema": {
     "type": "object",
@@ -28,7 +28,54 @@
       "kind": "mcp.toolset",
       "server_ref": "mcp://clinical-reference",
       "allowed_tools": ["search_article", "get_article"],
-      "approval_policy": "read_only_auto"
+      "approval_policy": "read_only_auto",
+      "tools": [
+        {
+          "name": "search_article",
+          "plain_description": {
+            "ko": "물어본 것과 관련 있는 진료 지침 글을 찾아 목록으로 돌려준다.",
+            "en": "Finds care guideline articles about what you asked and lists them."
+          },
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "query": { "type": "string", "title": "What to look for" }
+            },
+            "required": ["query"]
+          },
+          "output_schema": {
+            "type": "object",
+            "properties": {
+              "articles": { "type": "array", "title": "Articles that were found" }
+            }
+          },
+          "timeout_ms": 8000,
+          "call": { "transport": "mcp", "remote_name": "search_article" }
+        },
+        {
+          "name": "get_article",
+          "plain_description": {
+            "ko": "고른 글 하나의 본문을 통째로 가져온다.",
+            "en": "Brings back the whole text of one article you picked."
+          },
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "article_id": { "type": "string", "title": "Which article" }
+            },
+            "required": ["article_id"]
+          },
+          "output_schema": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string", "title": "Title of the article" },
+              "body": { "type": "string", "title": "Text of the article" }
+            }
+          },
+          "timeout_ms": 8000,
+          "call": { "transport": "mcp", "remote_name": "get_article" }
+        }
+      ]
     }
   ],
   "nodes": [
