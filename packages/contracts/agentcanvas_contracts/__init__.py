@@ -20,11 +20,14 @@ from .agent_spec import (
 from .architect_patch import (
     AddEdgeOperation,
     AddNodeOperation,
+    AddResourceOperation,
     AgentSpecPatch,
     PatchOperation,
     RemoveEdgeOperation,
     RemoveNodeOperation,
+    RemoveResourceOperation,
     ReplaceNodeConfigOperation,
+    ReplaceResourceOperation,
 )
 from .eval_case import EvalCase, EvalDataset
 from .eval_result import EvalAttempt, EvalBatch, EvalCaseResult
@@ -80,6 +83,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "AddEdgeOperation",
     "AddNodeOperation",
+    "AddResourceOperation",
     "AgentSpec",
     "AgentSpecPatch",
     "AgentStatus",
@@ -122,7 +126,9 @@ __all__ = [
     "ReleaseManifest",
     "RemoveEdgeOperation",
     "RemoveNodeOperation",
+    "RemoveResourceOperation",
     "ReplaceNodeConfigOperation",
+    "ReplaceResourceOperation",
     "ResolvedPorts",
     "ResourceBinding",
     "RetrieveResult",

@@ -332,3 +332,34 @@ def test_regenerating_everything_twice_writes_exactly_the_same_bytes(tmp_path):
         return {path.name: path.read_text(encoding="utf-8") for path in paths}
 
     assert everything() == everything()
+
+
+def test_committed_patch_schema_carries_the_resource_operations():
+    """바인딩을 바꾸는 세 작업도 스키마에 실린다 — 파이썬 밖 소비자가 patch를 쓸 수 있게."""
+    schema = json.loads(
+        (JSON_SCHEMA_DIR / "agent_spec_patch.json").read_text(encoding="utf-8")
+    )
+    assert schema["properties"]["schema_version"]["const"] == "agent.patch/v1"
+    defs = schema["$defs"]
+    mapping = defs["PatchOperation"]["discriminator"]["mapping"]
+    assert {"add_resource", "replace_resource", "remove_resource"} <= set(mapping)
+    assert defs["AddResourceOperation"]["properties"]["resource"] == {
+        "$ref": "#/$defs/ResourceBinding"
+    }
+    assert defs["ReplaceResourceOperation"]["properties"]["resource"] == {
+        "$ref": "#/$defs/ResourceBinding"
+    }
+    assert (
+        defs["RemoveResourceOperation"]["properties"]["resource_id"]["minLength"] == 1
+    )
+
+
+def test_generated_typescript_carries_the_resource_operations():
+    """생성 타입은 계약의 투영이다 — 세 작업이 손으로 적히지 않고 스키마에서 나온다."""
+    generated = (
+        Path(__file__).resolve().parents[3]
+        / "apps/studio/src/generated/agent_spec_patch.ts"
+    ).read_text(encoding="utf-8")
+    assert '"add_resource"' in generated
+    assert '"replace_resource"' in generated
+    assert '"remove_resource"' in generated

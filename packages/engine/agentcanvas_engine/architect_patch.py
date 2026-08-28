@@ -6,14 +6,23 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal
 
-from agentcanvas_contracts.agent_spec import AgentSpec, AgentStatus, Edge, Node
+from agentcanvas_contracts.agent_spec import (
+    AgentSpec,
+    AgentStatus,
+    Edge,
+    Node,
+    ResourceBinding,
+)
 from agentcanvas_contracts.architect_patch import (
     AddEdgeOperation,
     AddNodeOperation,
+    AddResourceOperation,
     AgentSpecPatch,
     RemoveEdgeOperation,
     RemoveNodeOperation,
+    RemoveResourceOperation,
     ReplaceNodeConfigOperation,
+    ReplaceResourceOperation,
 )
 
 type PatchApplyReason = Literal[
@@ -24,6 +33,8 @@ type PatchApplyReason = Literal[
     "attached_node",
     "duplicate_edge",
     "unknown_edge",
+    "duplicate_resource",
+    "unknown_resource",
 ]
 
 
@@ -52,6 +63,13 @@ def _edge_index(edges: list[Edge], edge_id: str) -> int | None:
     return None
 
 
+def _resource_index(resources: list[ResourceBinding], resource_id: str) -> int | None:
+    for index, resource in enumerate(resources):
+        if resource.id == resource_id:
+            return index
+    return None
+
+
 def apply_patch(base: AgentSpec, patch: AgentSpecPatch) -> AgentSpec:
     """작업을 적힌 순서대로 적용해 새 draft를 만든다.
 
@@ -72,6 +90,7 @@ def apply_patch(base: AgentSpec, patch: AgentSpecPatch) -> AgentSpec:
 
     nodes = [node.model_copy(deep=True) for node in base.nodes]
     edges = [edge.model_copy(deep=True) for edge in base.edges]
+    resources = [resource.model_copy(deep=True) for resource in base.resources]
 
     for operation in patch.operations:
         if isinstance(operation, AddNodeOperation):
@@ -134,12 +153,49 @@ def apply_patch(base: AgentSpec, patch: AgentSpecPatch) -> AgentSpec:
                     message=f"edge id {operation.edge_id!r} is not in the graph",
                 )
             edges.pop(index)
+            continue
+
+        if isinstance(operation, AddResourceOperation):
+            if _resource_index(resources, operation.resource.id) is not None:
+                raise PatchApplyError(
+                    reason="duplicate_resource",
+                    message=(
+                        f"connection id {operation.resource.id!r} "
+                        "is already in the graph"
+                    ),
+                )
+            resources.append(operation.resource.model_copy(deep=True))
+            continue
+
+        if isinstance(operation, ReplaceResourceOperation):
+            index = _resource_index(resources, operation.resource.id)
+            if index is None:
+                raise PatchApplyError(
+                    reason="unknown_resource",
+                    message=(
+                        f"connection id {operation.resource.id!r} is not in the graph"
+                    ),
+                )
+            resources[index] = operation.resource.model_copy(deep=True)
+            continue
+
+        if isinstance(operation, RemoveResourceOperation):
+            index = _resource_index(resources, operation.resource_id)
+            if index is None:
+                raise PatchApplyError(
+                    reason="unknown_resource",
+                    message=(
+                        f"connection id {operation.resource_id!r} is not in the graph"
+                    ),
+                )
+            resources.pop(index)
 
     numbered = base.model_copy(
         deep=True,
         update={
             "nodes": nodes,
             "edges": edges,
+            "resources": resources,
             "version": base.version + 1,
             "status": AgentStatus.DRAFT,
         },

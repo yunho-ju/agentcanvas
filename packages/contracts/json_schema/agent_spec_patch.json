@@ -38,6 +38,78 @@
       "title": "AddNodeOperation",
       "type": "object"
     },
+    "AddResourceOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "add_resource",
+          "title": "Op",
+          "type": "string"
+        },
+        "resource": {
+          "$ref": "#/$defs/ResourceBinding"
+        }
+      },
+      "required": [
+        "op",
+        "resource"
+      ],
+      "title": "AddResourceOperation",
+      "type": "object"
+    },
+    "ChunkRule": {
+      "additionalProperties": false,
+      "description": "긴 글을 어떤 단위로 얼마씩 자를지.",
+      "properties": {
+        "by": {
+          "enum": [
+            "section",
+            "chars"
+          ],
+          "title": "By",
+          "type": "string"
+        },
+        "size": {
+          "exclusiveMinimum": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "by",
+        "size"
+      ],
+      "title": "ChunkRule",
+      "type": "object"
+    },
+    "DigestResult": {
+      "additionalProperties": false,
+      "description": "받은 전체를 모델로 줄여 싣는다 — 요약 모델은 본 실행과 분리한다.",
+      "properties": {
+        "max_chars": {
+          "exclusiveMinimum": 0,
+          "title": "Max Chars",
+          "type": "integer"
+        },
+        "mode": {
+          "const": "digest",
+          "title": "Mode",
+          "type": "string"
+        },
+        "model_ref": {
+          "pattern": "^model://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?$",
+          "title": "Model Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "model_ref",
+        "max_chars"
+      ],
+      "title": "DigestResult",
+      "type": "object"
+    },
     "Edge": {
       "additionalProperties": false,
       "properties": {
@@ -127,6 +199,116 @@
       "title": "EdgeKind",
       "type": "string"
     },
+    "FullResult": {
+      "additionalProperties": false,
+      "description": "받은 것을 그대로 싣는다 — 작은 응답의 기본값.",
+      "properties": {
+        "mode": {
+          "const": "full",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "FullResult",
+      "type": "object"
+    },
+    "HttpCall": {
+      "additionalProperties": false,
+      "description": "우리가 감싼 HTTP API를 부르는 방법.",
+      "properties": {
+        "auth": {
+          "anyOf": [
+            {
+              "pattern": "^secret://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auth"
+        },
+        "method": {
+          "$ref": "#/$defs/HttpMethod"
+        },
+        "transport": {
+          "const": "http",
+          "title": "Transport",
+          "type": "string"
+        },
+        "url_template": {
+          "minLength": 1,
+          "title": "Url Template",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transport",
+        "method",
+        "url_template"
+      ],
+      "title": "HttpCall",
+      "type": "object"
+    },
+    "HttpMethod": {
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ],
+      "title": "HttpMethod",
+      "type": "string"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "McpCall": {
+      "additionalProperties": false,
+      "description": "MCP 서버가 아는 이름으로 도구를 부르는 방법.",
+      "properties": {
+        "remote_name": {
+          "minLength": 1,
+          "title": "Remote Name",
+          "type": "string"
+        },
+        "transport": {
+          "const": "mcp",
+          "title": "Transport",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transport",
+        "remote_name"
+      ],
+      "title": "McpCall",
+      "type": "object"
+    },
     "Node": {
       "additionalProperties": false,
       "properties": {
@@ -162,9 +344,12 @@
         "mapping": {
           "add_edge": "#/$defs/AddEdgeOperation",
           "add_node": "#/$defs/AddNodeOperation",
+          "add_resource": "#/$defs/AddResourceOperation",
           "remove_edge": "#/$defs/RemoveEdgeOperation",
           "remove_node": "#/$defs/RemoveNodeOperation",
-          "replace_node_config": "#/$defs/ReplaceNodeConfigOperation"
+          "remove_resource": "#/$defs/RemoveResourceOperation",
+          "replace_node_config": "#/$defs/ReplaceNodeConfigOperation",
+          "replace_resource": "#/$defs/ReplaceResourceOperation"
         },
         "propertyName": "op"
       },
@@ -183,6 +368,15 @@
         },
         {
           "$ref": "#/$defs/RemoveEdgeOperation"
+        },
+        {
+          "$ref": "#/$defs/AddResourceOperation"
+        },
+        {
+          "$ref": "#/$defs/ReplaceResourceOperation"
+        },
+        {
+          "$ref": "#/$defs/RemoveResourceOperation"
         }
       ]
     },
@@ -247,6 +441,27 @@
       "title": "RemoveNodeOperation",
       "type": "object"
     },
+    "RemoveResourceOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "remove_resource",
+          "title": "Op",
+          "type": "string"
+        },
+        "resource_id": {
+          "minLength": 1,
+          "title": "Resource Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "resource_id"
+      ],
+      "title": "RemoveResourceOperation",
+      "type": "object"
+    },
     "ReplaceNodeConfigOperation": {
       "additionalProperties": false,
       "properties": {
@@ -272,6 +487,210 @@
         "config"
       ],
       "title": "ReplaceNodeConfigOperation",
+      "type": "object"
+    },
+    "ReplaceResourceOperation": {
+      "additionalProperties": false,
+      "description": "같은 id의 바인딩을 통째로 갈아 끼운다 — 도구 목록까지 새 것이 된다.",
+      "properties": {
+        "op": {
+          "const": "replace_resource",
+          "title": "Op",
+          "type": "string"
+        },
+        "resource": {
+          "$ref": "#/$defs/ResourceBinding"
+        }
+      },
+      "required": [
+        "op",
+        "resource"
+      ],
+      "title": "ReplaceResourceOperation",
+      "type": "object"
+    },
+    "ResourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Tools",
+          "type": "array"
+        },
+        "approval_policy": {
+          "minLength": 1,
+          "title": "Approval Policy",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "server_ref": {
+          "pattern": "^(?:mcp|api)://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?$",
+          "title": "Server Ref",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolDef"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "server_ref",
+        "approval_policy"
+      ],
+      "title": "ResourceBinding",
+      "type": "object"
+    },
+    "RetrieveResult": {
+      "additionalProperties": false,
+      "description": "질의로 관련 조각만 골라 싣는다.",
+      "properties": {
+        "chunk": {
+          "$ref": "#/$defs/ChunkRule"
+        },
+        "mode": {
+          "const": "retrieve",
+          "title": "Mode",
+          "type": "string"
+        },
+        "query_param": {
+          "minLength": 1,
+          "title": "Query Param",
+          "type": "string"
+        },
+        "top_k": {
+          "exclusiveMinimum": 0,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "query_param",
+        "top_k",
+        "chunk"
+      ],
+      "title": "RetrieveResult",
+      "type": "object"
+    },
+    "SectionsResult": {
+      "additionalProperties": false,
+      "description": "부르는 쪽이 필요한 섹션만 골라 받는다.",
+      "properties": {
+        "mode": {
+          "const": "sections",
+          "title": "Mode",
+          "type": "string"
+        },
+        "section_param": {
+          "minLength": 1,
+          "title": "Section Param",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "section_param"
+      ],
+      "title": "SectionsResult",
+      "type": "object"
+    },
+    "ToolDef": {
+      "additionalProperties": false,
+      "description": "바인딩 하나가 들고 다니는 도구 한 개.",
+      "properties": {
+        "call": {
+          "discriminator": {
+            "mapping": {
+              "http": "#/$defs/HttpCall",
+              "mcp": "#/$defs/McpCall"
+            },
+            "propertyName": "transport"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/HttpCall"
+            },
+            {
+              "$ref": "#/$defs/McpCall"
+            }
+          ],
+          "title": "Call"
+        },
+        "input_schema": {
+          "additionalProperties": true,
+          "title": "Input Schema",
+          "type": "object"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "output_schema": {
+          "additionalProperties": true,
+          "title": "Output Schema",
+          "type": "object"
+        },
+        "plain_description": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "result_handling": {
+          "discriminator": {
+            "mapping": {
+              "digest": "#/$defs/DigestResult",
+              "full": "#/$defs/FullResult",
+              "retrieve": "#/$defs/RetrieveResult",
+              "sections": "#/$defs/SectionsResult"
+            },
+            "propertyName": "mode"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FullResult"
+            },
+            {
+              "$ref": "#/$defs/SectionsResult"
+            },
+            {
+              "$ref": "#/$defs/DigestResult"
+            },
+            {
+              "$ref": "#/$defs/RetrieveResult"
+            }
+          ],
+          "title": "Result Handling"
+        },
+        "timeout_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Timeout Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "plain_description",
+        "input_schema",
+        "output_schema",
+        "timeout_ms",
+        "call"
+      ],
+      "title": "ToolDef",
       "type": "object"
     }
   },

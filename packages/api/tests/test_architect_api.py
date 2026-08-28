@@ -447,3 +447,59 @@ def test_architect_draft_does_not_turn_the_server_fallback_into_a_candidate():
     assert response.status_code == 503
     assert response.json()["detail"] == "architect provider is not configured"
     assert client.get("/specs/draft-no-provider").status_code == 404
+
+
+def test_pulling_out_a_connection_a_node_still_uses_is_not_previewed():
+    """도구 연결을 빼면 그것을 쓰던 노드가 없는 이름을 가리킨다 — 그림이 깨진 제안은 거절한다."""
+    base = spec_payload()
+    assert base["resources"][0]["id"] == "clinical-reference"
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=patch_answer(
+                base["revision"],
+                {"op": "remove_resource", "resource_id": "clinical-reference"},
+            ),
+        )
+    )
+
+    response = client.post("/architect/patch", json=request_body(base))
+
+    assert response.status_code == 422
+    assert (
+        response.json()["detail"] == "the proposed patch leaves graph validation errors"
+    )
+
+
+def test_a_connection_a_patch_adds_arrives_in_the_previewed_candidate():
+    """짝: 바인딩을 더하는 제안은 그대로 미리보기 candidate에 실린다."""
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=patch_answer(
+                base["revision"],
+                {
+                    "op": "add_resource",
+                    "resource": {
+                        "id": "drug-database",
+                        "kind": "mcp.toolset",
+                        "server_ref": "mcp://drug-database",
+                        "approval_policy": "read_only_auto",
+                        "tools": [],
+                    },
+                },
+            ),
+        )
+    )
+
+    response = client.post("/architect/patch", json=request_body(base))
+
+    assert response.status_code == 200
+    candidate = response.json()["candidate"]
+    assert [resource["id"] for resource in candidate["resources"]] == [
+        "clinical-reference",
+        "drug-database",
+    ]

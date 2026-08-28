@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from .agent_spec import ContractModel, Edge, Node
+from .agent_spec import ContractModel, Edge, Node, ResourceBinding
 from .revision import REVISION_PATTERN
 
 
@@ -36,12 +36,32 @@ class RemoveEdgeOperation(ContractModel):
     edge_id: str = Field(min_length=1)
 
 
+class AddResourceOperation(ContractModel):
+    op: Literal["add_resource"]
+    resource: ResourceBinding
+
+
+class ReplaceResourceOperation(ContractModel):
+    """같은 id의 바인딩을 통째로 갈아 끼운다 — 도구 목록까지 새 것이 된다."""
+
+    op: Literal["replace_resource"]
+    resource: ResourceBinding
+
+
+class RemoveResourceOperation(ContractModel):
+    op: Literal["remove_resource"]
+    resource_id: str = Field(min_length=1)
+
+
 type PatchOperation = Annotated[
     AddNodeOperation
     | RemoveNodeOperation
     | ReplaceNodeConfigOperation
     | AddEdgeOperation
-    | RemoveEdgeOperation,
+    | RemoveEdgeOperation
+    | AddResourceOperation
+    | ReplaceResourceOperation
+    | RemoveResourceOperation,
     Field(discriminator="op"),
 ]
 
@@ -57,9 +77,12 @@ class AgentSpecPatch(ContractModel):
 __all__ = [
     "AddEdgeOperation",
     "AddNodeOperation",
+    "AddResourceOperation",
     "AgentSpecPatch",
     "PatchOperation",
     "RemoveEdgeOperation",
     "RemoveNodeOperation",
+    "RemoveResourceOperation",
     "ReplaceNodeConfigOperation",
+    "ReplaceResourceOperation",
 ]

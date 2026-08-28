@@ -30,5 +30,19 @@ def test_core_contracts_are_importable_from_the_package_root():
     } <= set(contracts.__all__)
 
 
+def test_every_patch_operation_is_reachable_from_the_package_root():
+    """patch op은 한 벌이다 — 다섯만 내보내고 셋을 숨기면 소비자가 반쪽 계약을 본다."""
+    assert {
+        "AddNodeOperation",
+        "RemoveNodeOperation",
+        "ReplaceNodeConfigOperation",
+        "AddEdgeOperation",
+        "RemoveEdgeOperation",
+        "AddResourceOperation",
+        "ReplaceResourceOperation",
+        "RemoveResourceOperation",
+    } <= set(contracts.__all__)
+
+
 def test_exported_names_exist():
     assert all(hasattr(contracts, name) for name in contracts.__all__)
