@@ -189,6 +189,24 @@ describe("도구가 일한 실행을 읽는 목록", () => {
     ).toBe(true);
   });
 
+  it("retrieve로 골라 실은 답은 절감이 화면에 뜬다 (API_TOOLS P3d, 등급 B)", () => {
+    const said = watch(
+      toolRun({
+        ok: true,
+        result: { diagnosis: "asthma..." },
+        original_chars: 9000,
+        loaded_chars: 420,
+        query: "asthma cough",
+        retrieved: [{ chunk: "diagnosis", score: 3.1 }],
+      }),
+    );
+
+    // 실제 EventList 컴포넌트가 두 수가 갈린 절감을 화면 한 줄에 보여 준다.
+    expect(
+      said.some((line) => line.includes("원문 9000자 중 420자를 실었다")),
+    ).toBe(true);
+  });
+
   it("도구가 마치지 못했으면 끝맺음 줄도 초록불로 말하지 않는다", () => {
     const closed = [
       ...toolRun({

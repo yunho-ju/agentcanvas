@@ -497,15 +497,30 @@ def digest_tool() -> ToolDef:
     )
 
 
-def retrieve_tool() -> ToolDef:
+def retrieve_tool(
+    query_param: str = "q",
+    by: str = "section",
+    size: int = 200,
+    top_k: int = 2,
+) -> ToolDef:
     return a_tool(
         result_handling={
             "mode": "retrieve",
-            "query_param": "q",
-            "top_k": 3,
-            "chunk": {"by": "chars", "size": 200},
+            "query_param": query_param,
+            "top_k": top_k,
+            "chunk": {"by": by, "size": size},
         }
     )
+
+
+#: retrieve 시험용 응답 — 섹션마다 서로 다른 검색어가 들어 있어 순위가 갈린다.
+RETRIEVE_BODY = json.dumps(
+    {
+        "billing": "invoice amount payment due balance " * 20,
+        "diagnosis": "asthma wheezing cough diagnosis lungs " * 20,
+        "scheduling": "appointment calendar time slot booking " * 20,
+    }
+)
 
 
 class TestFullIsUntouched:
@@ -603,15 +618,109 @@ class TestStrategiesNotBuiltYet:
         assert isinstance(answer, ToolBalked)
         assert answer.reason == "unsupported_strategy"
 
-    def test_retrieve_balks_honestly_too(self):
-        _sent, send = answers(text=BIG_BODY)
-
-        answer = calling(send)(an_ask(retrieve_tool()))
-
-        assert isinstance(answer, ToolBalked)
-        assert answer.reason == "unsupported_strategy"
-
     def test_a_mode_with_no_handler_is_unsupported_not_silently_full(self):
         from agentcanvas_adapters.http_tool import HANDLE_BY_MODE, handler_for
 
         assert handler_for("some_future_mode") is HANDLE_BY_MODE["digest"]
+
+
+class TestRetrieve:
+    def test_by_section_keeps_only_the_top_k_relevant_sections(self):
+        _sent, send = answers(text=RETRIEVE_BODY)
+
+        answer = calling(send)(
+            an_ask(retrieve_tool(by="section", top_k=1), {"q": "asthma cough"})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        assert list(answer.result.keys()) == ["diagnosis"]
+        assert answer.loaded_chars < answer.original_chars
+
+    def test_by_chars_cuts_every_size_characters_deterministically(self):
+        _sent, send = answers(text=RETRIEVE_BODY)
+
+        first = calling(send)(
+            an_ask(retrieve_tool(by="chars", size=120, top_k=2), {"q": "asthma"})
+        )
+        again = calling(send)(
+            an_ask(retrieve_tool(by="chars", size=120, top_k=2), {"q": "asthma"})
+        )
+
+        assert isinstance(first, ToolReturned)
+        assert first.result == again.result  # 같은 응답·질의 → 같은 top_k
+        assert first.loaded_chars < first.original_chars
+
+    def test_an_empty_query_stops_the_call(self):
+        _sent, send = answers(text=RETRIEVE_BODY)
+
+        answer = calling(send)(an_ask(retrieve_tool(), {"q": "   "}))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "missing_input"
+
+    def test_a_missing_query_param_stops_the_call(self):
+        _sent, send = answers(text=RETRIEVE_BODY)
+
+        answer = calling(send)(an_ask(retrieve_tool(query_param="q"), {"other": "x"}))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "missing_input"
+
+    def test_the_whole_answer_is_not_stashed_anywhere(self):
+        _sent, send = answers(text=RETRIEVE_BODY)
+
+        answer = calling(send)(
+            an_ask(retrieve_tool(by="section", top_k=1), {"q": "asthma"})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        left = json.dumps(
+            {"result": answer.result, "handling": dict(answer.handling or {})}
+        )
+        # 안 고른 섹션(billing/scheduling)의 본문이 통째로 실리지 않는다.
+        assert "invoice amount payment" not in left
+        assert len(left) < len(RETRIEVE_BODY)
+
+    def test_it_leaves_the_query_chosen_chunks_and_scores_for_replay(self):
+        _sent, send = answers(text=RETRIEVE_BODY)
+
+        answer = calling(send)(
+            an_ask(retrieve_tool(by="section", top_k=2), {"q": "asthma cough"})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        handling = answer.handling
+        assert handling is not None
+        assert handling["query"] == "asthma cough"
+        retrieved = handling["retrieved"]
+        # 고른 조각마다 식별자(section 이름)와 점수가 남는다 — 무엇을 근거로 골랐나.
+        assert retrieved[0]["chunk"] == "diagnosis"
+        assert all("score" in one for one in retrieved)
+        assert handling["original_ref"]["node_id"] == "lookup"
+
+    def test_top_k_larger_than_the_number_of_chunks_is_not_an_error(self):
+        _sent, send = answers(text=RETRIEVE_BODY)
+
+        answer = calling(send)(
+            an_ask(retrieve_tool(by="section", top_k=99), {"q": "asthma"})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        assert len(answer.result) == 3
+
+
+class TestCharsChunkingIsHonestAboutSize:
+    def test_a_whole_answer_in_one_chunk_never_reports_more_than_the_original(self):
+        """size가 응답보다 크면 한 조각이 응답 전체다 — 재인코딩으로 부풀리지 않는다."""
+        tiny = json.dumps({"a": "b"})  # 짧은 응답: size >= 길이라 조각이 하나
+        _sent, send = answers(text=tiny)
+
+        answer = calling(send)(
+            an_ask(retrieve_tool(by="chars", size=9999, top_k=1), {"q": "a"})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        # 고른 조각(원본 문자열의 슬라이스)의 합은 원본을 넘지 않는다 (정직성 불변식).
+        assert answer.loaded_chars <= answer.original_chars
+        # 원 응답 문자열이 이스케이프되어 통째로 다시 실리지 않는다.
+        assert answer.loaded_chars == answer.original_chars

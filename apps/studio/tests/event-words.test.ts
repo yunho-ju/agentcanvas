@@ -219,6 +219,22 @@ describe("도구가 일한 자리를 읽는 말", () => {
     expect(said(trimmed)).toContain("780");
   });
 
+  it("retrieve로 골라 실은 답도 같은 렌더로 절감을 보인다 (API_TOOLS P3d)", () => {
+    // retrieve의 payload는 sections와 다르지만(query·retrieved) 요약 줄은 같은 두 수만 읽는다.
+    const picked = toolEvent("tool.completed", {
+      ...asked,
+      ok: true,
+      result: { diagnosis: "asthma..." },
+      original_chars: 9000,
+      loaded_chars: 420,
+      query: "asthma cough",
+      retrieved: [{ chunk: "diagnosis", score: 3.1 }],
+    });
+
+    expect(said(picked)).toContain("9000");
+    expect(said(picked)).toContain("420");
+  });
+
   it("도구가 일을 마치지 못한 자리는 그렇게 말하고 다음 걸음을 알려준다", () => {
     const failed = toolEvent("tool.completed", {
       ...asked,

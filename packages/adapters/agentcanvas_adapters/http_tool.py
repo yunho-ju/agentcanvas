@@ -13,7 +13,12 @@ from dataclasses import dataclass, field
 from typing import Literal
 from urllib.parse import quote
 
-from agentcanvas_contracts.tool_def import HttpCall, SectionsResult, ToolDef
+from agentcanvas_contracts.tool_def import (
+    HttpCall,
+    RetrieveResult,
+    SectionsResult,
+    ToolDef,
+)
 from agentcanvas_engine.tool_call import (
     CallsATool,
     ToolAsk,
@@ -22,6 +27,7 @@ from agentcanvas_engine.tool_call import (
     measured,
 )
 
+from .retrieval import bm25_ranked
 from .secrets import SecretResolver
 
 #: 저쪽이 답한 본문을 까닭에 실을 때의 상한 — 사람이 읽을 만큼만, 로그를 덮지 않을 만큼만.
@@ -197,11 +203,116 @@ def _sections(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
     )
 
 
+def _canonical(value: object) -> str:
+    """조각내고 크기를 잴 때 쓰는 한 모양 — 기계가 주고받는 자리라 언어를 타지 않는다.
+
+    engine의 크기 측정(measured)과 같은 규칙이라 두 수(original/loaded)가 같은 자로 잰다.
+    """
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+@dataclass(frozen=True)
+class _Chunk:
+    """응답을 나눈 조각 하나 — 무엇으로 부를지(id), 점수 매길 글(text), 실을 값(value)."""
+
+    id: str
+    text: str
+    value: object
+
+
+def _chunk_by_section(parsed: object, size: int) -> list[_Chunk]:
+    """최상위 키마다 한 조각 — Sections의 조각 나누기를 그대로 쓴다(size는 보지 않는다)."""
+    if not isinstance(parsed, dict):
+        return [_Chunk(id="0", text=_canonical(parsed), value=parsed)]
+    return [
+        _Chunk(id=str(name), text=f"{name} {_canonical(value)}", value=value)
+        for name, value in parsed.items()
+    ]
+
+
+def _chunk_by_chars(parsed: object, size: int) -> list[_Chunk]:
+    """응답을 글자열로 보고 size자마다 자른다 — 경계는 문자 단위, 결정론적."""
+    whole = _canonical(parsed)
+    return [
+        _Chunk(id=str(at), text=whole[at : at + size], value=whole[at : at + size])
+        for at in range(0, len(whole), size)
+    ]
+
+
+def _combine_sections(chosen: list[_Chunk]) -> tuple[object, int]:
+    """고른 섹션들을 다시 구조로 싣는다 — 부분집합이라 canonical 길이가 원본을 넘지 않는다."""
+    result = {chunk.id: chunk.value for chunk in chosen}
+    return result, len(_canonical(result))
+
+
+def _combine_chars(chosen: list[_Chunk]) -> tuple[object, int]:
+    """고른 글자 조각을 **그대로** 이어 싣는다 — 재인코딩하지 않는다.
+
+    조각은 원본 canonical 문자열의 겹치지 않는 슬라이스라, 이어 붙여도 합이 원본을 넘지
+    않는다(정직성 불변식). 다시 JSON으로 감싸면 이스케이프가 붙어 원본보다 커지므로 하지 않는다.
+    """
+    joined = "".join(str(chunk.value) for chunk in chosen)
+    return joined, len(joined)
+
+
+@dataclass(frozen=True)
+class _Chunker:
+    """응답을 조각내고(split), 고른 조각을 다시 싣는(combine) 한 쌍 — by가 고른다."""
+
+    split: Callable[[object, int], list[_Chunk]]
+    combine: Callable[[list[_Chunk]], tuple[object, int]]
+
+
+#: 조각내고 다시 싣는 규칙은 by가 정한다 — 새 갈래는 표에 한 줄이지 분기가 아니다.
+CHUNK_BY: dict[str, _Chunker] = {
+    "section": _Chunker(split=_chunk_by_section, combine=_combine_sections),
+    "chars": _Chunker(split=_chunk_by_chars, combine=_combine_chars),
+}
+
+
+def _retrieve(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
+    """질의로 관련 조각만 골라 싣는다 — 조각내고, BM25로 점수 매겨, 상위 top_k만.
+
+    같은 응답·같은 질의면 언제나 같은 top_k다(BM25 순수·동점 안정 정렬). 무엇을 근거로
+    골랐는지(질의·고른 조각·점수)를 payload에 남겨 리플레이가 성립한다. 원 응답은 통째로
+    싣지 않는다 — 고른 조각만(정직 보고 P3c 상속).
+    """
+    handling = ask.tool.result_handling
+    assert isinstance(handling, RetrieveResult)
+    asked = ask.input.get(handling.query_param)
+    query = asked if isinstance(asked, str) and asked.strip() else ""
+    if not query:
+        return ToolBalked(
+            reason="missing_input",
+            message=(
+                "this tool retrieves the pieces that match a query, but no query came "
+                f"in on {handling.query_param!r}"
+            ),
+        )
+    chunker = CHUNK_BY[handling.chunk.by]
+    chunks = chunker.split(parsed, handling.chunk.size)
+    ranked = bm25_ranked([chunk.text for chunk in chunks], query)
+    chosen = ranked[: handling.top_k]
+    chosen_chunks = [chunks[index] for index, _score in chosen]
+    result, loaded_chars = chunker.combine(chosen_chunks)
+    retrieved = [{"chunk": chunks[index].id, "score": score} for index, score in chosen]
+    return ToolReturned(
+        result=result,
+        original_chars=len(_canonical(parsed)),
+        loaded_chars=loaded_chars,
+        handling={
+            "query": query,
+            "retrieved": retrieved,
+            "original_ref": _original_ref(ask),
+        },
+    )
+
+
 def _unsupported(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
     """아직 못 만든 전략 — 조용히 Full로 떨어지지 않고 그 사실만 정직하게 말한다.
 
     문서의 문제가 아니라 "아직 준비 중"이라 no_adapter와 같은 결의 balk다 (error 포트가 아니다).
-    P3d(Retrieve)·P3e(Digest)가 이 자리에 진짜 handler 한 줄씩을 얹는다.
+    지금 이 자리 표시로 남은 것은 digest뿐이다 — P3e가 요약 모델 주입과 함께 진짜 handler를 얹는다.
     """
     return ToolBalked(
         reason="unsupported_strategy",
@@ -213,12 +324,12 @@ def _unsupported(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
 
 
 #: 응답을 어떻게 실을지 mode가 정한다 — 새 전략은 표에 handler 한 줄이지 분기가 아니다.
-#: digest/retrieve는 지금 unsupported balk 자리 표시 — P3d/P3e가 진짜 handler로 바꾼다.
+#: 지금 unsupported balk 자리 표시로 남은 것은 digest뿐이다 — P3e가 진짜 handler로 바꾼다.
 HANDLE_BY_MODE: dict[str, Callable[[ToolAsk, object], ToolReturned | ToolBalked]] = {
     "full": _full,
     "sections": _sections,
     "digest": _unsupported,
-    "retrieve": _unsupported,
+    "retrieve": _retrieve,
 }
 
 
@@ -320,6 +431,7 @@ def sends_with_httpx(request: ToolRequest) -> ToolResponse | SendFailed:
 
 
 __all__ = [
+    "CHUNK_BY",
     "HANDLE_BY_MODE",
     "HIDDEN_KEY",
     "MAX_BODY_CHARS",

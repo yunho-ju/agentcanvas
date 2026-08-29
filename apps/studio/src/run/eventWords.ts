@@ -34,7 +34,7 @@ export const FAILURE_REASONS = [
   "no_adapter",
   "not_allowed",
   "missing_input",
-  // 아직 못 만든 실을 방식(digest/retrieve) — 조용히 Full로 떨어지지 않고 그 사실만 말한다.
+  // 아직 못 만든 실을 방식(지금은 digest) — 조용히 Full로 떨어지지 않고 그 사실만 말한다.
   "unsupported_strategy",
 ] as const;
 
