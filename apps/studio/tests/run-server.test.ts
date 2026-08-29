@@ -334,6 +334,7 @@ describe("실행하지 못했을 때", () => {
                 spec_id: example.id,
                 spec_revision: REVISION,
                 created_at: STARTED_AT.toISOString(),
+                thread_id: RUN_ID,
               },
               status: "running",
             });
@@ -405,6 +406,7 @@ describe("서버의 대답을 기다리는 사이", () => {
                 spec_id: example.id,
                 spec_revision: REVISION,
                 created_at: STARTED_AT.toISOString(),
+                thread_id: RUN_ID,
               },
               status: "running",
             });

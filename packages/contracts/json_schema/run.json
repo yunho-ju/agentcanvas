@@ -1,11 +1,24 @@
 {
   "additionalProperties": false,
-  "description": "한 번의 실행 — 어느 그래프의 어느 판을, 언제 돌리기 시작했는가.",
+  "description": "한 번의 실행 — 어느 그래프의 어느 판을, 언제, 어느 스레드에서, 누구의 말로 돌렸는가.",
   "properties": {
     "created_at": {
       "format": "date-time",
       "title": "Created At",
       "type": "string"
+    },
+    "end_user_ref": {
+      "anyOf": [
+        {
+          "pattern": "^end-user://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End User Ref"
     },
     "id": {
       "minLength": 1,
@@ -21,13 +34,19 @@
       "pattern": "^sha256:[0-9a-f]{64}$",
       "title": "Spec Revision",
       "type": "string"
+    },
+    "thread_id": {
+      "minLength": 1,
+      "title": "Thread Id",
+      "type": "string"
     }
   },
   "required": [
     "id",
     "spec_id",
     "spec_revision",
-    "created_at"
+    "created_at",
+    "thread_id"
   ],
   "title": "Run",
   "type": "object"

@@ -12,7 +12,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from agentcanvas_api.app import create_app
-from agentcanvas_api.sqlite_database import CURRENT_SCHEMA_VERSION, prepare_database
+from agentcanvas_api.sqlite_database import (
+    _SCHEMA_V1,
+    _SCHEMA_V2_DURABLE_JOBS_SQL,
+    _SCHEMA_V2_INDEX_SQL,
+    prepare_database,
+)
 from agentcanvas_contracts.agent_spec import AgentSpec
 from agentcanvas_contracts.revision import compute_revision
 from fastapi.testclient import TestClient
@@ -62,15 +67,35 @@ def _insert_spec(connection: sqlite3.Connection, stored: dict) -> None:
     )
 
 
+def _build_v2_database(path: Path) -> None:
+    """revision 마이그레이션(v3)도 스레드 마이그레이션(v4)도 오기 전 파일 — 진짜 v2 모양.
+
+    prepare 뒤 최신 버전 행을 지우는 방식은 새 마이그레이션이 칸을 더하면 표 모양이
+    어긋난다 — 그 시절의 스키마를 그대로 짓는다.
+    """
+    with sqlite3.connect(path) as connection:
+        for statement in _SCHEMA_V1:
+            connection.execute(statement)
+        connection.execute(
+            "CREATE TABLE schema_migrations"
+            " (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)"
+        )
+        connection.execute(_SCHEMA_V2_DURABLE_JOBS_SQL)
+        for statement in _SCHEMA_V2_INDEX_SQL.values():
+            connection.execute(statement)
+        connection.executemany(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+            [(version, STORED_AT) for version in (1, 2)],
+        )
+        connection.commit()
+
+
 def a_database_from_before_tools(path: Path) -> dict[str, dict]:
     """도구 자리가 생기기 전 파일 하나 — 그래프 둘, 실행 둘, 배치 하나가 들어 있다."""
-    prepare_database(path)
+    _build_v2_database(path)
     old = before_tools(example_spec())
     plain = without_resources(example_spec())
     with sqlite3.connect(path) as connection:
-        connection.execute(
-            "DELETE FROM schema_migrations WHERE version = ?", (CURRENT_SCHEMA_VERSION,)
-        )
         _insert_spec(connection, old)
         _insert_spec(connection, plain)
         connection.executemany(

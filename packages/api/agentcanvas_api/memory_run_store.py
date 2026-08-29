@@ -25,6 +25,13 @@ class InMemoryRunStore:
     def get(self, run_id: str) -> Run | None:
         return self._runs.get(run_id)
 
+    def runs_in_thread(self, thread_id: str) -> list[Run]:
+        """한 스레드의 실행들 — 시작한 순서(created_at)대로, 말들이 차례로 묶인다."""
+        return sorted(
+            (run for run in self._runs.values() if run.thread_id == thread_id),
+            key=lambda run: run.created_at,
+        )
+
     def append(self, run_id: str, events: Sequence[RunEvent]) -> None:
         with self._writing:
             written = self._events.setdefault(run_id, [])

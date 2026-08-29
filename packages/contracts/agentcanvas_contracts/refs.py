@@ -67,6 +67,8 @@ ModelRef = _ref_type("model")
 SchemaRef = _ref_type("schema")
 McpRef = _ref_type("mcp")
 SecretRef = _ref_type("secret")
+# 말한 이는 가리키는 이름만 — 신원(이메일·이름)을 직접 담지 않는다(secret-ref와 같은 규율).
+EndUserRef = _ref_type("end-user")
 
 # 도구 서버는 MCP 서버일 수도, 우리가 감싼 HTTP API일 수도 있다.
 ServerRef = _ref_type("mcp", "api")
@@ -99,6 +101,7 @@ def no_raw_secrets[T](value: T, path: str = "", under_secret: bool = False) -> T
 __all__ = [
     "SECRET_FIELD_PATTERN",
     "SECRET_SCHEME",
+    "EndUserRef",
     "McpRef",
     "ModelRef",
     "PromptRef",

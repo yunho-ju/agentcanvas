@@ -4,7 +4,13 @@ import { type GateAnswerCallbacks, answerGate } from "../src/run/gateAnswer";
 
 const RUN_ID = "run_1";
 const ANSWERED: RunAnswerOutcome = {
-  run: { id: RUN_ID, spec_id: "spec_1", spec_revision: "sha256:test", created_at: "" },
+  run: {
+    id: RUN_ID,
+    spec_id: "spec_1",
+    spec_revision: "sha256:test",
+    created_at: "",
+    thread_id: RUN_ID,
+  },
   status: "running",
 };
 

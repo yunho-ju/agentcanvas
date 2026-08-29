@@ -18,6 +18,20 @@ from agentcanvas_contracts.run_events import RunEvent
 from .run_store import SeqAlreadyStored
 from .sqlite_database import BUSY_WAIT_SECONDS, PreparedDatabase
 
+#: 실행 하나를 읽어 오는 데 필요한 칸들 — 저장한 그대로 되돌린다.
+_RUN_COLUMNS = "run_id, spec_id, spec_revision, created_at, thread_id, end_user_ref"
+
+
+def _run_from_row(row: sqlite3.Row) -> Run:
+    return Run(
+        id=row["run_id"],
+        spec_id=row["spec_id"],
+        spec_revision=row["spec_revision"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+        thread_id=row["thread_id"],
+        end_user_ref=row["end_user_ref"],
+    )
+
 
 class SqliteRunStore:
     def __init__(self, path: Path | str, *, database_is_prepared: bool = False) -> None:
@@ -41,26 +55,38 @@ class SqliteRunStore:
     def start(self, run: Run) -> None:
         with self._connect() as connection:
             connection.execute(
-                "INSERT INTO runs (run_id, spec_id, spec_revision, created_at)"
-                " VALUES (?, ?, ?, ?)",
-                (run.id, run.spec_id, run.spec_revision, run.created_at.isoformat()),
+                "INSERT INTO runs"
+                " (run_id, spec_id, spec_revision, created_at, thread_id, end_user_ref)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    run.id,
+                    run.spec_id,
+                    run.spec_revision,
+                    run.created_at.isoformat(),
+                    run.thread_id,
+                    run.end_user_ref,
+                ),
             )
 
     def get(self, run_id: str) -> Run | None:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT run_id, spec_id, spec_revision, created_at FROM runs"
-                " WHERE run_id = ?",
+                f"SELECT {_RUN_COLUMNS} FROM runs WHERE run_id = ?",
                 (run_id,),
             ).fetchone()
         if row is None:
             return None
-        return Run(
-            id=row["run_id"],
-            spec_id=row["spec_id"],
-            spec_revision=row["spec_revision"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-        )
+        return _run_from_row(row)
+
+    def runs_in_thread(self, thread_id: str) -> list[Run]:
+        """한 스레드의 실행들 — 시작한 순서(created_at)대로, 말들이 차례로 묶인다."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT {_RUN_COLUMNS} FROM runs"
+                " WHERE thread_id = ? ORDER BY created_at",
+                (thread_id,),
+            ).fetchall()
+        return [_run_from_row(row) for row in rows]
 
     def append(self, run_id: str, events: Sequence[RunEvent]) -> None:
         try:

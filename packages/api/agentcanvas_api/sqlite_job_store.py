@@ -179,9 +179,17 @@ class SqliteJobStore:
             if existing is not None:
                 return JobAcceptance(existing, replayed=True)
             connection.execute(
-                "INSERT INTO runs (run_id, spec_id, spec_revision, created_at)"
-                " VALUES (?, ?, ?, ?)",
-                (run.id, run.spec_id, run.spec_revision, run.created_at.isoformat()),
+                "INSERT INTO runs"
+                " (run_id, spec_id, spec_revision, created_at, thread_id, end_user_ref)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    run.id,
+                    run.spec_id,
+                    run.spec_revision,
+                    run.created_at.isoformat(),
+                    run.thread_id,
+                    run.end_user_ref,
+                ),
             )
             job = self._insert_job(
                 connection,

@@ -107,3 +107,32 @@ def test_an_answer_says_nothing_more_than_yes_by_default():
 def test_turning_it_down_cannot_carry_values():
     with pytest.raises(ValidationError):
         ApprovalAnswer(approved=False, values={"comment": "no"})
+
+
+def test_a_solo_run_is_its_own_thread():
+    """스레드를 안 주면 그 실행 하나가 자기만의 스레드다 (단독 실행 = 홀로 선 스레드)."""
+    run = a_run()
+
+    assert run.thread_id == run.id
+
+
+def test_a_run_keeps_the_thread_it_was_given():
+    run = a_run(thread_id="chat_42")
+
+    assert run.thread_id == "chat_42"
+
+
+def test_a_run_without_an_end_user_is_still_a_run():
+    """만든 사람이 자기 그래프를 시험할 땐 말한 이가 없다."""
+    assert a_run().end_user_ref is None
+
+
+def test_a_run_can_name_who_spoke_by_reference():
+    run = a_run(end_user_ref="end-user://alice")
+
+    assert run.end_user_ref == "end-user://alice"
+
+
+def test_an_end_user_ref_cannot_be_a_raw_value():
+    with pytest.raises(ValidationError):
+        a_run(end_user_ref="alice@example.com")

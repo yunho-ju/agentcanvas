@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from agentcanvas_contracts.agent_spec import AgentSpec
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 BACKUP_DIR_ENV = "AGENTCANVAS_BACKUP_DIR"
 BACKUP_RETENTION_ENV = "AGENTCANVAS_BACKUP_RETENTION"
 DEFAULT_BACKUP_RETENTION = 10
@@ -89,10 +89,24 @@ _SCHEMA_V2_CONTRACT = {
     ),
 }
 # v3은 표의 모양을 바꾸지 않는다 — 바뀐 것은 저장된 그래프의 canonical revision뿐이다.
+# v4는 runs에 스레드(thread_id)와 말한 이(end_user_ref) 두 칸을 더한다 (ALTER로 붙이므로
+# 둘 다 nullable — 기존 행은 마이그레이션이 thread_id=run_id로 채운다).
+_SCHEMA_V4_CONTRACT = {
+    **_SCHEMA_V2_CONTRACT,
+    "runs": (
+        ("run_id", "TEXT", 0, 1),
+        ("spec_id", "TEXT", 1, 0),
+        ("spec_revision", "TEXT", 1, 0),
+        ("created_at", "TEXT", 1, 0),
+        ("thread_id", "TEXT", 0, 0),
+        ("end_user_ref", "TEXT", 0, 0),
+    ),
+}
 _SCHEMA_CONTRACTS = {
     1: _SCHEMA_V1_CONTRACT,
     2: _SCHEMA_V2_CONTRACT,
     3: _SCHEMA_V2_CONTRACT,
+    4: _SCHEMA_V4_CONTRACT,
 }
 _INDEX_CONTRACTS: Mapping[int, Mapping[str, tuple[int, tuple[str, ...]]]] = {
     1: {},
@@ -106,6 +120,11 @@ _INDEX_CONTRACTS: Mapping[int, Mapping[str, tuple[int, tuple[str, ...]]]] = {
     },
 }
 _INDEX_CONTRACTS = {**_INDEX_CONTRACTS, 3: _INDEX_CONTRACTS[2]}
+# v4는 한 스레드의 실행들을 시작 순서대로 읽는 길을 낸다 (thread_id, created_at).
+_INDEX_CONTRACTS = {
+    **_INDEX_CONTRACTS,
+    4: {**_INDEX_CONTRACTS[3], "runs_thread_idx": (0, ("thread_id", "created_at"))},
+}
 
 _SCHEMA_V1 = (
     """
@@ -305,10 +324,35 @@ def _migration_to_v3(connection: sqlite3.Connection, applied_at: str) -> None:
     )
 
 
+_RUNS_THREAD_INDEX_SQL = "CREATE INDEX runs_thread_idx ON runs (thread_id, created_at)"
+
+#: 인덱스마다 정확한 SQL — 이름만 같고 모양이 다른 인덱스를 걸러낸다.
+_CANONICAL_INDEX_SQL = {
+    **_SCHEMA_V2_INDEX_SQL,
+    "runs_thread_idx": _RUNS_THREAD_INDEX_SQL,
+}
+
+
+def _migration_to_v4(connection: sqlite3.Connection, applied_at: str) -> None:
+    """runs에 스레드·말한 이 두 칸을 더한다 — 표를 새로 짓지 않고 칸만 붙인다.
+
+    과거 run은 저마다 홀로 선 스레드였던 것이 사실이므로 thread_id를 run_id로 채운다.
+    """
+    connection.execute("ALTER TABLE runs ADD COLUMN thread_id TEXT")
+    connection.execute("ALTER TABLE runs ADD COLUMN end_user_ref TEXT")
+    connection.execute("UPDATE runs SET thread_id = run_id WHERE thread_id IS NULL")
+    connection.execute(_RUNS_THREAD_INDEX_SQL)
+    connection.execute(
+        "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+        (4, applied_at),
+    )
+
+
 _MIGRATIONS: Mapping[int, Migration] = {
     1: _migration_to_v1,
     2: _migration_to_v2,
     3: _migration_to_v3,
+    4: _migration_to_v4,
 }
 
 
@@ -392,21 +436,20 @@ def _validate_schema(
     if require_all_tables:
         for index_name, expected in _INDEX_CONTRACTS[version].items():
             row = connection.execute(
-                "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?",
+                "SELECT sql, tbl_name FROM sqlite_master"
+                " WHERE type = 'index' AND name = ?",
                 (index_name,),
             ).fetchone()
             if row is None or row[0] is None:
                 raise DatabasePreparationError("database is missing a required index")
-            canonical_sql = _SCHEMA_V2_INDEX_SQL.get(index_name)
-            if (
-                version >= 2
-                and canonical_sql is not None
-                and _normalized_schema_sql(str(row[0]))
-                != _normalized_schema_sql(canonical_sql)
-            ):
+            canonical_sql = _CANONICAL_INDEX_SQL.get(index_name)
+            if canonical_sql is not None and _normalized_schema_sql(
+                str(row[0])
+            ) != _normalized_schema_sql(canonical_sql):
                 raise DatabasePreparationError(
                     "database index has an unsupported shape"
                 )
+            owner = str(row[1])
             indexed = tuple(
                 str(info[2])
                 for info in connection.execute(f"PRAGMA index_info({index_name})")
@@ -414,7 +457,7 @@ def _validate_schema(
             index_metadata = next(
                 (
                     info
-                    for info in connection.execute("PRAGMA index_list(durable_jobs)")
+                    for info in connection.execute(f"PRAGMA index_list({owner})")
                     if info[1] == index_name
                 ),
                 None,

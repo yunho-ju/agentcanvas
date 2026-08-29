@@ -28,6 +28,10 @@ class RunStore(Protocol):
         """그 이름의 실행. 시작된 적이 없으면 없다."""
         ...
 
+    def runs_in_thread(self, thread_id: str) -> list[Run]:
+        """한 스레드에 묶인 실행들 — 시작한 순서(created_at)대로. 빈 스레드는 빈 목록."""
+        ...
+
     def append(self, run_id: str, events: Sequence[RunEvent]) -> None:
         """실행이 남긴 이벤트를 끝에 잇는다.
 

@@ -245,3 +245,66 @@ def test_a_reopened_file_still_holds_the_run_and_its_events(tmp_path: Path):
 
     assert reopened.get("run_1") == a_run()
     assert [event.seq for event in reopened.events("run_1")] == [0, 1]
+
+
+def test_a_run_carries_its_thread_and_end_user_through_storage(store: RunStore):
+    run = Run(
+        id="run_1",
+        spec_id="clinical-assistant",
+        spec_revision=REVISION,
+        created_at=at(30),
+        thread_id="chat_7",
+        end_user_ref="end-user://alice",
+    )
+
+    store.start(run)
+
+    stored = store.get("run_1")
+    assert stored is not None
+    assert stored.thread_id == "chat_7"
+    assert stored.end_user_ref == "end-user://alice"
+
+
+def test_a_solo_run_stores_itself_as_its_own_thread(store: RunStore):
+    store.start(a_run())
+
+    stored = store.get("run_1")
+    assert stored is not None
+    assert stored.thread_id == "run_1"
+    assert stored.end_user_ref is None
+
+
+def test_runs_in_a_thread_come_back_in_the_order_they_started(store: RunStore):
+    for index, minute in enumerate((10, 20, 30)):
+        store.start(
+            Run(
+                id=f"run_{index}",
+                spec_id="clinical-assistant",
+                spec_revision=REVISION,
+                created_at=at(minute),
+                thread_id="chat_7",
+            )
+        )
+
+    ordered = store.runs_in_thread("chat_7")
+
+    assert [run.id for run in ordered] == ["run_0", "run_1", "run_2"]
+
+
+def test_a_thread_does_not_see_another_threads_runs(store: RunStore):
+    store.start(a_run(run_id="mine"))  # its own solo thread
+    store.start(
+        Run(
+            id="theirs",
+            spec_id="clinical-assistant",
+            spec_revision=REVISION,
+            created_at=at(40),
+            thread_id="chat_7",
+        )
+    )
+
+    assert [run.id for run in store.runs_in_thread("chat_7")] == ["theirs"]
+
+
+def test_an_empty_thread_is_an_empty_list(store: RunStore):
+    assert store.runs_in_thread("nobody-here") == []

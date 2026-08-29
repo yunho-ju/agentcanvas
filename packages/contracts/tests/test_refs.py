@@ -2,6 +2,7 @@ import re
 
 import pytest
 from agentcanvas_contracts.refs import (
+    EndUserRef,
     McpRef,
     ModelRef,
     PromptRef,
@@ -177,3 +178,38 @@ def test_no_raw_secrets_walks_nested_containers():
 def test_no_raw_secrets_ignores_non_secret_fields():
     payload = {"model_ref": "model://default", "max_turns": 4}
     assert no_raw_secrets(payload) == payload
+
+
+class EndUserHolder(BaseModel):
+    ref: EndUserRef
+
+
+def test_end_user_ref_points_by_name_only():
+    assert EndUserHolder(ref="end-user://alice").ref == "end-user://alice"
+
+
+def test_end_user_ref_rejects_a_raw_string():
+    with pytest.raises(ValidationError):
+        EndUserHolder(ref="alice@example.com")
+
+
+def test_end_user_ref_rejects_another_scheme():
+    with pytest.raises(ValidationError):
+        EndUserHolder(ref="model://alice")
+
+
+@pytest.mark.parametrize(
+    "ref",
+    ["end-user://alice", "end-user://a@1", "end-user://", "alice", "model://alice"],
+)
+def test_the_end_user_pattern_accepts_exactly_what_the_model_accepts(ref):
+    """JSON Schema에 실은 pattern과 런타임 판정이 같은 집합을 뜻한다."""
+    pattern = EndUserHolder.model_json_schema()["properties"]["ref"]["pattern"]
+    accepted_by_schema = re.fullmatch(pattern, ref) is not None
+    try:
+        EndUserHolder(ref=ref)
+    except ValidationError:
+        accepted_by_model = False
+    else:
+        accepted_by_model = True
+    assert accepted_by_schema is accepted_by_model

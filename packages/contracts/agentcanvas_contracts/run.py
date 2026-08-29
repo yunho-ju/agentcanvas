@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import Field, model_validator
 
 from .agent_spec import ContractModel, UtcDatetime
+from .refs import EndUserRef
 from .revision import REVISION_PATTERN
 from .run_events import EventType, RunEvent
 
@@ -24,13 +25,26 @@ class RunStatus(str, Enum):
 
 
 class Run(ContractModel):
-    """한 번의 실행 — 어느 그래프의 어느 판을, 언제 돌리기 시작했는가."""
+    """한 번의 실행 — 어느 그래프의 어느 판을, 언제, 어느 스레드에서, 누구의 말로 돌렸는가."""
 
     #: 실행의 이름은 서버가 발급한다 (클라이언트가 지어 오지 않는다).
     id: str = Field(min_length=1)
     spec_id: str = Field(min_length=1)
     spec_revision: str = Field(pattern=REVISION_PATTERN)
     created_at: UtcDatetime
+    #: 이 실행이 속한 스레드 — 모든 run은 스레드에 속한다. 안 주면 자기 이름이 곧 스레드다
+    #: (단독 실행 = 홀로 선 스레드). 스레드는 실행들을 차례로 묶는 끈일 뿐 별도 모델이 아니다.
+    thread_id: str = Field(min_length=1)
+    #: 이 말을 한 사람을 가리키는 이름 — 없으면 만든 사람이 자기 그래프를 시험한 것이다.
+    end_user_ref: EndUserRef | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _solo_run_is_its_own_thread(cls, data: Any) -> Any:
+        """스레드를 안 주면 그 실행 하나가 자기만의 스레드다 — run_id가 곧 thread_id."""
+        if isinstance(data, dict) and not data.get("thread_id"):
+            return {**data, "thread_id": data.get("id")}
+        return data
 
 
 #: 마지막 이벤트가 말해 주는 상태 — 표에 없는 이벤트는 실행이 아직 흐르고 있다는 뜻이다.

@@ -466,3 +466,67 @@ def test_cancellation_selects_the_newest_same_timestamp_resume(
         assert (
             SqliteRunStore(path).events("run-1")[-1].event_type is EventType.RUN_FAILED
         )
+
+
+def test_the_durable_path_carries_the_thread_and_end_user(tmp_path: Path):
+    """durable INSERT도 스레드·말한 이 두 칸을 싣는다 (조사가 짚은 둘째 경로)."""
+    path = tmp_path / "jobs.db"
+    store = SqliteJobStore(path)
+    threaded = Run(
+        id="run-1",
+        spec_id="clinical-assistant",
+        spec_revision=REVISION,
+        created_at=NOW,
+        thread_id="chat_7",
+        end_user_ref="end-user://alice",
+    )
+
+    store.accept_run(
+        threaded,
+        idempotency_key="key-1",
+        request_fingerprint="fingerprint-1",
+        payload={"run_id": "run-1"},
+        now=NOW,
+    )
+
+    stored = SqliteRunStore(path).get("run-1")
+    assert stored is not None
+    assert stored.thread_id == "chat_7"
+    assert stored.end_user_ref == "end-user://alice"
+
+
+def test_resuming_a_durable_run_does_not_disturb_its_thread(tmp_path: Path):
+    """resume는 runs를 다시 넣지 않는다 — 스레드는 start 시점에 확정된다."""
+    path = tmp_path / "jobs.db"
+    store = SqliteJobStore(path)
+    threaded = Run(
+        id="run-1",
+        spec_id="clinical-assistant",
+        spec_revision=REVISION,
+        created_at=NOW,
+        thread_id="chat_7",
+    )
+    store.accept_run(
+        threaded,
+        idempotency_key="key-1",
+        request_fingerprint="fingerprint-1",
+        payload={"run_id": "run-1"},
+        now=NOW,
+    )
+    claimed = claim(store)
+    assert claimed is not None
+    store.append_run_events(
+        claimed.id, "worker-1", [an_event()], now=NOW, terminal_status="succeeded"
+    )
+
+    store.accept_resume(
+        "run-1",
+        0,
+        [an_event(1, EventType.NODE_STARTED)],
+        idempotency_key="resume-key",
+        request_fingerprint="resume-fingerprint",
+        payload={"base_seq": 0},
+        now=NOW,
+    )
+
+    assert SqliteRunStore(path).runs_in_thread("chat_7")[0].id == "run-1"

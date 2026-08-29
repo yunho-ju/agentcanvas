@@ -295,6 +295,10 @@ class RunService:
     def events(self, run_id: str, after: int | None = None) -> list[RunEvent]:
         return self._runs.events(run_id, after)
 
+    def runs_in_thread(self, thread_id: str) -> list[Run]:
+        """한 스레드에 묶인 실행들 — 시작한 순서대로 (말들이 차례로 묶인다)."""
+        return self._runs.runs_in_thread(thread_id)
+
     def has_ended(self, run_id: str) -> bool:
         """끝난 실행에는 더 보낼 것도 기다릴 것도 없다 — 마지막 이벤트 하나만 보고 안다.
 

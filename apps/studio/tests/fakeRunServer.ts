@@ -85,6 +85,7 @@ export function serveRuns(options: FakeRunOptions): RunServerDouble {
         spec_id: specId,
         spec_revision: specRevision,
         created_at: options.startedAt.toISOString(),
+        thread_id: options.runId,
       },
       status: "paused",
     };
@@ -107,6 +108,7 @@ export function serveRuns(options: FakeRunOptions): RunServerDouble {
         spec_id: spec.id,
         spec_revision: spec.revision,
         created_at: options.startedAt.toISOString(),
+        thread_id: runId,
       },
       status: "running",
     };
