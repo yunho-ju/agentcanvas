@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from agentcanvas_contracts.agent_spec import AgentSpec
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 BACKUP_DIR_ENV = "AGENTCANVAS_BACKUP_DIR"
 BACKUP_RETENTION_ENV = "AGENTCANVAS_BACKUP_RETENTION"
 DEFAULT_BACKUP_RETENTION = 10
@@ -30,6 +30,7 @@ _APPLICATION_TABLES = {
     "eval_datasets",
     "eval_batches",
     "durable_jobs",
+    "spec_publications",
 }
 _KNOWN_TABLES = _APPLICATION_TABLES | {_METADATA_TABLE}
 _SCHEMA_V1_CONTRACT: Mapping[str, tuple[tuple[str, str, int, int], ...]] = {
@@ -102,11 +103,22 @@ _SCHEMA_V4_CONTRACT = {
         ("end_user_ref", "TEXT", 0, 0),
     ),
 }
+# v5는 문서가 게시한 판을 가리키는 자리(spec_publications)를 새로 짓는다 — 문서당 한 줄
+# (게시=upsert, 내리기=delete). 저장 이력(spec_revisions)은 그대로 append-only로 둔다.
+_SCHEMA_V5_CONTRACT = {
+    **_SCHEMA_V4_CONTRACT,
+    "spec_publications": (
+        ("spec_id", "TEXT", 0, 1),
+        ("revision", "TEXT", 1, 0),
+        ("published_at", "TEXT", 1, 0),
+    ),
+}
 _SCHEMA_CONTRACTS = {
     1: _SCHEMA_V1_CONTRACT,
     2: _SCHEMA_V2_CONTRACT,
     3: _SCHEMA_V2_CONTRACT,
     4: _SCHEMA_V4_CONTRACT,
+    5: _SCHEMA_V5_CONTRACT,
 }
 _INDEX_CONTRACTS: Mapping[int, Mapping[str, tuple[int, tuple[str, ...]]]] = {
     1: {},
@@ -125,6 +137,8 @@ _INDEX_CONTRACTS = {
     **_INDEX_CONTRACTS,
     4: {**_INDEX_CONTRACTS[3], "runs_thread_idx": (0, ("thread_id", "created_at"))},
 }
+# v5는 새 인덱스를 더하지 않는다 — 게시 조회는 문서당 한 줄이라 PRIMARY KEY로 충분하다.
+_INDEX_CONTRACTS = {**_INDEX_CONTRACTS, 5: _INDEX_CONTRACTS[4]}
 
 _SCHEMA_V1 = (
     """
@@ -348,11 +362,33 @@ def _migration_to_v4(connection: sqlite3.Connection, applied_at: str) -> None:
     )
 
 
+_SCHEMA_V5_PUBLICATIONS_SQL = """
+CREATE TABLE spec_publications (
+    spec_id TEXT PRIMARY KEY,
+    revision TEXT NOT NULL,
+    published_at TEXT NOT NULL
+)
+"""
+
+
+def _migration_to_v5(connection: sqlite3.Connection, applied_at: str) -> None:
+    """문서가 게시한 판을 가리키는 자리를 새로 짓는다 — 문서당 한 줄.
+
+    게시 개념 이전 문서엔 게시된 판이 없는 게 사실이므로 backfill하지 않는다(빈 표).
+    """
+    connection.execute(_SCHEMA_V5_PUBLICATIONS_SQL)
+    connection.execute(
+        "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+        (5, applied_at),
+    )
+
+
 _MIGRATIONS: Mapping[int, Migration] = {
     1: _migration_to_v1,
     2: _migration_to_v2,
     3: _migration_to_v3,
     4: _migration_to_v4,
+    5: _migration_to_v5,
 }
 
 

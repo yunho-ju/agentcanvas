@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.publication import SpecPublication
 from agentcanvas_engine.validator import ValidationIssue, validate_graph
 from pydantic import BaseModel
 
@@ -70,6 +71,21 @@ class SaveRefused:
 
 
 SaveOutcome = SpecView | SaveRefused
+
+
+#: 게시를 물리는 까닭. 없는 그래프인가, 저장된 적 없는 판인가 (게시는 저장된 판만 가리킨다).
+PublishRefusal = Literal["unknown", "unknown_revision"]
+
+
+@dataclass(frozen=True)
+class PublishRefused:
+    """게시하지 않았고, 왜 그런지 — 예외 대신 답으로 돌려준다."""
+
+    reason: PublishRefusal
+    message: str
+
+
+PublishOutcome = SpecPublication | PublishRefused
 
 
 def _stamped(spec: AgentSpec, version: int) -> AgentSpec:
@@ -163,6 +179,36 @@ class SpecService:
             )
         return SpecView(stored=stored, issues=validate_graph(next_spec))
 
+    def publication(self, spec_id: str) -> SpecPublication | None:
+        """이 문서가 지금 대화 상대로 내놓은 판 — CHAT-3의 채팅이 이걸로 판을 집는다."""
+        return self._store.publication(spec_id)
+
+    def publish(self, spec_id: str, revision: str | None = None) -> PublishOutcome:
+        """저장된 판 하나를 게시한다 — 게시는 저장된 판을 가리킨다(없는 판을 가리키지 않는다).
+
+        판을 적어 보내지 않으면 지금 저장된 최신 판을 게시한다. 이미 게시됐으면 갈아 끼운다.
+        """
+        latest = self._store.latest(spec_id)
+        if latest is None:
+            return PublishRefused(
+                reason="unknown", message=f"no graph called {spec_id!r}"
+            )
+        target = revision if revision is not None else latest.spec.revision
+        if self._store.by_revision(spec_id, target) is None:
+            return PublishRefused(
+                reason="unknown_revision",
+                message="you can only publish a version you have saved",
+            )
+        self._store.set_publication(spec_id, target, self._clock())
+        published = self._store.publication(spec_id)
+        if published is None:  # 방금 둔 것이 사라지는 자리는 없다.
+            raise RuntimeError("the publication went missing right after it was set")
+        return published
+
+    def unpublish(self, spec_id: str) -> None:
+        """게시를 내린다 — 가리키던 판이 없어진다. 없던 것을 내려도 탈은 없다."""
+        self._store.clear_publication(spec_id)
+
     def _save(self, spec: AgentSpec) -> SpecView:
         # 아직 손볼 곳이 있어도 저장은 된다 — 저장은 벌이 아니다.
         issues = validate_graph(spec)
@@ -174,6 +220,9 @@ __all__ = [
     "FIRST_VERSION",
     "LIST_LIMIT",
     "Clock",
+    "PublishOutcome",
+    "PublishRefusal",
+    "PublishRefused",
     "Refusal",
     "SaveOutcome",
     "SaveRefused",

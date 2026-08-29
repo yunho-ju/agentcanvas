@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Protocol
 
 from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.publication import SpecPublication
 from pydantic import BaseModel
 
 
@@ -91,6 +92,20 @@ class SpecStore(Protocol):
 
     def summaries(self, limit: int) -> list[SpecSummary]:
         """저장된 그래프들의 지금 모습 — 최근에 저장한 것이 앞에 오고, limit개까지만 온다."""
+        ...
+
+    def publication(self, spec_id: str) -> SpecPublication | None:
+        """이 문서가 지금 대화 상대로 내놓은 판. 게시한 적이 없으면 없다."""
+        ...
+
+    def set_publication(
+        self, spec_id: str, revision: str, published_at: datetime
+    ) -> None:
+        """게시된 판을 이 판으로 둔다 — 문서당 하나뿐이라 있으면 갈아 끼운다(upsert)."""
+        ...
+
+    def clear_publication(self, spec_id: str) -> None:
+        """게시를 내린다 — 가리키던 판이 없어진다. 없던 것을 내려도 탈은 없다."""
         ...
 
 

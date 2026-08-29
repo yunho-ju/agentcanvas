@@ -328,6 +328,78 @@ const TEXTS = {
     en: "Version {version} · {when}",
   },
   "revisionHistory.retry": { ko: "다시 해보기", en: "Try again" },
+  // 판 기록에서 게시된 판에만 붙는 배지 — 읽기 표시일 뿐, 여기서 게시하지 않는다
+  "revisionHistory.published": { ko: "게시됨", en: "Published" },
+
+  // 게시 — 저장된 판 하나를 대화 상대로 내놓는다 (저장 축과 다른 축)
+  "publish.action": { ko: "이 판 게시하기", en: "Publish this version" },
+  "publish.action.hint": {
+    ko: "지금 저장된 판을 대화 상대로 내놓아요",
+    en: "Make the saved version the one people talk to",
+  },
+  "publish.replace": { ko: "다른 판으로 바꿔 게시하기", en: "Publish a different version" },
+  "publish.replace.hint": {
+    ko: "지금 저장된 판으로 게시를 갱신해요",
+    en: "Update the published version to the one saved now",
+  },
+  "publish.down": { ko: "게시 내리기", en: "Unpublish" },
+  "publish.down.hint": {
+    ko: "내놓은 판을 거둬들여요",
+    en: "Take the published version back down",
+  },
+  "publish.disabled.unsaved": {
+    ko: "먼저 저장해야 게시할 수 있어요",
+    en: "Save first — publishing points at a saved version",
+  },
+  "publish.disabled.none": {
+    ko: "게시할 문서가 없어요",
+    en: "There is no document to publish",
+  },
+  // 게시 표식 — 저장 캡션 아래 별도 한 줄 (게시됐을 때만 보인다)
+  "publish.mark.same": { ko: "지금 판을 게시했어요", en: "You published the version you see now" },
+  "publish.mark.different": {
+    ko: "{version}번째 판을 게시했어요 — 지금 보는 판과 달라요",
+    en: "You published version {version} — different from the one you see now",
+  },
+  // 게시 결과를 알리는 토스트
+  "publish.ok": { ko: "게시했어요", en: "Published" },
+  "publish.down.ok": { ko: "게시를 내렸어요", en: "Unpublished" },
+  "publish.blocked.unsaved": {
+    ko: "저장 안 된 변경이 있어요 — 먼저 저장하고 게시해요",
+    en: "There are unsaved changes — save first, then publish",
+  },
+  "publish.blocked.none": {
+    ko: "게시할 문서가 없어요",
+    en: "There is no document to publish",
+  },
+  "publish.offline": {
+    ko: "게시하지 못했어요 — 서버가 켜져 있는지 확인하고 다시 해보세요",
+    en: "Could not publish — check that the server is running and try again",
+  },
+  "publish.read.offline": {
+    ko: "게시 상태를 불러오지 못했어요 — 서버가 켜져 있는지 확인해 주세요",
+    en: "Could not load the publication — check that the server is running",
+  },
+  "publish.notSaved": {
+    ko: "그 판은 저장된 적이 없어 게시할 수 없어요",
+    en: "That version was never saved, so it cannot be published",
+  },
+  "publish.strange": {
+    ko: "게시가 알 수 없는 답을 보냈어요 — 잠시 뒤 다시 해보세요",
+    en: "Publishing sent an answer we cannot read — try again in a moment",
+  },
+  "publish.failed": {
+    ko: "게시하지 못했어요 ({reason}) — 잠시 뒤 다시 해보세요",
+    en: "Could not publish ({reason}) — try again in a moment",
+  },
+  "publish.down.failed": {
+    ko: "게시를 내리지 못했어요 ({status}) — 잠시 뒤 다시 해보세요",
+    en: "Could not unpublish ({status}) — try again in a moment",
+  },
+  "publish.read.failed": {
+    ko: "게시 상태를 불러오지 못했어요 ({status})",
+    en: "Could not load the publication ({status})",
+  },
 
   // 화면의 밝기와 언어
   "theme.toDark": { ko: "어둡게 보기", en: "Switch to a dark screen" },

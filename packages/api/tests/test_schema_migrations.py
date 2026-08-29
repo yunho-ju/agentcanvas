@@ -127,6 +127,7 @@ def test_a_legacy_database_is_backed_up_and_migrated_exactly_once(
         "eval_datasets",
         "eval_batches",
         "durable_jobs",
+        "spec_publications",
     }
     with sqlite3.connect(database) as connection:
         assert connection.execute(
@@ -250,6 +251,7 @@ def test_concurrent_prepare_calls_apply_the_migration_once(tmp_path: Path):
         "eval_datasets",
         "eval_batches",
         "durable_jobs",
+        "spec_publications",
     }
 
 

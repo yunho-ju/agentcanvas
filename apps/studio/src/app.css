@@ -493,6 +493,15 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* 게시 표식 — 저장 캡션과 다른 축이라 별도 한 줄(accent 글자). 게시됐을 때만 보인다. */
+.doc-card__published {
+  padding: 0 var(--space-2);
+  font-size: var(--text-caption);
+  color: var(--accent);
+  font-variant-numeric: var(--numeric);
+  white-space: nowrap;
+}
+
 /* 이름을 고치는 칸은 이름이 서 있던 그 자리에 선다 — 화면이 흔들리지 않는다. */
 .doc-card__rename {
   max-width: var(--panel-dock);
@@ -559,7 +568,9 @@ button:disabled {
 .doc-menu__open-server,
 .doc-menu__save,
 .doc-menu__export,
-.doc-menu__arrange {
+.doc-menu__arrange,
+.doc-menu__publish,
+.doc-menu__unpublish {
   padding: var(--space-2) var(--space-3);
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-control);
@@ -573,7 +584,9 @@ button:disabled {
 .doc-menu__open-server:hover,
 .doc-menu__save:hover:not(:disabled),
 .doc-menu__export:hover:not(:disabled),
-.doc-menu__arrange:hover:not(:disabled) {
+.doc-menu__arrange:hover:not(:disabled),
+.doc-menu__publish:hover:not(:disabled),
+.doc-menu__unpublish:hover:not(:disabled) {
   background: var(--surface-hover);
 }
 
@@ -581,7 +594,9 @@ button:disabled {
 .doc-menu__open-server:active,
 .doc-menu__save:active:not(:disabled),
 .doc-menu__export:active:not(:disabled),
-.doc-menu__arrange:active:not(:disabled) {
+.doc-menu__arrange:active:not(:disabled),
+.doc-menu__publish:active:not(:disabled),
+.doc-menu__unpublish:active:not(:disabled) {
   background: var(--surface-active);
   transform: scale(0.99);
 }
@@ -590,14 +605,17 @@ button:disabled {
 .doc-menu__open-server:focus-visible,
 .doc-menu__save:focus-visible,
 .doc-menu__export:focus-visible,
-.doc-menu__arrange:focus-visible {
+.doc-menu__arrange:focus-visible,
+.doc-menu__publish:focus-visible,
+.doc-menu__unpublish:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
 }
 
 .doc-menu__export:disabled,
 .doc-menu__arrange:disabled,
-.doc-menu__open-server:disabled {
+.doc-menu__open-server:disabled,
+.doc-menu__publish:disabled {
   color: var(--ink-faint);
 }
 
@@ -684,6 +702,16 @@ button:disabled {
   color: var(--ink-soft);
   font-size: var(--text-caption);
   font-variant-numeric: var(--numeric);
+}
+
+/* 게시된 그 한 판에만 붙는 읽기 표시 배지 (open-dialog 뱃지와 같은 pill 문법). */
+.revision-history__published {
+  flex: none;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-caption);
 }
 
 .revision-history__status,

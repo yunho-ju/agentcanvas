@@ -402,3 +402,90 @@ def test_the_answer_the_server_gives_is_the_recorded_shape(client: TestClient):
     }
     assert body["spec"]["edges"][0]["condition"] is None
     assert body["spec"]["name"] is None
+
+
+# --- 게시 (CHAT-2) — 저장 판과 게시 판은 다른 축, 화면 밖에서도 그 둘이 갈린다 -------
+
+
+def revision_now(client: TestClient, spec_id: str = SPEC_ID) -> str:
+    return client.get(f"/specs/{spec_id}").json()["spec"]["revision"]
+
+
+def test_no_publication_before_a_graph_is_published(client: TestClient):
+    client.post("/specs", json=payload())
+
+    response = client.get(f"/specs/{SPEC_ID}/publication")
+
+    assert response.status_code == 200
+    assert response.json() is None
+
+
+def test_publishing_points_at_the_saved_revision(client: TestClient):
+    client.post("/specs", json=payload())
+    revision = revision_now(client)
+
+    response = client.post(f"/specs/{SPEC_ID}/publish")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["spec_id"] == SPEC_ID
+    assert body["revision"] == revision
+    assert client.get(f"/specs/{SPEC_ID}/publication").json()["revision"] == revision
+
+
+def test_publishing_a_graph_that_was_never_saved_is_refused(client: TestClient):
+    response = client.post("/specs/ghost/publish")
+
+    assert response.status_code == 404
+
+
+def test_publishing_a_revision_that_was_never_saved_is_refused(client: TestClient):
+    client.post("/specs", json=payload())
+
+    response = client.post(
+        f"/specs/{SPEC_ID}/publish", json={"revision": "sha256:" + "0" * 64}
+    )
+
+    assert response.status_code == 404
+    assert client.get(f"/specs/{SPEC_ID}/publication").json() is None
+
+
+def test_a_published_pointer_stays_put_when_the_canvas_moves_on(client: TestClient):
+    client.post("/specs", json=payload(name="처음"))
+    first_revision = revision_now(client)
+    client.post(f"/specs/{SPEC_ID}/publish")
+
+    client.put(
+        f"/specs/{SPEC_ID}",
+        json=payload(name="나중"),
+        headers={"If-Match": first_revision},
+    )
+
+    assert client.get(f"/specs/{SPEC_ID}/publication").json()["revision"] == (
+        first_revision
+    )
+    assert revision_now(client) != first_revision
+
+
+def test_unpublishing_removes_the_pointer(client: TestClient):
+    client.post("/specs", json=payload())
+    client.post(f"/specs/{SPEC_ID}/publish")
+
+    response = client.delete(f"/specs/{SPEC_ID}/publish")
+
+    assert response.status_code == 204
+    assert client.get(f"/specs/{SPEC_ID}/publication").json() is None
+
+
+def test_publishing_does_not_rewrite_the_saved_graph(client: TestClient):
+    """게시는 별도 pointer일 뿐 — 과거 판의 spec_json·상태를 고쳐 쓰지 않는다(append-only)."""
+    before = client.post("/specs", json=payload()).json()["spec"]
+    revisions_before = client.get(f"/specs/{SPEC_ID}/revisions").json()["revisions"]
+
+    client.post(f"/specs/{SPEC_ID}/publish")
+
+    after = client.get(f"/specs/{SPEC_ID}").json()["spec"]
+    assert after == before
+    assert client.get(f"/specs/{SPEC_ID}/revisions").json()["revisions"] == (
+        revisions_before
+    )

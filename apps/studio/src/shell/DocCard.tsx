@@ -30,6 +30,19 @@ export function DocCard() {
   const changed = useEditor(unsavedChanges);
   const caption = captionFor(saving, version, changed);
   const running = useEditor(isRunning);
+  const savedSpec = useEditor((state) => state.savedSpec);
+  const publication = useEditor((state) => state.publication);
+  const publishedVersion = useEditor((state) => state.publishedVersion);
+  const publishCurrent = useEditor((state) => state.publishCurrent);
+  const unpublishCurrent = useEditor((state) => state.unpublishCurrent);
+  // 이 문서가 지금 게시돼 있는가 — 게시 pointer가 지금 연 저장본을 가리킬 때만.
+  const published =
+    publication !== null &&
+    savedSpec !== null &&
+    publication.spec_id === savedSpec.id;
+  // 게시된 판이 지금 보는(저장된) 판과 같은가 — 다르면 만드는 쪽이 캔버스를 고쳐 저장한 것이다.
+  const publishedIsCurrent =
+    published && publication?.revision === savedSpec?.revision;
   const showDocList = useEditor((state) => state.showDocList);
   const requestFileOpen = useEditor((state) => state.requestFileOpen);
   const listing = useEditor(docListIsOpen);
@@ -177,6 +190,15 @@ export function DocCard() {
         </div>
         {/* 어디까지 저장했는지는 늘 보인다 — 물어봐야 알 수 있는 것이 아니다. */}
         <span className="doc-card__saved">{t(caption)}</span>
+        {/* 게시 표식은 저장 캡션과 다른 축이라 별도 한 줄 — 게시됐을 때만 보인다.
+            게시된 판이 지금 보는 판과 다르면, 만드는 쪽이 캔버스를 고쳐도 게시는 그대로임을 말한다. */}
+        {published ? (
+          <span className="doc-card__published">
+            {publishedIsCurrent
+              ? t(msg("publish.mark.same"))
+              : t(msg("publish.mark.different", { version: publishedVersion ?? 0 }))}
+          </span>
+        ) : null}
       </div>
       <ThemeToggle />
       <LocaleToggle />
@@ -224,6 +246,54 @@ export function DocCard() {
           >
             {t("revisionHistory.action")}
           </button>
+          {/* 게시 — 저장된 판을 대화 상대로 내놓는다. 저장 안 된 변경이 있으면 막고 이유를 말한다
+              (게시는 저장된 판을 가리키는 일). 이미 게시됐으면 갱신·내리기 두 갈래로 나뉜다. */}
+          {published ? (
+            <>
+              <button
+                type="button"
+                className="doc-menu__publish"
+                disabled={changed}
+                title={changed ? t("publish.disabled.unsaved") : t("publish.replace.hint")}
+                onClick={() => {
+                  void publishCurrent();
+                  setOpen(false);
+                }}
+              >
+                {t("publish.replace")}
+              </button>
+              <button
+                type="button"
+                className="doc-menu__unpublish"
+                title={t("publish.down.hint")}
+                onClick={() => {
+                  void unpublishCurrent();
+                  setOpen(false);
+                }}
+              >
+                {t("publish.down")}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="doc-menu__publish"
+              disabled={spec === null || changed}
+              title={
+                spec === null
+                  ? t("publish.disabled.none")
+                  : changed
+                    ? t("publish.disabled.unsaved")
+                    : t("publish.action.hint")
+              }
+              onClick={() => {
+                void publishCurrent();
+                setOpen(false);
+              }}
+            >
+              {t("publish.action")}
+            </button>
+          )}
           {/* 이 라벨의 글은 파일 입력의 이름이기도 하다 — 기호를 섞지 않는다. */}
           <label className="doc-menu__open" htmlFor="open-spec">
             {t("doc.open")}

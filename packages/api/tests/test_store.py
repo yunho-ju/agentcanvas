@@ -240,3 +240,51 @@ def test_a_stored_spec_with_an_unknown_policy_is_healed_on_the_way_out(tmp_path:
 
     assert stored is not None
     assert stored.spec.resources[0].approval_policy == ApprovalPolicy.READ_ONLY_AUTO
+
+
+def test_no_publication_before_a_graph_is_published(store: SpecStore):
+    assert store.publication("clinical-assistant") is None
+
+
+def test_a_published_revision_comes_back_as_the_publication(store: SpecStore):
+    spec = example_spec(version=1)
+    store.append(spec, created_at=at(30))
+
+    store.set_publication("clinical-assistant", spec.revision, at(40))
+
+    published = store.publication("clinical-assistant")
+    assert published is not None
+    assert published.spec_id == "clinical-assistant"
+    assert published.revision == spec.revision
+    assert published.published_at == at(40)
+
+
+def test_publishing_again_replaces_the_pointer_with_the_new_revision(store: SpecStore):
+    first = example_spec(version=1)
+    second = example_spec(version=2, name="Renamed")
+    store.append(first, created_at=at(30))
+    store.append(second, created_at=at(35))
+
+    store.set_publication("clinical-assistant", first.revision, at(40))
+    store.set_publication("clinical-assistant", second.revision, at(45))
+
+    published = store.publication("clinical-assistant")
+    assert published is not None
+    assert published.revision == second.revision
+    assert published.published_at == at(45)
+
+
+def test_clearing_a_publication_leaves_no_pointer(store: SpecStore):
+    spec = example_spec(version=1)
+    store.append(spec, created_at=at(30))
+    store.set_publication("clinical-assistant", spec.revision, at(40))
+
+    store.clear_publication("clinical-assistant")
+
+    assert store.publication("clinical-assistant") is None
+
+
+def test_clearing_a_publication_that_was_never_set_is_harmless(store: SpecStore):
+    store.clear_publication("clinical-assistant")
+
+    assert store.publication("clinical-assistant") is None

@@ -112,3 +112,68 @@ def test_a_stale_revision_is_refused_without_appending(service: SpecService):
     assert refused.reason == "stale_revision"
     assert service.latest("a").spec.name == "먼저 저장"
     assert [entry.version for entry in service.revisions("a")] == [2, 1]
+
+
+# --- 게시 (CHAT-2) — 저장 판과 게시 판은 다른 축이다 --------------------------
+
+from agentcanvas_api.service import PublishRefused
+from agentcanvas_contracts.publication import SpecPublication
+
+
+def published(outcome: SpecPublication | PublishRefused) -> SpecPublication:
+    assert isinstance(outcome, SpecPublication), outcome
+    return outcome
+
+
+def test_nothing_is_published_before_a_graph_is_published(service: SpecService):
+    service.create(spec(id="a"))
+
+    assert service.publication("a") is None
+
+
+def test_publishing_points_at_the_saved_revision(service: SpecService):
+    service.create(spec(id="a"))
+    revision = latest_revision(service, "a")
+
+    outcome = published(service.publish("a"))
+
+    assert outcome.revision == revision
+    assert service.publication("a").revision == revision
+
+
+def test_publishing_a_graph_that_was_never_saved_is_refused(service: SpecService):
+    refused = service.publish("ghost")
+
+    assert isinstance(refused, PublishRefused)
+    assert refused.reason == "unknown"
+
+
+def test_publishing_a_revision_that_was_never_saved_is_refused(service: SpecService):
+    service.create(spec(id="a"))
+
+    refused = service.publish("a", revision="sha256:" + "0" * 64)
+
+    assert isinstance(refused, PublishRefused)
+    assert refused.reason == "unknown_revision"
+    assert service.publication("a") is None
+
+
+def test_a_published_pointer_stays_put_when_the_canvas_moves_on(service: SpecService):
+    """게시 후 그래프를 고쳐 저장해도 게시 pointer는 그 판을 그대로 가리킨다 (판 고정)."""
+    service.create(spec(id="a", name="처음"))
+    first_revision = latest_revision(service, "a")
+    service.publish("a")
+
+    service.update("a", spec(id="a", name="나중"), expected_revision=first_revision)
+
+    assert service.publication("a").revision == first_revision
+    assert latest_revision(service, "a") != first_revision
+
+
+def test_unpublishing_removes_the_pointer(service: SpecService):
+    service.create(spec(id="a"))
+    service.publish("a")
+
+    service.unpublish("a")
+
+    assert service.publication("a") is None

@@ -47,6 +47,7 @@ def test_schema_models_cover_the_published_contracts():
         "run",
         "run_event",
         "schema_def",
+        "spec_publication",
     ]
 
 

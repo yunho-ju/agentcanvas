@@ -126,6 +126,8 @@ export const createOpenSlice: StateCreator<EditorState, [], [], OpenSlice> = (
     get().loadSpec(canvas);
     set({ savedSpec: canvas, docList: null });
     get().address.remember(canvas.id);
+    // 이 문서가 이미 내놓은 판이 있으면 표식·배지가 곧 그것을 말한다 (문서를 여는 곁일).
+    void get().loadPublication(canvas.id);
   }
 
   async function loadList(generation: number): Promise<void> {

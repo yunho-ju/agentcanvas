@@ -62,7 +62,7 @@ def test_v4_adds_two_columns_and_gives_old_runs_their_own_thread(tmp_path: Path)
     result = prepare_database(database, backup_dir=tmp_path / "backups")
 
     assert result.previous_version == 3
-    assert result.current_version == 4
+    assert result.current_version == CURRENT_SCHEMA_VERSION
     assert result.migrated is True
     assert result.backup_path is not None
     with sqlite3.connect(database) as connection:
@@ -94,7 +94,7 @@ def test_a_fresh_database_arrives_at_v4_with_the_thread_columns(tmp_path: Path):
 
     result = prepare_database(database, backup_dir=tmp_path / "backups")
 
-    assert result.current_version == 4
+    assert result.current_version == CURRENT_SCHEMA_VERSION
     with sqlite3.connect(database) as connection:
         assert {"thread_id", "end_user_ref"} <= _runs_columns(connection)
-        assert verify_database_schema(connection) == 4
+        assert verify_database_schema(connection) == CURRENT_SCHEMA_VERSION

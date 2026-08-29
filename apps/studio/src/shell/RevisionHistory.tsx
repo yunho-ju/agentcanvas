@@ -21,6 +21,12 @@ export function RevisionHistory({
   onClose: () => void;
 }) {
   const fetchRevisions = useEditor((state) => state.fetchRevisions);
+  const publication = useEditor((state) => state.publication);
+  // 게시된 판은 이 문서의 그 한 revision에만 배지가 붙는다 — 판마다 붙지 않는다.
+  const publishedRevision =
+    publication !== null && publication.spec_id === specId
+      ? publication.revision
+      : null;
   const locale = useLocale();
   const t = useT();
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -100,6 +106,11 @@ export function RevisionHistory({
                 )}
               </span>
               <code className="revision-history__revision">{shortRevision(revision.revision)}</code>
+              {revision.revision === publishedRevision ? (
+                <span className="revision-history__published">
+                  {t("revisionHistory.published")}
+                </span>
+              ) : null}
             </li>
           ))}
         </ol>

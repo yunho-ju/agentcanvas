@@ -19,6 +19,7 @@ from .instruction_catalog import DEFAULT_INSTRUCTION_CATALOG, InstructionPresetD
 from .model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
 from .node_registry import DEFAULT_NODE_TYPES, NodeType
 from .optimization import OptimizationProposal
+from .publication import SpecPublication
 from .release import ReleaseManifest
 from .run import ApprovalAnswer, Run
 from .run_events import RunEvent
@@ -42,6 +43,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "run": Run,
     "run_event": RunEvent,
     "schema_def": SchemaDef,
+    "spec_publication": SpecPublication,
 }
 
 # 스키마가 아니라 데이터 — UI가 팔레트와 포트를 만드는 근거 (설계 문서 §4.2).

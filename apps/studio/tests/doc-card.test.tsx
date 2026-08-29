@@ -237,6 +237,24 @@ describe("문서의 판 기록", () => {
     expect(fetchRevisions).toHaveBeenCalledWith(example.id);
   });
 
+  it("게시된 판의 줄에만 '게시됨' 배지가 붙는다 (읽기 표시일 뿐)", async () => {
+    useEditor.setState({
+      publication: {
+        spec_id: example.id,
+        revision: secondRevision,
+        published_at: "2026-08-29T09:00:00+00:00",
+      },
+    });
+
+    await openHistory(async () => ({ revisions: rows }));
+
+    const list = await screen.findByRole("list");
+    const renderedRows = within(list).getAllByRole("listitem");
+    // rows[1]이 게시된 판(secondRevision) — 그 줄에만 배지가 있고 다른 줄엔 없다.
+    expect(within(renderedRows[1]).getByText("게시됨")).toBeInTheDocument();
+    expect(within(renderedRows[0]).queryByText("게시됨")).toBeNull();
+  });
+
   it("빈 판 기록을 빈 상태로 말한다", async () => {
     await openHistory(async () => ({ revisions: [] }));
 
@@ -563,5 +581,88 @@ describe("이름 편집이 끝난 뒤 손이 놓이는 자리", () => {
     field.blur();
 
     await waitFor(() => expect(nameButton()).toHaveFocus());
+  });
+});
+
+describe("문서 카드 — 게시 (CHAT-2)", () => {
+  function loadSavedDoc() {
+    useEditor.getState().loadSpec(example);
+    const saved = useEditor.getState().exportSpec();
+    useEditor.setState({
+      savedSpec: saved,
+      publication: null,
+      publishedVersion: null,
+      feedbackNotice: null,
+      sendPublish: async () => ({
+        publication: {
+          spec_id: saved.id,
+          revision: saved.revision,
+          published_at: "2026-08-29T09:00:00+00:00",
+        },
+      }),
+      sendUnpublish: async () => ({ ok: true }),
+      askPublication: async () => ({ publication: null }),
+    });
+    return saved;
+  }
+
+  it("게시 전에는 '이 판 게시하기'가 있고 게시 표식이 없다", async () => {
+    loadSavedDoc();
+    await openMenu();
+
+    expect(screen.getByText("이 판 게시하기")).toBeInTheDocument();
+    expect(screen.queryByText(/게시했어요/)).toBeNull();
+  });
+
+  it("저장 안 된 변경이 있으면 게시 항목이 막히고 이유를 말한다", async () => {
+    loadSavedDoc();
+    useEditor.getState().renameSpec("바뀐 이름");
+    await openMenu();
+
+    const item = screen.getByText("이 판 게시하기");
+    expect(item).toBeDisabled();
+    expect(item).toHaveAttribute("title", "먼저 저장해야 게시할 수 있어요");
+  });
+
+  it("게시하면 표식이 뜨고 메뉴가 바꿔 게시·내리기로 바뀐다", async () => {
+    loadSavedDoc();
+    await openMenu();
+
+    await userEvent.click(screen.getByText("이 판 게시하기"));
+
+    expect(screen.getByText("지금 판을 게시했어요")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /문서 메뉴/ }));
+    expect(screen.getByText("다른 판으로 바꿔 게시하기")).toBeInTheDocument();
+    expect(screen.getByText("게시 내리기")).toBeInTheDocument();
+  });
+
+  it("게시 후 새 판으로 저장하면 표식이 '지금 보는 판과 달라요'로 바뀐다", async () => {
+    const saved = loadSavedDoc();
+    await openMenu();
+    await userEvent.click(screen.getByText("이 판 게시하기"));
+
+    // 만드는 쪽이 캔버스를 고쳐 새 판으로 저장했다 — 게시 pointer는 옛 판 그대로.
+    act(() => {
+      useEditor.setState({
+        savedSpec: { ...saved, version: 2, revision: `sha256:${"a".repeat(64)}` },
+      });
+    });
+
+    expect(
+      screen.getByText("3번째 판을 게시했어요 — 지금 보는 판과 달라요"),
+    ).toBeInTheDocument();
+  });
+
+  it("게시를 내리면 표식이 사라지고 메뉴가 '이 판 게시하기'로 돌아온다", async () => {
+    loadSavedDoc();
+    await openMenu();
+    await userEvent.click(screen.getByText("이 판 게시하기"));
+
+    await userEvent.click(screen.getByRole("button", { name: /문서 메뉴/ }));
+    await userEvent.click(screen.getByText("게시 내리기"));
+
+    expect(screen.queryByText(/게시했어요/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /문서 메뉴/ }));
+    expect(screen.getByText("이 판 게시하기")).toBeInTheDocument();
   });
 });

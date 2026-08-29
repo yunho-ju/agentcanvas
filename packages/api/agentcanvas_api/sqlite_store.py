@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agentcanvas_contracts.agent_spec import AgentSpec, coerce_known_policies
+from agentcanvas_contracts.publication import SpecPublication
 
 from .sqlite_database import PreparedDatabase
 from .store import (
@@ -155,6 +156,41 @@ class SqliteSpecStore:
             )
             for row in rows
         ]
+
+    def publication(self, spec_id: str) -> SpecPublication | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT spec_id, revision, published_at FROM spec_publications"
+                " WHERE spec_id = ?",
+                (spec_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SpecPublication(
+            spec_id=row["spec_id"],
+            revision=row["revision"],
+            published_at=datetime.fromisoformat(row["published_at"]),
+        )
+
+    def set_publication(
+        self, spec_id: str, revision: str, published_at: datetime
+    ) -> None:
+        """문서당 한 줄이라 있으면 갈아 끼운다 — 게시 판은 늘 지금 하나뿐이다."""
+        with self._connect() as connection:
+            connection.execute(
+                "INSERT INTO spec_publications (spec_id, revision, published_at)"
+                " VALUES (?, ?, ?)"
+                " ON CONFLICT(spec_id) DO UPDATE SET"
+                " revision = excluded.revision,"
+                " published_at = excluded.published_at",
+                (spec_id, revision, published_at.isoformat()),
+            )
+
+    def clear_publication(self, spec_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM spec_publications WHERE spec_id = ?", (spec_id,)
+            )
 
 
 __all__ = ["SqliteSpecStore"]

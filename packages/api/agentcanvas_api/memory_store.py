@@ -6,6 +6,7 @@ from datetime import datetime
 from threading import RLock
 
 from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.publication import SpecPublication
 
 from .store import (
     RevisionChanged,
@@ -19,6 +20,7 @@ from .store import (
 class InMemorySpecStore:
     def __init__(self) -> None:
         self._history: dict[str, list[StoredSpec]] = {}
+        self._publications: dict[str, SpecPublication] = {}
         self._lock = RLock()
 
     def append(self, spec: AgentSpec, created_at: datetime) -> StoredSpec:
@@ -81,6 +83,22 @@ class InMemorySpecStore:
                 latest, key=lambda stored: stored.created_at, reverse=True
             )
             return [SpecSummary.of(stored) for stored in newest_first[:limit]]
+
+    def publication(self, spec_id: str) -> SpecPublication | None:
+        with self._lock:
+            return self._publications.get(spec_id)
+
+    def set_publication(
+        self, spec_id: str, revision: str, published_at: datetime
+    ) -> None:
+        with self._lock:
+            self._publications[spec_id] = SpecPublication(
+                spec_id=spec_id, revision=revision, published_at=published_at
+            )
+
+    def clear_publication(self, spec_id: str) -> None:
+        with self._lock:
+            self._publications.pop(spec_id, None)
 
 
 __all__ = ["InMemorySpecStore"]

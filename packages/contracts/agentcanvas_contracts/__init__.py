@@ -55,6 +55,7 @@ from .node_registry import (
     resolve_ports,
 )
 from .optimization import OptimizationProposal, ProposalEvidence
+from .publication import SpecPublication
 from .refs import McpRef, ModelRef, PromptRef, SchemaRef, SecretRef, no_raw_secrets
 from .release import Approval, ModelSnapshot, ReleaseManifest
 from .revision import canonical_json, compute_revision
@@ -144,6 +145,7 @@ __all__ = [
     "SchemaRef",
     "SecretRef",
     "SectionsResult",
+    "SpecPublication",
     "ToolCall",
     "ToolDef",
     "UtcDatetime",

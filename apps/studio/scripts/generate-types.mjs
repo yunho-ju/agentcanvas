@@ -24,6 +24,7 @@ export const GENERATED_SCHEMAS = [
   "run",
   "run_event",
   "schema_def",
+  "spec_publication",
 ];
 
 export async function renderTypes(name) {

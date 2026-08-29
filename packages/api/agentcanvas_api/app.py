@@ -32,6 +32,7 @@ from agentcanvas_contracts.eval_case import EvalDataset
 from agentcanvas_contracts.eval_result import EvalBatch
 from agentcanvas_contracts.model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
 from agentcanvas_contracts.optimization import OptimizationProposal
+from agentcanvas_contracts.publication import SpecPublication
 from agentcanvas_contracts.refs import ModelRef
 from agentcanvas_contracts.run import ApprovalAnswer
 from agentcanvas_engine.model_call import ModelCall, says_the_first_way
@@ -107,6 +108,9 @@ from .run_stream import (
 )
 from .service import (
     Clock,
+    PublishOutcome,
+    PublishRefusal,
+    PublishRefused,
     Refusal,
     SaveOutcome,
     SaveRefused,
@@ -165,6 +169,12 @@ REFUSAL_STATUS: dict[Refusal, int] = {
     "unknown": 404,
     "missing_revision": 428,
     "stale_revision": 409,
+}
+
+#: 게시를 물린 까닭을 HTTP의 말로 옮기는 표 — 둘 다 '가리킬 판이 없다'라 404다.
+PUBLISH_REFUSAL_STATUS: dict[PublishRefusal, int] = {
+    "unknown": 404,
+    "unknown_revision": 404,
 }
 
 #: 실행을 물린 까닭을 HTTP의 말로 옮기는 표.
@@ -317,6 +327,17 @@ class OptimizePreviewResponse(ArchitectPatchResponse):
 
 class SpecHistory(BaseModel):
     revisions: list[SpecRevision]
+
+
+class PublishRequest(BaseModel):
+    """게시를 청하며 적어 보낼 수 있는 것 — 어느 판을 게시할 셈인가 (없으면 최신 저장 판).
+
+    모르는 필드는 버리지 않고 물린다 — 오타를 조용히 삼키면 뜻하지 않은 판이 게시된다.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    revision: str | None = None
 
 
 class RunRequest(BaseModel):
@@ -959,6 +980,30 @@ def create_app(
     def read_revisions(spec_id: str) -> SpecHistory:
         _found(spec_id)
         return SpecHistory(revisions=service.revisions(spec_id))
+
+    def _published(outcome: PublishOutcome) -> SpecPublication:
+        """게시 서비스가 내린 답을 HTTP의 말로 옮긴다 — 규칙은 서비스가 정했다."""
+        if isinstance(outcome, PublishRefused):
+            raise HTTPException(
+                status_code=PUBLISH_REFUSAL_STATUS[outcome.reason],
+                detail=outcome.message,
+            )
+        return outcome
+
+    @app.post("/specs/{spec_id}/publish", response_model=SpecPublication)
+    def publish_spec(
+        spec_id: str, asked: PublishRequest | None = None
+    ) -> SpecPublication:
+        wanted = asked if asked is not None else PublishRequest()
+        return _published(service.publish(spec_id, wanted.revision))
+
+    @app.delete("/specs/{spec_id}/publish", status_code=204)
+    def unpublish_spec(spec_id: str) -> None:
+        service.unpublish(spec_id)
+
+    @app.get("/specs/{spec_id}/publication", response_model=SpecPublication | None)
+    def read_publication(spec_id: str) -> SpecPublication | None:
+        return service.publication(spec_id)
 
     def _idempotency_key(written: str | None) -> str | None:
         if written is None:

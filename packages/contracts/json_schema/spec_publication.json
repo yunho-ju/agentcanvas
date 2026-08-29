@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "description": "지금 이 문서가 대화 상대로 내놓은 판 하나 — 어느 그래프의 어느 판이, 언제부터.",
+  "properties": {
+    "published_at": {
+      "format": "date-time",
+      "title": "Published At",
+      "type": "string"
+    },
+    "revision": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Revision",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "spec_id",
+    "revision",
+    "published_at"
+  ],
+  "title": "SpecPublication",
+  "type": "object"
+}
