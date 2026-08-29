@@ -38,6 +38,7 @@ from .node_work import (
     GATE,
     KIND_BY_NODE_TYPE,
     ROUTER,
+    TOOL,
     _could_not_ask,
     _heard,
     _holds,
@@ -53,6 +54,23 @@ from .run_log import (
     _nodes_that_worked,
     _state_from,
     _tells_of_another_graph,
+)
+from .tool_call import (
+    FLOWS_OUT_OF_THE_ERROR_PORT,
+    CallsATool,
+    ToolAsk,
+    ToolBalked,
+    ToolReturned,
+    just_echoes,
+)
+from .tool_work import (
+    PORT_BY_OUTCOME,
+    checked,
+    completed,
+    input_for,
+    is_allowed,
+    points_at,
+    requested,
 )
 
 #: 사람의 답이 흘러나가는 두 포트 — 답에 따라 그중 한쪽의 연결만 흐른다.
@@ -91,13 +109,16 @@ class _Flow:
         already_worked: Sequence[str],
         answers: Mapping[str, ApprovalAnswer] | None = None,
         already_reached: Sequence[str] = (),
-        already_said: Mapping[str, str] | None = None,
+        already_said: Mapping[str, object] | None = None,
+        tool: CallsATool = just_echoes,
+        already_took: Mapping[str, str] | None = None,
     ) -> None:
         self._spec = spec
         self._model = model
+        self._tool = tool
         self._state = dict(state)
-        #: 모델에게 물어보지 못해 실행이 끝맺어야 하는 까닭 — 물어본 자리에서 값으로 받는다.
-        self._balked: ModelBalked | None = None
+        #: 물어보거나 부르지 못해 실행이 끝맺어야 하는 까닭 — 그 자리에서 값으로 받는다.
+        self._balked: ModelBalked | ToolBalked | None = None
         #: 이미 이벤트로 남은 노드들 — 다시 걸어도 사건을 두 번 내지 않는다.
         self._already_worked = set(already_worked)
         self._already_reached = [*already_worked, *already_reached]
@@ -107,7 +128,10 @@ class _Flow:
         self._by_id = {node.id: node for node in spec.nodes}
         #: 노드마다 그 노드가 낸 것 — 다음 노드가 앞 노드의 답을 보는 자리다.
         #: 이어 달리는 실행은 이미 낸 말을 이벤트에서 받아 온다 (같은 자리에서 다시 흐른다).
-        self._came_out_of: dict[str, str] = dict(already_said or {})
+        self._came_out_of: dict[str, object] = dict(already_said or {})
+        #: 노드마다 그 결과가 나간 포트 — 사람의 답도, 도구의 성패도 여기로 갈래를 가른다.
+        #: 이어 달리는 실행은 이미 난 갈래를 이벤트에서 받아 온다 (같은 갈래가 다시 흐른다).
+        self._went_out_by: dict[str, str] = dict(already_took or {})
 
     def go(self) -> Iterator[list[_Emission]]:
         """그래프를 층위 순서로 걷는다 — 앞선 노드가 다 결판난 뒤에야 다음 노드가 일한다.
@@ -136,6 +160,8 @@ class _Flow:
         """
         again = node.id in self._already_worked
         answer = self._answers.get(node.id)
+        if answer is not None:
+            self._went_out_by[node.id] = PORT_BY_ANSWER[answer.approved]
         if kind_of(node).waits_for_person and answer is None:
             # 답이 오기 전에는 어느 갈래도 흐르지 않는다 — 답이 적히지 않은 옛 기록도 다시 묻지 않는다.
             if again:
@@ -211,6 +237,51 @@ class _Flow:
             self._came_out_of[node.id] = heard.text
         return _heard(ask, heard), heard
 
+    def calls_a_tool(self, node: Node) -> list[_Emission]:
+        """노드 하나가 바깥 도구를 한 번 부르는 일 — 확인하고, 부르고, 받은 것을 적는다.
+
+        문서·정책의 문제(가리킨 연결·도구가 없다, 허락하지 않는다, 열쇠가 없다, 아직 부를
+        수 없는 종류다)는 사람이 고칠 일이라 실행을 끝맺는다. 이번 호출이 어그러진 것
+        (시간 초과·저쪽의 잘못·읽을 수 없는 답)은 그래프가 다룰 수 있으므로 error 포트로 흐른다.
+        """
+        found = points_at(self._spec, node)
+        if isinstance(found, ToolBalked):
+            self._balked = found
+            return []
+        binding, tool = found
+        allowed = is_allowed(binding, tool)
+        told = [checked(node, binding, tool, allowed)]
+        if not allowed:
+            self._balked = ToolBalked(
+                reason="not_allowed",
+                message=(
+                    f"connection {binding.id!r} does not allow the tool {tool.name!r}"
+                ),
+            )
+            return told
+        given = input_for(tool, self._state)
+        told.append(requested(node, binding, tool, given))
+        answer = self._tool(ToolAsk(node=node, binding=binding, tool=tool, input=given))
+        if (
+            isinstance(answer, ToolBalked)
+            and answer.reason not in FLOWS_OUT_OF_THE_ERROR_PORT
+        ):
+            # 부르지 못한 까닭이 문서에 있으면 도구가 끝났다고 적지 않는다.
+            self._balked = answer
+            return told
+        self._took(node, answer)
+        return [*told, completed(node, binding, tool, answer)]
+
+    def _took(self, node: Node, answer: ToolReturned | ToolBalked) -> None:
+        """도구가 낸 것과 그것이 나가는 포트를 기억한다 — 다음 노드가 그 자리에서 받는다."""
+        ok = isinstance(answer, ToolReturned)
+        self._came_out_of[node.id] = (
+            answer.result
+            if isinstance(answer, ToolReturned)
+            else {"reason": answer.reason, "message": answer.message}
+        )
+        self._went_out_by[node.id] = PORT_BY_OUTCOME[ok]
+
     def picks_a_way(
         self, node: Node, ways: tuple[str, ...], heard: ModelSaid
     ) -> list[_Emission]:
@@ -248,14 +319,13 @@ class _Flow:
     ) -> list[Edge] | _CannotRead:
         """이 노드에서 나가는 연결 중 흐르는 것들 — 읽지 못한 조건은 값으로 돌려준다.
 
-        사람이 답한 노드에서는 그 답이 나가는 포트의 연결만 흐른다 (승인과 거절은 다른 갈래다).
+        결과가 어느 포트로 나갔는지 아는 노드에서는 그 포트의 연결만 흐른다: 승인과 거절이
+        다른 갈래이듯, 도구가 낸 것과 어그러진 까닭도 다른 갈래다 (한 자리에서 갈린다).
         """
         chosen: list[Edge] = []
+        took = self._went_out_by.get(node.id)
         for edge in _leaving_edges(self._spec, node.id):
-            if (
-                answer is not None
-                and edge.source.port != PORT_BY_ANSWER[answer.approved]
-            ):
+            if took is not None and edge.source.port != took:
                 continue
             if edge.condition is None:
                 chosen.append(edge)
@@ -375,13 +445,14 @@ def routed_run_stream(
     clock: Clock,
     input: Mapping[str, object] | None = None,
     model: ModelCall = says_the_first_way,
+    tool: CallsATool = just_echoes,
 ) -> Iterator[list[RunEvent]]:
     """그래프를 처음부터 돌리며, 노드 하나가 일할 때마다 그 사건들을 내놓는다.
 
     듣는 쪽은 실행이 끝나기를 기다리지 않는다 — 묶음이 나오는 대로 쌓으면 그것이 실행의 지금이다.
     시작하며 건네받은 것은 실행이 여는 상태다: 첫 노드부터 그것을 보고 일한다.
     """
-    flow = _Flow(spec, model, state=input or {}, already_worked=[])
+    flow = _Flow(spec, model, state=input or {}, already_worked=[], tool=tool)
     yield from _stamped(
         spec, run_id, clock, chain([[_opening(spec, input)]], flow.go())
     )
@@ -393,6 +464,7 @@ def routed_run(
     started_at: datetime,
     input: Mapping[str, object] | None = None,
     model: ModelCall = says_the_first_way,
+    tool: CallsATool = just_echoes,
 ) -> list[RunEvent]:
     """그래프를 처음부터 끝까지(또는 멈춰 설 때까지) 돌려 이벤트를 한 번에 돌려준다.
 
@@ -400,7 +472,7 @@ def routed_run(
     """
     beat = _even_beat(started_at)
     return list(
-        chain.from_iterable(routed_run_stream(spec, run_id, beat, input, model))
+        chain.from_iterable(routed_run_stream(spec, run_id, beat, input, model, tool))
     )
 
 
@@ -443,6 +515,32 @@ def spoken_llm_texts(spec: AgentSpec, events: Sequence[RunEvent]) -> list[str]:
     return [said for _node_id, said in _spoken_events(spec, events)]
 
 
+def _tool_events(events: Sequence[RunEvent]) -> Iterator[tuple[str, dict]]:
+    """도구가 끝난 사건들 — (노드 id, 그때 적힌 것) 쌍이다."""
+    for event in events:
+        if event.event_type is EventType.TOOL_COMPLETED and event.node_id is not None:
+            yield event.node_id, dict(event.payload)
+
+
+def _tools_gave_in(events: Sequence[RunEvent]) -> dict[str, object]:
+    """도구가 이미 낸 것 — 이어 달리는 실행은 그것을 이벤트에서 받아 온다.
+
+    도구 결과가 사는 곳은 이 사건 하나뿐이다(P0c): 다시 부르지 않고 여기서 되살린다.
+    """
+    return {
+        node_id: (told.get("result") if told.get("ok") else told.get("error"))
+        for node_id, told in _tool_events(events)
+    }
+
+
+def _ports_taken_in(events: Sequence[RunEvent]) -> dict[str, str]:
+    """도구가 낸 것이 이미 나간 포트 — 이어 달려도 같은 갈래가 흐른다."""
+    return {
+        node_id: PORT_BY_OUTCOME[bool(told.get("ok"))]
+        for node_id, told in _tool_events(events)
+    }
+
+
 @dataclass(frozen=True)
 class _CarriesOnFrom:
     """이어 달릴 자리 — 사람의 답을 기다리며 멈춰 선 밸브와, 거기까지 일어난 일들."""
@@ -480,6 +578,7 @@ def resume_routed_run_stream(
     approval: ApprovalAnswer,
     clock: Clock,
     model: ModelCall = says_the_first_way,
+    tool: CallsATool = just_echoes,
 ) -> Iterator[list[RunEvent]]:
     """멈춰 선 실행에 사람이 답한다 — 이어지는 새 사건들만 묶음으로 내놓는다.
 
@@ -498,7 +597,9 @@ def resume_routed_run_stream(
         already_worked=_nodes_that_worked(so_far),
         answers={**_answers_from(so_far), read.valve: approval},
         already_reached=[read.valve],
-        already_said=_spoken_in(spec, so_far),
+        already_said={**_spoken_in(spec, so_far), **_tools_gave_in(so_far)},
+        tool=tool,
+        already_took=_ports_taken_in(so_far),
     )
     yield from _stamped(spec, so_far[0].run_id, clock, flow.go(), start=len(so_far))
 
@@ -508,6 +609,7 @@ def resume_routed_run(
     events: Sequence[RunEvent],
     approval: ApprovalAnswer,
     model: ModelCall = says_the_first_way,
+    tool: CallsATool = just_echoes,
 ) -> list[RunEvent]:
     """멈춰 선 실행에 사람이 답하고, 일어난 일 전부를 한 번에 돌려준다 (앞선 것 + 이어진 것).
 
@@ -518,7 +620,7 @@ def resume_routed_run(
     if not so_far:
         return so_far
     beat = _even_beat(so_far[0].timestamp, len(so_far))
-    carried_on = resume_routed_run_stream(spec, so_far, approval, beat, model)
+    carried_on = resume_routed_run_stream(spec, so_far, approval, beat, model, tool)
     return [*so_far, *chain.from_iterable(carried_on)]
 
 
@@ -526,8 +628,11 @@ __all__ = [
     "GATE",
     "KIND_BY_NODE_TYPE",
     "PORT_BY_ANSWER",
+    "PORT_BY_OUTCOME",
     "ROUTE",
     "ROUTER",
+    "TOOL",
+    "CallsATool",
     "CannotResume",
     "Clock",
     "Judge",
@@ -536,9 +641,13 @@ __all__ = [
     "ModelCall",
     "ModelSaid",
     "RouteAsk",
+    "ToolAsk",
+    "ToolBalked",
+    "ToolReturned",
     "cannot_resume",
     "first_way",
     "judged_by",
+    "just_echoes",
     "resume_routed_run",
     "resume_routed_run_stream",
     "routed_run",

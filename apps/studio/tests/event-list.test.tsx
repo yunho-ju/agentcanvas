@@ -120,3 +120,136 @@ describe("the list of what happened during the run", () => {
     expect(screen.getAllByRole("definition")).toHaveLength(1);
   });
 });
+
+// 도구가 진짜로 일한 실행을 사람이 목록에서 읽는다 (API_TOOLS P3a — 결과를 볼 수 있는가).
+describe("도구가 일한 실행을 읽는 목록", () => {
+  const asked = {
+    node_id: "lookup",
+    resource_ref: "clinical-reference",
+    tool_name: "search_article",
+  };
+
+  function toolRun(last: Record<string, unknown>) {
+    const at = new Date("2026-08-01T12:30:00.000Z");
+    const base = {
+      run_id: "run_tools",
+      timestamp: at.toISOString(),
+      spec_revision: example.revision,
+      node_id: "lookup",
+    };
+    return [
+      { ...base, seq: 0, event_type: "run.started", node_id: null, payload: {} },
+      { ...base, seq: 1, event_type: "node.started", payload: { node_type: "tool.mcp" } },
+      {
+        ...base,
+        seq: 2,
+        event_type: "tool.policy_checked",
+        payload: { ...asked, allowed: true },
+      },
+      {
+        ...base,
+        seq: 3,
+        event_type: "tool.requested",
+        payload: { ...asked, input: { query: "asthma" } },
+      },
+      { ...base, seq: 4, event_type: "tool.completed", payload: { ...asked, ...last } },
+    ];
+  }
+
+  /** 쉬운 말 본문만 읽는다 — 원문 payload는 지금 보고 있는 줄에만 붙는 보조 표기다. */
+  function watch(events: unknown[]) {
+    act(() => {
+      useEditor.setState({
+        runEvents: events as never,
+        activeRunId: "run_tools",
+        runOffsetMs: EVENT_STEP_MS * 100,
+      });
+    });
+    const { container } = render(<EventList />);
+    return [...container.querySelectorAll(".event-list__summary")].map(
+      (said) => said.textContent ?? "",
+    );
+  }
+
+  it("무엇을 부르고 무엇을 받았는지, 크기까지 한 줄로 읽는다", () => {
+    const said = watch(
+      toolRun({
+        ok: true,
+        result: { articles: [] },
+        original_chars: 120,
+        loaded_chars: 120,
+      }),
+    );
+
+    expect(said.some((line) => line.includes("'search_article' 도구를 불렀다"))).toBe(
+      true,
+    );
+    expect(
+      said.some((line) => line.includes("원문 120자 중 120자를 실었다")),
+    ).toBe(true);
+  });
+
+  it("도구가 마치지 못했으면 끝맺음 줄도 초록불로 말하지 않는다", () => {
+    const closed = [
+      ...toolRun({
+        ok: false,
+        error: { reason: "timeout", message: "waited too long" },
+        original_chars: 0,
+        loaded_chars: 0,
+      }),
+      {
+        run_id: "run_tools",
+        seq: 5,
+        event_type: "run.completed",
+        timestamp: "2026-08-01T12:30:00.000Z",
+        spec_revision: example.revision,
+        node_id: null,
+        payload: { node_count: 2 },
+      },
+    ];
+
+    const said = watch(closed);
+
+    const last = said.at(-1) ?? "";
+    expect(last).not.toBe("실행을 모두 마쳤다");
+    expect(last).toMatch(/도구/);
+  });
+
+  it("도구가 다 마친 실행은 끝맺음 줄이 예전 그대로다", () => {
+    const closed = [
+      ...toolRun({
+        ok: true,
+        result: { articles: [] },
+        original_chars: 12,
+        loaded_chars: 12,
+      }),
+      {
+        run_id: "run_tools",
+        seq: 5,
+        event_type: "run.completed",
+        timestamp: "2026-08-01T12:30:00.000Z",
+        spec_revision: example.revision,
+        node_id: null,
+        payload: { node_count: 2 },
+      },
+    ];
+
+    expect((watch(closed).at(-1) ?? "")).toBe("실행을 모두 마쳤다");
+  });
+
+  it("도구가 마치지 못한 실행은 그 사실과 다음 걸음을 읽는다", () => {
+    const said = watch(
+      toolRun({
+        ok: false,
+        error: { reason: "timeout", message: "waited too long" },
+        original_chars: 0,
+        loaded_chars: 0,
+      }),
+    );
+
+    const line = said.find((one) => one.includes("일을 마치지 못했다"));
+    expect(line).toBeDefined();
+    expect(line).toContain("기다렸는데");
+    expect(line).not.toContain("waited too long");
+  });
+});

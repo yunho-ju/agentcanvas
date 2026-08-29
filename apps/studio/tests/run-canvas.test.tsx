@@ -255,3 +255,27 @@ describe("a node card while the run plays", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
+
+// 도구가 답을 못 가져온 노드는 마친 노드와 다르게 보인다 (API_TOOLS P3a — 거짓 초록불 금지).
+describe("도구가 답을 못 가져온 노드의 카드", () => {
+  it("마친 노드와 다른 말과 다른 기호를 단다", () => {
+    renderCard(dataFor("toolFailed"));
+
+    expect(screen.getByText("도구가 답을 못 가져왔다")).toBeInTheDocument();
+    expect(screen.queryByText("마쳤다")).not.toBeInTheDocument();
+  });
+
+  it("캔버스도 마친 노드와 다른 자리로 칠한다", () => {
+    const graph = toFlow(example);
+    const marked = markedForRun(
+      graph,
+      { triage: { status: "toolFailed" }, input: { status: "completed" } },
+      {},
+    );
+
+    const troubled = marked.nodes.find((node) => node.id === "triage");
+    const done = marked.nodes.find((node) => node.id === "input");
+    expect(troubled?.className).toBe("run--toolFailed");
+    expect(done?.className).toBe("run--completed");
+  });
+});

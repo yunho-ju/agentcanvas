@@ -1335,6 +1335,11 @@ button:disabled {
   background: var(--success);
 }
 
+/* 노드는 마쳤지만 그 노드가 부른 도구가 답을 못 가져왔다 — 초록으로 칠하지 않는다. */
+.node-card__rail[data-status="toolFailed"] {
+  background: var(--warn);
+}
+
 .node-card__rail[data-status="failed"] {
   background: var(--danger);
 }
@@ -1515,6 +1520,12 @@ button:disabled {
   color: var(--success-ink);
 }
 
+/* 네 번째 결말 — 실행이 실패한 것은 아니므로 붉은색이 아니라 확인의 호박색이다. */
+.node-card__status--toolFailed {
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+
 .node-card__status--failed {
   background: var(--danger-soft);
   color: var(--danger-ink);
@@ -1522,6 +1533,7 @@ button:disabled {
 
 .node-card__status--running .node-card__elapsed,
 .node-card__status--completed .node-card__elapsed,
+.node-card__status--toolFailed .node-card__elapsed,
 .node-card__status--failed .node-card__elapsed {
   color: inherit;
 }
@@ -1915,6 +1927,11 @@ button:disabled {
 
 .react-flow__node.run--completed .node-card {
   border-color: var(--success);
+}
+
+/* 도구가 답을 못 가져온 노드 — 마친 노드의 초록 테두리를 두르지 않는다. */
+.react-flow__node.run--toolFailed .node-card {
+  border-color: var(--warn);
 }
 
 .react-flow__node.run--failed .node-card {

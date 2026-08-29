@@ -4,7 +4,7 @@ import { useLocale, useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 import { COMPARE_SEATS } from "../store/runSlice";
 import { runSummary } from "./historyWords";
-import { endedInFailure } from "./player";
+import { endedInFailure, toolFellShortIn } from "./player";
 
 export function RunHistoryStrip() {
   const history = useEditor((state) => state.runHistory);
@@ -50,6 +50,15 @@ export function RunHistoryStrip() {
                       ✕
                     </span>
                     {t("runHistory.failed")}
+                  </span>
+                )}
+                {/* 끝까지 갔더라도 도구가 답을 못 가져온 자리가 있으면 그 사실도 남긴다. */}
+                {!endedInFailure(record.events) && toolFellShortIn(record.events) && (
+                  <span className="run-history__short">
+                    <span className="run-history__short-mark" aria-hidden="true">
+                      ⚠
+                    </span>
+                    {t("runHistory.toolFailed")}
                   </span>
                 )}
                 {record.id === adoptedRunId && (

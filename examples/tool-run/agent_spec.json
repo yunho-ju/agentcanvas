@@ -1,0 +1,180 @@
+{
+  "schema_version": "agent.spec/v1",
+  "id": "article-lookup",
+  "version": 1,
+  "revision": "sha256:2452ec04bbf1759cf32e9081922f1827099de611469bd8bc26d641354e27a288",
+  "status": "draft",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "object",
+        "title": "What to look for",
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "The words to search"
+          }
+        }
+      }
+    },
+    "required": [
+      "query"
+    ]
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string"
+      },
+      "answer": {
+        "type": "object"
+      },
+      "trouble": {
+        "type": "object"
+      }
+    }
+  },
+  "resources": [
+    {
+      "id": "article-api",
+      "kind": "http.api",
+      "server_ref": "api://article-api",
+      "allowed_tools": [
+        "search_articles"
+      ],
+      "approval_policy": "read_only_auto",
+      "tools": [
+        {
+          "name": "search_articles",
+          "plain_description": {
+            "ko": "물어본 말과 관련 있는 글을 찾아 목록으로 돌려준다.",
+            "en": "Finds articles about what you asked and lists them."
+          },
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "object",
+                "title": "What to look for",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "title": "The words to search"
+                  }
+                }
+              }
+            },
+            "required": [
+              "query"
+            ]
+          },
+          "output_schema": {
+            "type": "object",
+            "properties": {
+              "articles": {
+                "type": "array",
+                "title": "Articles that were found"
+              }
+            }
+          },
+          "timeout_ms": 8000,
+          "call": {
+            "transport": "http",
+            "method": "GET",
+            "url_template": "https://api.example.com/articles/search",
+            "auth": "secret://article-api-key"
+          }
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "input",
+      "type": "core.input",
+      "position": {
+        "x": 80,
+        "y": 240
+      },
+      "config": {
+        "bindings": {
+          "query": "input.query"
+        }
+      }
+    },
+    {
+      "id": "lookup",
+      "type": "tool.mcp",
+      "position": {
+        "x": 400,
+        "y": 240
+      },
+      "config": {
+        "resource_ref": "article-api",
+        "tool_name": "search_articles"
+      }
+    },
+    {
+      "id": "answer",
+      "type": "core.output",
+      "position": {
+        "x": 720,
+        "y": 160
+      },
+      "config": {
+        "binding": "state.answer"
+      }
+    },
+    {
+      "id": "trouble",
+      "type": "core.output",
+      "position": {
+        "x": 720,
+        "y": 340
+      },
+      "config": {
+        "binding": "state.trouble"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "input-lookup",
+      "kind": "data",
+      "source": {
+        "node": "input",
+        "port": "query"
+      },
+      "target": {
+        "node": "lookup",
+        "port": "input"
+      }
+    },
+    {
+      "id": "lookup-answer",
+      "kind": "data",
+      "source": {
+        "node": "lookup",
+        "port": "result"
+      },
+      "target": {
+        "node": "answer",
+        "port": "input"
+      }
+    },
+    {
+      "id": "lookup-trouble",
+      "kind": "data",
+      "source": {
+        "node": "lookup",
+        "port": "error"
+      },
+      "target": {
+        "node": "trouble",
+        "port": "input"
+      }
+    }
+  ]
+}

@@ -124,3 +124,81 @@ def worked(events: list[RunEvent]) -> list[str | None]:
     return [
         event.node_id for event in events if event.event_type is EventType.NODE_STARTED
     ]
+
+
+# ── 도구가 실제로 일하는 실행 (API_TOOLS P3a) ────────────────────────────────
+
+TOOL_DIR = Path(__file__).resolve().parents[3] / "examples/tool-run"
+TOOL_RUN_ID = "run_tool_example"
+
+
+def tool_example_spec() -> AgentSpec:
+    return AgentSpec.model_validate(
+        json.loads((TOOL_DIR / "agent_spec.json").read_text(encoding="utf-8"))
+    )
+
+
+def committed_tool_run() -> list[RunEvent]:
+    raw = json.loads((TOOL_DIR / "run_events.json").read_text(encoding="utf-8"))
+    return [RunEvent.model_validate(event) for event in raw]
+
+
+def remade_tool_run() -> list[RunEvent]:
+    """결정론 대역으로 돌린 도구 실행 — 진짜 HTTP는 부르지 않으므로 언제나 같다."""
+    return routed_run(
+        tool_example_spec(),
+        run_id=TOOL_RUN_ID,
+        started_at=STARTED_AT,
+        input={"query": {"text": "asthma in adults"}},
+    )
+
+
+class TestTheToolRunThatWasWrittenDown:
+    def test_the_graph_is_one_nobody_has_to_fix_first(self):
+        assert [
+            issue for issue in validate_graph(tool_example_spec()) if issue.severity
+        ] == []
+
+    def test_its_revision_matches_what_is_written_in_it(self):
+        spec = tool_example_spec()
+        assert spec.revision == spec.computed_revision()
+
+    def test_the_runtime_remakes_it_event_for_event(self):
+        assert remade_tool_run() == committed_tool_run()
+
+    def test_the_three_tool_events_are_written_down_in_order(self):
+        kinds = [event.event_type for event in committed_tool_run()]
+
+        assert [kind for kind in kinds if kind.value.startswith("tool.")] == [
+            EventType.TOOL_POLICY_CHECKED,
+            EventType.TOOL_REQUESTED,
+            EventType.TOOL_COMPLETED,
+        ]
+
+    def test_what_came_back_says_how_much_was_carried_on(self):
+        completed = next(
+            event
+            for event in committed_tool_run()
+            if event.event_type is EventType.TOOL_COMPLETED
+        )
+
+        assert completed.payload["ok"] is True
+        assert completed.payload["original_chars"] == completed.payload["loaded_chars"]
+
+    def test_no_key_is_written_down_anywhere_in_the_run(self):
+        """열쇠는 이름으로만 산다 — 기록 어디에도 실값이 없다 (계약 guard와 짝을 이룬다)."""
+        written = json.dumps(
+            [json.loads(event.model_dump_json()) for event in committed_tool_run()]
+        )
+
+        assert "secret://" not in written
+        assert "Bearer" not in written
+
+    def test_only_the_way_that_was_taken_flowed(self):
+        """잘 끝난 실행에서는 어그러진 갈래가 흐르지 않는다 — 나간 포트로 갈린다."""
+        events = committed_tool_run()
+        worked = {event.node_id for event in events if event.node_id is not None}
+
+        assert "answer" in worked
+        # error 포트에 매달린 노드는 차례를 받지 못한다 — 그 갈래는 결판났고 흐르지 않았다.
+        assert "trouble" not in worked

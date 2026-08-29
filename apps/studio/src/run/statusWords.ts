@@ -28,6 +28,8 @@ export const STATUS_WORDS: Record<NodeRunStatus, StatusWord> = {
   waiting: { label: msg("status.waiting"), mark: "✋" },
   // 사람이 답을 했고, 그 답이 아니오였다 — 손을 든 그 자리에서 흐름이 끝난다.
   rejected: { label: msg("status.rejected"), mark: "✋" },
+  // 노드는 마쳤지만 그 노드가 부른 도구가 답을 가져오지 못했다 — 초록불과 갈라 말한다.
+  toolFailed: { label: msg("status.toolFailed"), mark: "⚠" },
   completed: { label: msg("status.completed"), mark: "✓" },
   failed: { label: msg("status.failed"), mark: "!" },
 };

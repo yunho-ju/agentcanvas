@@ -3,7 +3,7 @@
 // 문장 자체는 messages.ts가 들고 있다 — 여기서는 어느 문장에 무엇을 채울지만 정한다.
 import { type Message, type MessageKey, msg } from "../i18n/messages";
 import type { EventType, RunEvent } from "../generated/run_event";
-import { turnedDown } from "./player";
+import { toolFellShortIn, turnedDown } from "./player";
 
 function nodeName(event: RunEvent): Message | string {
   return event.node_id ?? msg("event.node.unnamed");
@@ -28,7 +28,21 @@ export const FAILURE_REASONS = [
   "unknown_model",
   "missing_secret",
   "provider_error",
+  // 도구를 부르지 못한 갈래 중 사람이 문서를 고쳐야 하는 것들 (engine ToolTrouble).
+  "unknown_binding",
+  "unknown_tool",
+  "no_adapter",
+  "not_allowed",
+  "missing_input",
 ] as const;
+
+/**
+ * 이번 호출이 어그러진 갈래 — 실행을 끝내지 않고 도구가 낸 것으로 흐른다.
+ * 목록은 그 사실을 tool.completed 줄에서 말한다.
+ */
+export const TOOL_TROUBLES = ["timeout", "http_error", "bad_output"] as const;
+
+export type ToolTrouble = (typeof TOOL_TROUBLES)[number];
 
 export type FailureReason = (typeof FAILURE_REASONS)[number];
 
@@ -42,8 +56,61 @@ function runFailed(event: RunEvent): Message {
   return msg(known ? (`event.run.failed.${known}` as MessageKey) : "event.run.failed");
 }
 
-/** 이벤트마다 쉬운 한 문장 — 새 이벤트는 여기 한 줄을 더한다. */
-const SENTENCE: Record<EventType, (event: RunEvent) => Message> = {
+function textIn(payload: unknown, key: string): string | undefined {
+  if (typeof payload !== "object" || payload === null) return undefined;
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function numberIn(event: RunEvent, key: string): number | undefined {
+  const value = event.payload[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+/** 그 도구의 이름 — 적혀 있지 않은 옛 사건은 이름 없이 말한다. */
+function toolName(event: RunEvent): Message | string {
+  return textIn(event.payload, "tool_name") ?? msg("event.tool.unnamed");
+}
+
+/** 도구를 써도 되는지 확인한 걸음 — 허락하지 않는 도구였으면 그 사실을 말한다. */
+function policyChecked(event: RunEvent): Message {
+  const allowed = event.payload.allowed !== false;
+  return msg(allowed ? "event.tool.policyChecked" : "event.tool.notAllowed", {
+    node: nodeName(event),
+    tool: toolName(event),
+  });
+}
+
+/**
+ * 도구가 끝난 걸음 — 받아 왔으면 얼마를 실었는지, 어그러졌으면 그 갈래를 쉬운 말로 말한다.
+ * 서버가 함께 보낸 원문은 화면의 글이 아니다(DESIGN §7): 갈래만 보고 우리 말로 옮긴다.
+ */
+function toolCompleted(event: RunEvent): Message {
+  if (event.payload.ok !== false) {
+    return msg("event.tool.completed", {
+      node: nodeName(event),
+      tool: toolName(event),
+      original: numberIn(event, "original_chars") ?? 0,
+      loaded: numberIn(event, "loaded_chars") ?? 0,
+    });
+  }
+  const reason = textIn(event.payload.error, "reason");
+  const known = TOOL_TROUBLES.find((candidate) => candidate === reason);
+  return msg("event.tool.failed", {
+    node: nodeName(event),
+    tool: toolName(event),
+    why: msg(
+      known ? (`event.tool.trouble.${known}` as MessageKey) : "event.tool.trouble",
+    ),
+  });
+}
+
+/**
+ * 이벤트마다 쉬운 한 문장 — 새 이벤트는 여기 한 줄을 더한다.
+ * 대개는 그 사건 하나만 보면 되지만, 실행의 끝맺음만은 그 실행 전체를 보고 말한다
+ * (도구가 답을 못 가져온 실행을 "모두 마쳤다"고 말하지 않기 위해서다).
+ */
+const SENTENCE: Record<EventType, (event: RunEvent, run: RunEvent[]) => Message> = {
   "run.started": () => msg("event.run.started"),
   "node.queued": aboutNode("event.node.queued"),
   "node.started": aboutNode("event.node.started"),
@@ -51,9 +118,10 @@ const SENTENCE: Record<EventType, (event: RunEvent) => Message> = {
   "llm.requested": aboutNode("event.llm.requested"),
   "llm.completed": aboutNode("event.llm.completed"),
   "decision.recorded": aboutNode("event.decision.recorded"),
-  "tool.policy_checked": aboutNode("event.tool.policyChecked"),
-  "tool.requested": aboutNode("event.tool.requested"),
-  "tool.completed": aboutNode("event.tool.completed"),
+  "tool.policy_checked": policyChecked,
+  "tool.requested": (event) =>
+    msg("event.tool.requested", { node: nodeName(event), tool: toolName(event) }),
+  "tool.completed": toolCompleted,
   // 이름 뒤에 조사가 붙지 않는 말투를 쓴다 — 노드 이름마다 '이/가'를 고를 수 없기 때문이다.
   "state.patch": (event) =>
     msg("event.state.patch", {
@@ -72,12 +140,17 @@ const SENTENCE: Record<EventType, (event: RunEvent) => Message> = {
       ? msg("event.node.rejected")
       : msg("event.node.completed", { node: nodeName(event) }),
   "node.failed": aboutNode("event.node.failed"),
-  "run.completed": () => msg("event.run.completed"),
+  "run.completed": (_event, run) =>
+    msg(toolFellShortIn(run) ? "event.run.completed.toolFailed" : "event.run.completed"),
   "run.failed": runFailed,
 };
 
-export function eventSummary(event: RunEvent): Message {
-  return SENTENCE[event.event_type](event);
+/**
+ * 사건 하나를 사람이 읽을 한 문장으로. 실행 전체(`run`)를 함께 건네면 끝맺음 줄이
+ * 그 실행에서 일어난 일까지 보고 말한다 — 건네지 않으면 그 사건만 보고 말한다.
+ */
+export function eventSummary(event: RunEvent, run: RunEvent[] = []): Message {
+  return SENTENCE[event.event_type](event, run);
 }
 
 /** 한 줄에 담을 수 있는 길이 — 넘치면 잘라서 뒤에 …를 붙인다. */

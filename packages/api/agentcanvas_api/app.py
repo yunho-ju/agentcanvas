@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 from agentcanvas_adapters.case_suggester import SuggestedCase
 from agentcanvas_adapters.entailment import EntailmentCall, local_entailment
+from agentcanvas_adapters.http_tool import sends_with_httpx
 from agentcanvas_adapters.llm_judge import JUDGE_MODEL_REF, llm_judge_entailment
 from agentcanvas_adapters.openai_model import OPENAI_API_KEY_REF
 from agentcanvas_adapters.providers import (
@@ -23,6 +24,7 @@ from agentcanvas_adapters.providers import (
     nobody_to_ask,
 )
 from agentcanvas_adapters.secrets import env_vault
+from agentcanvas_adapters.tool_adapters import tools_from
 from agentcanvas_adapters.tool_wrapper import ToolSource
 from agentcanvas_contracts.agent_spec import AgentSpec, NonEmptyText
 from agentcanvas_contracts.architect_patch import AgentSpecPatch
@@ -36,6 +38,7 @@ from agentcanvas_engine.routed_runtime import (
     resume_routed_run_stream,
     routed_run_stream,
 )
+from agentcanvas_engine.tool_call import CallsATool
 from agentcanvas_engine.validator import ValidationIssue
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -460,6 +463,20 @@ def _default_model_call() -> ModelCall:
     return asks_the_model_in(os.environ)
 
 
+def tools_in(env: Mapping[str, str]) -> CallsATool:
+    """서버를 띄운 자리의 금고를 들고 도구를 부르는 자리를 연다 (모델 배선과 같은 문법).
+
+    모델과 다른 점 하나: 도구는 "부를 곳이 있는가"를 미리 물을 수 없다 — 어느 열쇠가 필요한지는
+    문서의 그 도구가 정한다. 그래서 자리는 언제나 서고, 열쇠가 없는 도구만 부를 때 그 까닭을
+    답한다(부를 때마다 같은 까닭 — anthropic_from 선례와 같은 정직함이다).
+    """
+    return tools_from(env_vault(env), sends_with_httpx)
+
+
+def _default_tool_call() -> CallsATool:
+    return tools_in(os.environ)
+
+
 def _a_judge_for(
     asks_a_model: ModelCall,
     judge_model_ref: str,
@@ -536,6 +553,7 @@ def create_app(
     stream_timing: StreamTiming = DEFAULT_TIMING,
     worker: Worker = in_the_background,
     model: ModelCall | None = None,
+    tool: CallsATool | None = None,
     eval_dataset_store: EvalDatasetStore | None = None,
     eval_batch_store: EvalBatchStore | None = None,
     auth_settings: AuthSettings | None = None,
@@ -580,6 +598,7 @@ def create_app(
     service = SpecService(specs, clock)
     guided_provider_is_live = model is None
     asks_a_model = model if model is not None else _default_model_call()
+    calls_a_tool = tool if tool is not None else _default_tool_call()
     architect = ArchitectService(asks_a_model)
     tool_wrapper = ToolWrapperService(asks_a_model)
     case_suggestions = EvalCaseSuggestionService(asks_a_model)
@@ -608,8 +627,10 @@ def create_app(
         clock=clock,
         new_run_id=new_run_id,
         worker=worker,
-        start_run=partial(routed_run_stream, model=asks_a_model),
-        resume_run=partial(resume_routed_run_stream, model=asks_a_model),
+        start_run=partial(routed_run_stream, model=asks_a_model, tool=calls_a_tool),
+        resume_run=partial(
+            resume_routed_run_stream, model=asks_a_model, tool=calls_a_tool
+        ),
         jobs=durable_jobs,
         wake_worker=wake_durable_worker,
     )
@@ -1148,4 +1169,5 @@ __all__ = [
     "catalog_in",
     "create_app",
     "serves",
+    "tools_in",
 ]

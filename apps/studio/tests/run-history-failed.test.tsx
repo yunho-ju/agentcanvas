@@ -124,3 +124,47 @@ describe("실패 뱃지가 입은 옷", () => {
     expect(app).not.toContain(":hover .run-history__failed");
   });
 });
+
+// 도구가 답을 못 가져온 실행은 끝까지 갔더라도 그 사실을 카드에 남긴다 (API_TOOLS P3a).
+describe("도구가 답을 못 가져온 실행의 카드", () => {
+  /** 그 실행 도중 도구 하나가 어그러졌다고 해 둔다 — 기록에 남는 것은 이벤트뿐이다. */
+  function toolCameUpShort(runId: string) {
+    const record = store().runHistory.find((item) => item.id === runId);
+    if (!record) throw new Error(`no run called ${runId}`);
+    const last = record.events.at(-1);
+    if (!last) throw new Error("the run left no events");
+    const shortfall: RunEvent = {
+      ...last,
+      seq: last.seq + 1,
+      node_id: "lookup",
+      event_type: "tool.completed",
+      payload: {
+        node_id: "lookup",
+        ok: false,
+        error: { reason: "timeout", message: "waited too long" },
+      },
+    };
+    useEditor.setState({
+      runHistory: store().runHistory.map((item) =>
+        item.id === runId ? { ...item, events: [...item.events, shortfall] } : item,
+      ),
+    });
+  }
+
+  it("끝까지 갔어도 도구가 답을 못 가져온 실행은 그 사실을 말한다", async () => {
+    await runOnServer({ runId: "run_1", startedAt: new Date("2026-08-01T12:30:00Z") });
+    toolCameUpShort("run_1");
+    render(<RunHistoryStrip />);
+
+    expect(screen.getByText("도구가 답 못 가져옴")).toBeInTheDocument();
+    // 실행이 실패한 것과는 다른 말이다 — 그래프는 끝까지 갔다.
+    expect(screen.queryByText("실패")).not.toBeInTheDocument();
+  });
+
+  it("도구가 다 답한 실행에는 그 말이 없다", async () => {
+    await runOnServer({ runId: "run_1", startedAt: new Date("2026-08-01T12:30:00Z") });
+    render(<RunHistoryStrip />);
+
+    expect(screen.queryByText("도구가 답 못 가져옴")).not.toBeInTheDocument();
+  });
+});

@@ -547,3 +547,24 @@ describe("상호작용과 모션의 품질 게이트", () => {
     expect(app).toContain("prefers-reduced-motion: reduce");
   });
 });
+
+// 네 번째 결말(도구가 답을 못 가져옴)도 색·기호·글로 함께 말한다 (API_TOOLS P3a, DESIGN §9).
+describe("도구가 답을 못 가져온 자리의 표시", () => {
+  const app = readFileSync(join(process.cwd(), "src/app.css"), "utf8");
+
+  it.each([
+    '.node-card__rail[data-status="toolFailed"]',
+    ".node-card__status--toolFailed",
+    ".react-flow__node.run--toolFailed .node-card",
+  ])("%s — 그 자리를 칠하는 규칙이 있다", (selector) => {
+    expect(app).toContain(selector);
+  });
+
+  it("마친 자리의 초록과 다른 색을 쓴다", () => {
+    const at = app.indexOf(".node-card__status--toolFailed {");
+    const block = app.slice(at, app.indexOf("}", at));
+
+    expect(block).not.toContain("--success");
+    expect(block).toContain("var(--warn");
+  });
+})

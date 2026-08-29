@@ -147,3 +147,87 @@ describe("telling the user what happened, in plain words", () => {
     expect(said).not.toMatch(/payload|seq|patch|schema|LLM|prompt|token|event/i);
   });
 });
+
+// 도구가 진짜로 일하기 시작했다 (API_TOOLS P3a) — 목록은 그 세 걸음을 쉬운 말로 말한다.
+describe("도구가 일한 자리를 읽는 말", () => {
+  function toolEvent(
+    event_type: EventType,
+    payload: Record<string, unknown>,
+  ): RunEvent {
+    return { ...events[0], event_type, node_id: "lookup", payload };
+  }
+
+  const asked = {
+    node_id: "lookup",
+    resource_ref: "clinical-reference",
+    tool_name: "search_article",
+  };
+
+  function said(event: RunEvent, locale: Locale = "ko"): string {
+    return translate(locale, eventSummary(event));
+  }
+
+  it("도구를 써도 되는지 확인한 걸음을 말한다", () => {
+    const checked = toolEvent("tool.policy_checked", { ...asked, allowed: true });
+
+    expect(said(checked)).toContain("lookup");
+    expect(said(checked, "en")).not.toMatch(/[가-힣]/);
+  });
+
+  it("허락하지 않는 도구였음을 그 자리에서 말한다", () => {
+    const refused = toolEvent("tool.policy_checked", { ...asked, allowed: false });
+
+    expect(said(refused)).not.toBe(
+      said(toolEvent("tool.policy_checked", { ...asked, allowed: true })),
+    );
+    expect(said(refused)).toContain("search_article");
+  });
+
+  it("무엇을 불렀는지 도구 이름으로 말한다", () => {
+    const requested = toolEvent("tool.requested", { ...asked, input: { q: "a" } });
+
+    expect(said(requested)).toContain("search_article");
+  });
+
+  it("받아 온 것이 얼마였고 얼마를 실었는지 말한다", () => {
+    const completed = toolEvent("tool.completed", {
+      ...asked,
+      ok: true,
+      result: { articles: [] },
+      original_chars: 120,
+      loaded_chars: 120,
+    });
+
+    expect(said(completed)).toContain("120");
+    for (const locale of ["ko", "en"] as const) {
+      expect(said(completed, locale).trim()).not.toBe("");
+    }
+  });
+
+  it("도구가 일을 마치지 못한 자리는 그렇게 말하고 다음 걸음을 알려준다", () => {
+    const failed = toolEvent("tool.completed", {
+      ...asked,
+      ok: false,
+      error: { reason: "timeout", message: "waited too long" },
+      original_chars: 0,
+      loaded_chars: 0,
+    });
+
+    expect(said(failed)).not.toContain("120");
+    expect(said(failed)).toMatch(/기다렸는데|시간/);
+    // 서버가 실은 영어 원문은 화면의 글이 아니다.
+    expect(said(failed)).not.toContain("waited too long");
+    expect(said(failed, "en")).not.toMatch(/[가-힣]/);
+  });
+
+  it("모르는 갈래로 어그러져도 조용히 넘기지 않는다", () => {
+    const strange = toolEvent("tool.completed", {
+      ...asked,
+      ok: false,
+      error: { reason: "sunspots", message: "?" },
+    });
+
+    expect(said(strange).trim()).not.toBe("");
+    expect(said(strange)).not.toContain("sunspots");
+  });
+});

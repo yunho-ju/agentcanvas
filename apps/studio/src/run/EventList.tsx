@@ -13,11 +13,14 @@ import { eventSummary, payloadLines } from "./eventWords";
  */
 const EventRow = memo(function EventRow({
   event,
+  run,
   shown,
   onPick,
   t,
 }: {
   event: RunEvent;
+  /** 이 실행 전부 — 끝맺음 한 줄이 그 실행에서 일어난 일까지 보고 말한다 */
+  run: RunEvent[];
   shown: boolean;
   onPick: (seq: number) => void;
   t: Translate;
@@ -30,7 +33,7 @@ const EventRow = memo(function EventRow({
         aria-current={shown}
         onClick={() => onPick(event.seq)}
       >
-        <span className="event-list__summary">{t(eventSummary(event))}</span>
+        <span className="event-list__summary">{t(eventSummary(event, run))}</span>
         <span className="event-list__type">{event.event_type}</span>
       </button>
       {/* 지금 보고 있는 사건만 무엇을 들고 왔는지 펼친다 — 목록이 읽히지 않으면 소용이 없다. */}
@@ -60,6 +63,7 @@ export function EventList() {
           <EventRow
             key={event.seq}
             event={event}
+            run={events}
             shown={event.seq === seq}
             onPick={goToEvent}
             t={t}

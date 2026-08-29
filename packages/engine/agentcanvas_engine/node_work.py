@@ -18,12 +18,16 @@ from agentcanvas_contracts.run_events import EventType
 from .graph_walk import _ways_from
 from .model_call import ModelAsk, ModelBalked, ModelSaid
 from .run_log import _answer_payload, _Emission
+from .tool_call import ToolBalked
 
 #: 갈림길 판단을 맡는 노드의 타입.
 ROUTER = "llm.router"
 
 #: 사람의 확인을 기다리는 노드의 타입.
 GATE = "control.human_gate"
+
+#: 바깥 도구를 한 번 부르는 노드의 타입.
+TOOL = "tool.mcp"
 
 
 class _Flowing(Protocol):
@@ -46,6 +50,10 @@ class _Flowing(Protocol):
         self, node: Node, ways: tuple[str, ...], heard: ModelSaid
     ) -> list[_Emission]:
         """들은 말로 길을 고른다."""
+        ...
+
+    def calls_a_tool(self, node: Node) -> list[_Emission]:
+        """바깥 도구를 한 번 부른다 — 못 불렀으면 그 까닭이 흐름에 남는다."""
         ...
 
 
@@ -105,6 +113,11 @@ def _asks_a_model_and_picks_a_way(flow: _Flowing, node: Node) -> list[_Emission]
     return [*said, *flow.picks_a_way(node, ways, heard)]
 
 
+def _calls_a_tool(flow: _Flowing, node: Node) -> list[_Emission]:
+    """도구 노드: 무엇을 부를지 확인하고, 부르고, 받은 것(또는 어그러진 까닭)을 적는다."""
+    return flow.calls_a_tool(node)
+
+
 #: 노드가 일하는 동안 무슨 일이 일어나는가 — 실행 중인 흐름과 그 노드를 받는다.
 _Work = Callable[[_Flowing, Node], list[_Emission]]
 
@@ -134,6 +147,7 @@ KIND_BY_NODE_TYPE: dict[str, _NodeKind] = {
     ROUTER: _NodeKind(work=_asks_a_model_and_picks_a_way, picks_a_way=True),
     "llm.agent": _NodeKind(work=_asks_a_model),
     GATE: _NodeKind(waits_for_person=True),
+    TOOL: _NodeKind(work=_calls_a_tool),
 }
 
 
@@ -179,8 +193,11 @@ def _resumes(node: Node, approval: ApprovalAnswer) -> list[_Emission]:
     ]
 
 
-def _could_not_ask(node: Node, balked: ModelBalked) -> _Emission:
-    """모델에게 물어보지 못한 채로는 더 갈 수 없다 — 무슨 종류의 일이었는지와 함께 끝맺는다."""
+def _could_not_ask(node: Node, balked: ModelBalked | ToolBalked) -> _Emission:
+    """물어보지도 부르지도 못한 채로는 더 갈 수 없다 — 무슨 종류의 일이었는지와 함께 끝맺는다.
+
+    모델이든 도구든 물러선 답의 모양은 같다(까닭 + 사람이 읽을 한 줄): 끝맺는 자리도 하나다.
+    """
     return _Emission(
         EventType.RUN_FAILED,
         {"reason": balked.reason, "message": balked.message},

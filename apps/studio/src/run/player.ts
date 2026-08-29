@@ -9,6 +9,9 @@ export type NodeRunStatus =
   | "waiting"
   // 사람이 거절해 흐름이 여기서 끝났다 — 마친 것도 실패한 것도 아닌 세 번째 결말이다.
   | "rejected"
+  // 노드는 제 일을 마쳤지만 그 노드가 부른 도구가 답을 가져오지 못했다 — 네 번째 결말이다.
+  // 그래프가 그 어그러짐을 다루더라도(error 갈래) 사람에게 초록불로 보이면 안 된다.
+  | "toolFailed"
   | "completed"
   | "failed";
 
@@ -43,6 +46,19 @@ export function turnedDown(event: RunEvent): boolean {
   return event.payload.approved === false;
 }
 
+/**
+ * 도구가 답을 가져오지 못한 사건인가 — 성패는 payload에 실린다(거절을 읽는 방식과 같다).
+ * 도구가 어그러진 것을 읽는 자리는 모두 이 술어 하나를 쓴다.
+ */
+export function toolFellShort(event: RunEvent): boolean {
+  return event.event_type === "tool.completed" && event.payload.ok === false;
+}
+
+/** 이 실행에서 도구가 답을 가져오지 못한 자리가 있었는가 — 실행이 끝까지 갔더라도 남는 사실이다. */
+export function toolFellShortIn(events: RunEvent[]): boolean {
+  return events.some(toolFellShort);
+}
+
 function reasonOf(event: RunEvent): string | undefined {
   const reason = event.payload.error ?? event.payload.message;
   return typeof reason === "string" && reason.trim() !== "" ? reason : undefined;
@@ -55,17 +71,28 @@ export function nodeRunFacts(
 ): Record<string, NodeRunFact> {
   const facts: Record<string, NodeRunFact> = {};
   const startedAtMs: Record<string, number> = {};
+  // 도구가 답을 가져오지 못한 노드들 — 그 노드의 끝맺음은 초록불이 아니다.
+  const cameUpShort = new Set<string>();
   for (const event of events) {
     if (event.seq > seq) continue;
-    // 끝맺음은 마쳤을 때와 같은 이벤트로 온다 — 그 안에 실린 답이 세 번째 결말을 가른다.
-    const refused = event.event_type === "node.completed" && turnedDown(event);
-    const status = refused ? "rejected" : STATUS_BY_EVENT[event.event_type];
+    if (toolFellShort(event) && event.node_id) cameUpShort.add(event.node_id);
+    // 끝맺음은 마쳤을 때와 같은 이벤트로 온다 — 그 안에 실린 것이 결말을 가른다.
+    const ended = event.event_type === "node.completed";
+    const status = ended && turnedDown(event)
+      ? "rejected"
+      : ended && event.node_id && cameUpShort.has(event.node_id)
+        ? "toolFailed"
+        : STATUS_BY_EVENT[event.event_type];
     if (!status || !event.node_id) continue;
 
     const at = Date.parse(event.timestamp);
     if (status === "running") startedAtMs[event.node_id] = at;
     const startedMs = startedAtMs[event.node_id];
-    const finished = status === "completed" || status === "failed" || status === "rejected";
+    const finished =
+      status === "completed" ||
+      status === "failed" ||
+      status === "rejected" ||
+      status === "toolFailed";
     facts[event.node_id] = {
       status,
       ...(finished && startedMs !== undefined ? { elapsedMs: at - startedMs } : {}),

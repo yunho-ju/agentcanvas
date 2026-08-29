@@ -107,6 +107,67 @@ def test_run_event_payload_is_guarded():
         )
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"node_id": "lookup", "input": {"api_key": RAW}},
+        {"node_id": "lookup", "result": {"credentials": {"password": RAW}}},
+        {"node_id": "lookup", "error": {"message": "failed", "token": RAW}},
+    ],
+)
+def test_what_a_tool_run_writes_down_is_guarded(payload):
+    """도구가 남기는 것에도 열쇠 실값은 실릴 수 없다 — 건넨 값도, 받은 값도, 실패한 까닭도."""
+    with pytest.raises(ValidationError) as exc:
+        RunEvent.model_validate(
+            {
+                "seq": 3,
+                "run_id": "run_1",
+                "event_type": "tool.completed",
+                "timestamp": "2026-08-01T00:00:00Z",
+                "spec_revision": "sha256:" + "a" * 64,
+                "payload": payload,
+            }
+        )
+    assert "secret://" in str(exc.value)
+
+
+def test_a_key_hidden_in_a_field_that_does_not_look_like_one_is_not_caught():
+    """이 guard가 지키는 범위를 정직하게 적어 둔다 — 못 막는 자리를 막는 척하지 않는다.
+
+    guard는 **이름이 열쇠처럼 생긴 자리**만 본다. 사람이 도구의 입력 값이나 주소에 열쇠를
+    직접 박아 넣으면 그 자리는 이름이 평범해 여기서 걸리지 않는다. 서버가 관리하는 열쇠
+    (`secret://` 이름 → Authorization 헤더)는 이벤트에 실릴 길 자체가 없다 —
+    그 보장은 어댑터 쪽 시험(test_http_tool)이 함께 진다.
+    """
+    slipped = RunEvent.model_validate(
+        {
+            "seq": 3,
+            "run_id": "run_1",
+            "event_type": "tool.requested",
+            "timestamp": "2026-08-01T00:00:00Z",
+            "spec_revision": "sha256:" + "a" * 64,
+            "payload": {"node_id": "lookup", "input": {"q": RAW}},
+        }
+    )
+
+    assert slipped.payload["input"]["q"] == RAW
+
+
+def test_a_tool_run_may_write_down_the_name_of_a_key():
+    """이름은 실값이 아니다 — 어느 열쇠를 쓰는지는 적힐 수 있다."""
+    event = RunEvent.model_validate(
+        {
+            "seq": 3,
+            "run_id": "run_1",
+            "event_type": "tool.requested",
+            "timestamp": "2026-08-01T00:00:00Z",
+            "spec_revision": "sha256:" + "a" * 64,
+            "payload": {"node_id": "lookup", "auth": REF},
+        }
+    )
+    assert event.payload["auth"] == REF
+
+
 def test_eval_case_input_is_guarded():
     with pytest.raises(ValidationError):
         EvalCase.model_validate(

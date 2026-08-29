@@ -54,6 +54,7 @@ dependencies = [
     { name = "agentcanvas-contracts" },
     { name = "agentcanvas-engine" },
     { name = "anthropic" },
+    { name = "httpx" },
     { name = "openai" },
 ]
 
@@ -68,6 +69,7 @@ requires-dist = [
     { name = "agentcanvas-contracts", editable = "packages/contracts" },
     { name = "agentcanvas-engine", editable = "packages/engine" },
     { name = "anthropic", specifier = ">=0.122" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "openai", specifier = ">=3.2" },
     { name = "torch", marker = "extra == 'nli'", specifier = ">=2.2" },
     { name = "transformers", marker = "extra == 'nli'", specifier = ">=4.44" },

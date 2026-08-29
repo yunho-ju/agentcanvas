@@ -724,6 +724,10 @@ const TEXTS = {
   // 실행 기록
   "eventList.label": { ko: "실행 기록", en: "What happened" },
   "runHistory.label": { ko: "지난 실행", en: "Runs you have tried" },
+  "runHistory.toolFailed": {
+    ko: "도구가 답 못 가져옴",
+    en: "A tool came back empty-handed",
+  },
   "runHistory.replay": {
     ko: "이 실행을 처음부터 다시 본다",
     en: "Watch this run again from the start",
@@ -769,6 +773,7 @@ const TEXTS = {
   "status.running": { ko: "일하는 중", en: "Working on it" },
   "status.waiting": { ko: "확인을 기다려요", en: "Waiting for you to check" },
   "status.rejected": { ko: "거절했어요", en: "Turned down" },
+  "status.toolFailed": { ko: "도구가 답을 못 가져왔다", en: "The tool came back empty-handed" },
   "status.completed": { ko: "마쳤다", en: "All done" },
   "status.failed": { ko: "끝내지 못했다", en: "Could not finish" },
 
@@ -802,16 +807,42 @@ const TEXTS = {
     en: "The '{node}' node picked which way to go",
   },
   "event.tool.policyChecked": {
-    ko: "'{node}' 노드가 도구를 써도 되는지 확인했다",
-    en: "The '{node}' node checked whether it may use the tool",
+    ko: "'{node}' 노드가 '{tool}' 도구를 써도 되는지 확인했다",
+    en: "The '{node}' node checked whether it may use '{tool}'",
+  },
+  "event.tool.notAllowed": {
+    ko: "'{node}' 노드가 쓰려던 '{tool}' 도구는 이 연결이 허락하지 않는다",
+    en: "The connection does not let the '{node}' node use '{tool}'",
   },
   "event.tool.requested": {
-    ko: "'{node}' 노드가 도구를 불렀다",
-    en: "The '{node}' node called the tool",
+    ko: "'{node}' 노드가 '{tool}' 도구를 불렀다",
+    en: "The '{node}' node called '{tool}'",
   },
+  // 받아 온 것이 얼마였고 얼마를 실었는지 함께 말한다 — 줄여 싣는 날에도 같은 자리다.
   "event.tool.completed": {
-    ko: "'{node}' 노드가 도구의 결과를 받았다",
-    en: "The '{node}' node got the tool's result back",
+    ko: "'{node}' 노드가 '{tool}' 도구의 답을 받았다 (원문 {original}자 중 {loaded}자를 실었다)",
+    en: "The '{node}' node got an answer from '{tool}' ({loaded} of {original} characters carried on)",
+  },
+  "event.tool.failed": {
+    ko: "'{node}' 노드가 부른 '{tool}' 도구가 일을 마치지 못했다 — {why}",
+    en: "'{tool}', called by the '{node}' node, could not finish — {why}",
+  },
+  "event.tool.unnamed": { ko: "이름 없는 도구", en: "an unnamed tool" },
+  "event.tool.trouble": {
+    ko: "무슨 일이 있었는지 실행 기록의 그 줄을 열어 보세요",
+    en: "open that line in the run log to see what happened",
+  },
+  "event.tool.trouble.timeout": {
+    ko: "기다렸는데 답이 오지 않았어요 — 도구 설정에서 기다릴 시간을 늘려 보세요",
+    en: "it waited and nothing came back — give it more waiting time in the tool settings",
+  },
+  "event.tool.trouble.http_error": {
+    ko: "부른 곳이 답을 주지 않았어요 — 주소가 맞는지 보고 잠시 뒤 다시 실행해 주세요",
+    en: "the place it called did not answer — check the address, then run it again in a moment",
+  },
+  "event.tool.trouble.bad_output": {
+    ko: "받은 답을 읽을 수 없었어요 — 이 도구가 무엇을 돌려주는지 다시 가져와 주세요",
+    en: "the answer could not be read — bring this tool's description in again",
   },
   "event.state.patch": {
     ko: "'{from}'에서 만든 값이 '{to}'로 넘어갔다",
@@ -847,6 +878,11 @@ const TEXTS = {
     en: "The '{node}' node could not finish its work",
   },
   "event.run.completed": { ko: "실행을 모두 마쳤다", en: "The run finished" },
+  // 끝까지 갔더라도 도구가 답을 못 가져온 자리가 있으면 그렇게 말한다 (초록불만 켜지 않는다).
+  "event.run.completed.toolFailed": {
+    ko: "실행은 끝까지 갔지만 도구가 답을 가져오지 못한 자리가 있다",
+    en: "The run reached the end, but a tool came back empty-handed along the way",
+  },
   "event.run.failed": {
     ko: "실행이 끝까지 가지 못했다",
     en: "The run did not make it to the end",
@@ -861,12 +897,33 @@ const TEXTS = {
     en: "We could not find the model it was told to use — pick one again in the node settings",
   },
   "event.run.failed.missing_secret": {
-    ko: "이 모델을 부르려면 열쇠가 필요해요 — 서버에 열쇠를 넣고 다시 실행해 주세요",
-    en: "This model needs a key before it can be called — put the key on the server, then run it again",
+    ko: "부르려면 열쇠가 필요해요 — 서버에 열쇠를 넣고 다시 실행해 주세요",
+    en: "A key is needed before this can be called — put the key on the server, then run it again",
   },
   "event.run.failed.provider_error": {
     ko: "모델 쪽에서 답을 주지 않았어요 — 잠시 뒤에 다시 실행해 주세요",
     en: "The model service did not answer — wait a moment, then run it again",
+  },
+  // 도구를 부르지 못한 갈래 — 사람이 문서에서 고칠 수 있는 것들이다.
+  "event.run.failed.unknown_binding": {
+    ko: "노드가 가리키는 연결이 이 문서에 없어요 — 설정에서 쓸 연결을 다시 골라 주세요",
+    en: "The node points at a connection this document does not have — pick one again in the settings",
+  },
+  "event.run.failed.unknown_tool": {
+    ko: "그 연결에는 그런 이름의 도구가 없어요 — 설정에서 도구를 다시 골라 주세요",
+    en: "That connection has no tool by that name — pick the tool again in the settings",
+  },
+  "event.run.failed.no_adapter": {
+    ko: "이 종류의 연결은 아직 실행할 수 없어요 — 웹 주소로 만든 연결로 바꿔 주세요",
+    en: "This kind of connection cannot run yet — use one made from a web address instead",
+  },
+  "event.run.failed.not_allowed": {
+    ko: "이 연결이 그 도구는 쓰지 못하게 해 뒀어요 — 연결을 다시 가져와 목록을 넓혀 주세요",
+    en: "This connection does not let that tool run — bring the connection in again to widen its list",
+  },
+  "event.run.failed.missing_input": {
+    ko: "도구가 받아야 할 값이 오지 않았어요 — 앞 노드가 그 값을 넘기도록 이어 주세요",
+    en: "A value the tool needs never arrived — join it up so an earlier node hands that value over",
   },
 
   // 설정 카드

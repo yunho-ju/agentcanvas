@@ -7,6 +7,7 @@ import {
   type NodeRunStatus,
   edgeFlowStates,
   nodeRunFacts,
+  toolFellShortIn,
   nodeStatesAt,
   offsetOf,
   runFinished,
@@ -259,5 +260,48 @@ describe("whether the run made it to the end", () => {
     const held = fakeRun(example, options);
 
     expect(runFinished(held, held.at(-1)?.seq ?? 0)).toBe(false);
+  });
+});
+
+// 도구가 일을 마치지 못한 노드는 마친 노드와 다르게 보인다 (API_TOOLS P3a).
+// 그래프가 그 어그러짐을 다루더라도(error 포트) 사람에게는 초록불로 보이면 안 된다.
+describe("a node whose tool could not finish", () => {
+  function toolRun(ok: boolean): RunEvent[] {
+    const started = events[seqOfFirst("node.started", "input")];
+    return [
+      ...events.slice(0, started.seq + 1),
+      {
+        ...started,
+        seq: 90,
+        event_type: "tool.completed",
+        payload: ok
+          ? { node_id: "input", ok: true, result: {}, original_chars: 2, loaded_chars: 2 }
+          : {
+              node_id: "input",
+              ok: false,
+              error: { reason: "timeout", message: "waited too long" },
+            },
+      },
+      { ...started, seq: 91, event_type: "node.completed", payload: { node_type: "tool.mcp" } },
+    ];
+  }
+
+  it("does not look like a node that finished its work", () => {
+    expect(nodeRunFacts(toolRun(false), 91).input.status).toBe("toolFailed");
+    expect(nodeRunFacts(toolRun(true), 91).input.status).toBe("completed");
+  });
+
+  it("still says how long it took — it did work, it just came up short", () => {
+    expect(nodeRunFacts(toolRun(false), 91).input.elapsedMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("goes back to green when the run is rewound past the trouble", () => {
+    expect(nodeRunFacts(toolRun(false), 89).input.status).toBe("running");
+  });
+
+  it("the run as a whole knows a tool came up short", () => {
+    expect(toolFellShortIn(toolRun(false))).toBe(true);
+    expect(toolFellShortIn(toolRun(true))).toBe(false);
+    expect(toolFellShortIn(events)).toBe(false);
   });
 });
