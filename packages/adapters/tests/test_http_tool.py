@@ -459,3 +459,159 @@ class TestTheTransportThatReallyGoesOut:
 
         assert isinstance(answer, ToolBalked)
         assert answer.reason == "http_error"
+
+
+# ── result_handling 후처리: 큰 응답을 어떻게 실을지 (API_TOOLS P3c) ──────────────
+
+BIG_BODY = json.dumps(
+    {
+        "diagnosis": {"code": "J45", "detail": "d" * 400},
+        "plan": {"steps": ["p1", "p2"], "detail": "e" * 400},
+        "billing": {"amount": 1234, "detail": "b" * 8000},
+        "audit": {"detail": "a" * 4000},
+    }
+)
+
+
+def sections_tool(section_param: str = "sections", **overrides) -> ToolDef:
+    return a_tool(
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                section_param: {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        result_handling={"mode": "sections", "section_param": section_param},
+        **overrides,
+    )
+
+
+def digest_tool() -> ToolDef:
+    return a_tool(
+        result_handling={
+            "mode": "digest",
+            "model_ref": "model://summary",
+            "max_chars": 500,
+        }
+    )
+
+
+def retrieve_tool() -> ToolDef:
+    return a_tool(
+        result_handling={
+            "mode": "retrieve",
+            "query_param": "q",
+            "top_k": 3,
+            "chunk": {"by": "chars", "size": 200},
+        }
+    )
+
+
+class TestFullIsUntouched:
+    def test_full_carries_the_whole_answer_and_two_equal_sizes(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(an_ask())
+
+        assert isinstance(answer, ToolReturned)
+        assert answer.result == json.loads(BIG_BODY)
+        assert answer.original_chars == answer.loaded_chars
+
+
+class TestSections:
+    def test_only_the_chosen_sections_are_carried(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(
+            an_ask(sections_tool(), {"sections": ["diagnosis", "plan"]})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        assert set(answer.result.keys()) == {"diagnosis", "plan"}
+        assert answer.result["diagnosis"] == json.loads(BIG_BODY)["diagnosis"]
+
+    def test_the_two_sizes_actually_differ_now(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(an_ask(sections_tool(), {"sections": ["plan"]}))
+
+        assert isinstance(answer, ToolReturned)
+        assert answer.original_chars == len(BIG_BODY)
+        assert answer.loaded_chars < answer.original_chars
+
+    def test_a_chosen_section_the_answer_lacks_is_marked_absent_not_dropped(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(
+            an_ask(sections_tool(), {"sections": ["diagnosis", "nowhere"]})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        # 조용히 빠뜨리지 않는다 — 그 섹션은 "없음"으로 정직하게 남는다.
+        assert "nowhere" in answer.result
+        assert answer.result["nowhere"] != json.loads(BIG_BODY)["diagnosis"]
+
+    def test_an_empty_section_list_stops_the_call(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(an_ask(sections_tool(), {"sections": []}))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "missing_input"
+
+    def test_a_missing_section_param_stops_the_call(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(an_ask(sections_tool(), {"query": "asthma"}))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "missing_input"
+
+    def test_it_leaves_a_reference_and_the_chosen_sections_for_replay(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(
+            an_ask(sections_tool(), {"sections": ["diagnosis", "plan"]})
+        )
+
+        assert isinstance(answer, ToolReturned)
+        assert answer.handling is not None
+        assert answer.handling["sections"] == ["diagnosis", "plan"]
+        assert answer.handling["original_ref"]["node_id"] == "lookup"
+
+    def test_the_whole_answer_is_not_stashed_anywhere_in_what_it_leaves(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(an_ask(sections_tool(), {"sections": ["diagnosis"]}))
+
+        assert isinstance(answer, ToolReturned)
+        # 원문(안 고른 큰 섹션들)이 통째로 실리지 않는다 — 정직 보고의 의미가 산다.
+        left = json.dumps(
+            {"result": answer.result, "handling": dict(answer.handling or {})}
+        )
+        assert "b" * 8000 not in left
+        assert len(left) < len(BIG_BODY)
+
+
+class TestStrategiesNotBuiltYet:
+    def test_digest_balks_honestly_instead_of_falling_back_to_full(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(an_ask(digest_tool()))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "unsupported_strategy"
+
+    def test_retrieve_balks_honestly_too(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        answer = calling(send)(an_ask(retrieve_tool()))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "unsupported_strategy"
+
+    def test_a_mode_with_no_handler_is_unsupported_not_silently_full(self):
+        from agentcanvas_adapters.http_tool import HANDLE_BY_MODE, handler_for
+
+        assert handler_for("some_future_mode") is HANDLE_BY_MODE["digest"]

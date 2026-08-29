@@ -26,6 +26,7 @@ from agentcanvas_engine.tool_call import (
     ToolBalked,
     ToolReturned,
     echoes_the_input,
+    measured,
 )
 
 RUN_ID = "run_tools"
@@ -420,7 +421,8 @@ class TestWhenTheDocumentItselfIsBroken:
         )
 
     @pytest.mark.parametrize(
-        "reason", ["missing_secret", "no_adapter", "missing_input"]
+        "reason",
+        ["missing_secret", "no_adapter", "missing_input", "unsupported_strategy"],
     )
     def test_trouble_with_the_document_is_not_a_way_the_graph_can_take(
         self, reason: str
@@ -773,3 +775,78 @@ class TestRejectingAToolThatFeedsAnotherPause:
         assert "done" not in worked
         assert len(asked) == 1
         assert after_approve[-1].event_type is EventType.RUN_COMPLETED
+
+
+class TestTheEngineDoesNotKnowTheStrategy:
+    """전략은 어댑터의 후처리다 — 엔진은 result가 무엇이든 그대로 흘려보낸다 (내용을 모른다)."""
+
+    def _sections_tool(self):
+        def tool(ask: ToolAsk) -> ToolReturned:
+            # 어댑터가 sections로 줄여 실은 모양 — 원문 12,400자에서 두 섹션만.
+            return measured(
+                {"diagnosis": {"code": "J45"}, "plan": {"steps": ["p1"]}},
+                original_chars=12400,
+                handling={
+                    "sections": ["diagnosis", "plan"],
+                    "original_ref": {"node_id": "lookup"},
+                },
+            )
+
+        return tool
+
+    def test_the_processed_result_flows_on_to_the_next_node(self):
+        events = ran(a_spec(), self._sections_tool())
+
+        crossings = [
+            event.payload
+            for event in events
+            if event.event_type is EventType.STATE_PATCH
+            and event.payload.get("edge_id") == "lookup-answer"
+        ]
+        assert crossings[0]["patch"][0]["value"] == {
+            "diagnosis": {"code": "J45"},
+            "plan": {"steps": ["p1"]},
+        }
+
+    def test_the_completed_event_carries_the_split_sizes_and_replay_marks(self):
+        completed = payload_of(
+            ran(a_spec(), self._sections_tool()), EventType.TOOL_COMPLETED
+        )
+
+        assert completed["original_chars"] == 12400
+        assert completed["loaded_chars"] < completed["original_chars"]
+        assert completed["sections"] == ["diagnosis", "plan"]
+        assert completed["original_ref"] == {"node_id": "lookup"}
+
+    def test_resuming_restores_the_processed_result_without_reprocessing(self):
+        """재개는 이벤트의 처리된 결과를 복원한다 — 원 응답 미저장이라 재처리·재호출 없음."""
+        spec = with_a_gate(a_spec())
+        calls: list[str] = []
+
+        def tool(ask: ToolAsk) -> ToolReturned:
+            calls.append(ask.node.id)
+            return measured(
+                {"diagnosis": {"code": "J45"}},
+                original_chars=9000,
+                handling={
+                    "sections": ["diagnosis"],
+                    "original_ref": {"node_id": ask.node.id},
+                },
+            )
+
+        held = routed_run(
+            spec, RUN_ID, STARTED_AT, input={"query": "asthma"}, tool=tool
+        )
+        assert calls == ["lookup"]
+
+        carried_on = resume_routed_run(spec, held, approved(), tool=tool)
+
+        # lookup은 다시 불리지 않는다(after만 불린다) — 처리된 결과는 이벤트에서 되살아난다.
+        asked_after = [
+            event.payload
+            for event in carried_on
+            if event.event_type is EventType.TOOL_REQUESTED
+            and event.payload["node_id"] == "after"
+        ]
+        assert asked_after[0]["input"] == {"review": {"diagnosis": {"code": "J45"}}}
+        assert calls == ["lookup", "after"]

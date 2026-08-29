@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 from urllib.parse import quote
 
-from agentcanvas_contracts.tool_def import HttpCall, ToolDef
+from agentcanvas_contracts.tool_def import HttpCall, SectionsResult, ToolDef
 from agentcanvas_engine.tool_call import (
     CallsATool,
     ToolAsk,
@@ -143,6 +143,90 @@ def _read(answer: ToolResponse, tool: ToolDef, key: str | None) -> object | Tool
         )
 
 
+#: 고른 섹션이 응답에 없을 때 그 자리에 남기는 표시 — 빈 값이 아니라 "없다는 사실"이다.
+#: 조용히 빠뜨리지 않는다(정직): 무엇을 골랐는데 없었는지가 result에 그대로 남는다.
+SECTION_NOT_IN_ANSWER = {"present_in_answer": False}
+
+
+def _original_ref(ask: ToolAsk) -> dict[str, str]:
+    """무엇을 잘랐든 이 run의 이 도구 호출을 가리키는 안정 식별자 (외부 재조회는 이 브리프 밖).
+
+    한 run에서 노드는 한 번 일하므로(멱등) node_id가 이 호출을 안정적으로 가리킨다. 순번(seq)은
+    이 payload를 실어 나르는 tool.completed 사건 자신에 붙는다 — 여기에 겹쳐 적지 않는다.
+    """
+    return {
+        "node_id": ask.node.id,
+        "resource_ref": ask.binding.id,
+        "tool_name": ask.tool.name,
+    }
+
+
+def _full(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
+    """받은 것을 그대로 싣는다 — 원문과 실은 것이 같으니 두 수가 같다 (P3a 그대로)."""
+    return measured(parsed)
+
+
+def _sections(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
+    """부르는 쪽이 고른 섹션만 싣는다 — 최상위 키 기준, 결정론적(모델·검색 없음).
+
+    고른 섹션이 응답에 없으면 조용히 빠뜨리지 않고 "없음"으로 남긴다. 무엇을 실을지가
+    안 정해졌으면(목록이 빔) 부르지 않은 것과 같은 갈래로 balk한다(missing_input).
+    """
+    handling = ask.tool.result_handling
+    assert isinstance(handling, SectionsResult)
+    asked_for = ask.input.get(handling.section_param)
+    wanted = (
+        [name for name in asked_for if isinstance(name, str) and name.strip()]
+        if isinstance(asked_for, list)
+        else []
+    )
+    if not wanted:
+        return ToolBalked(
+            reason="missing_input",
+            message=(
+                "this tool loads only the sections it is asked for, but no section "
+                f"names came in on {handling.section_param!r}"
+            ),
+        )
+    at_top = parsed if isinstance(parsed, dict) else {}
+    picked = {name: at_top.get(name, SECTION_NOT_IN_ANSWER) for name in wanted}
+    return measured(
+        picked,
+        original_chars=measured(parsed).loaded_chars,
+        handling={"sections": wanted, "original_ref": _original_ref(ask)},
+    )
+
+
+def _unsupported(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
+    """아직 못 만든 전략 — 조용히 Full로 떨어지지 않고 그 사실만 정직하게 말한다.
+
+    문서의 문제가 아니라 "아직 준비 중"이라 no_adapter와 같은 결의 balk다 (error 포트가 아니다).
+    P3d(Retrieve)·P3e(Digest)가 이 자리에 진짜 handler 한 줄씩을 얹는다.
+    """
+    return ToolBalked(
+        reason="unsupported_strategy",
+        message=(
+            f"the {ask.tool.result_handling.mode!r} way of loading a tool's answer "
+            "is not built yet"
+        ),
+    )
+
+
+#: 응답을 어떻게 실을지 mode가 정한다 — 새 전략은 표에 handler 한 줄이지 분기가 아니다.
+#: digest/retrieve는 지금 unsupported balk 자리 표시 — P3d/P3e가 진짜 handler로 바꾼다.
+HANDLE_BY_MODE: dict[str, Callable[[ToolAsk, object], ToolReturned | ToolBalked]] = {
+    "full": _full,
+    "sections": _sections,
+    "digest": _unsupported,
+    "retrieve": _unsupported,
+}
+
+
+def handler_for(mode: str) -> Callable[[ToolAsk, object], ToolReturned | ToolBalked]:
+    """그 mode를 실을 자리 — 표에 없는(미래의) mode는 정직하게 미지원으로 답한다."""
+    return HANDLE_BY_MODE.get(mode, _unsupported)
+
+
 def calls_http(send: Send, vault: SecretResolver) -> CallsATool:
     """HTTP로 감싼 도구를 부르는 자리 — 전송과 금고를 받아 하나의 부르는 자리가 된다.
 
@@ -202,7 +286,8 @@ def calls_http(send: Send, vault: SecretResolver) -> CallsATool:
         read = _read(answered, ask.tool, key)
         if isinstance(read, ToolBalked):
             return read
-        return measured(read)
+        # 원 응답을 받은 직후, 어댑터 안에서 후처리한다 — result 포트엔 처리된 것만 실린다.
+        return handler_for(ask.tool.result_handling.mode)(ask, read)
 
     return asks
 
@@ -235,12 +320,15 @@ def sends_with_httpx(request: ToolRequest) -> ToolResponse | SendFailed:
 
 
 __all__ = [
+    "HANDLE_BY_MODE",
     "HIDDEN_KEY",
     "MAX_BODY_CHARS",
+    "SECTION_NOT_IN_ANSWER",
     "Send",
     "SendFailed",
     "ToolRequest",
     "ToolResponse",
     "calls_http",
+    "handler_for",
     "sends_with_httpx",
 ]

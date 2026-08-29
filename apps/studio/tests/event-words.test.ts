@@ -204,6 +204,21 @@ describe("도구가 일한 자리를 읽는 말", () => {
     }
   });
 
+  it("sections로 줄여 실은 답은 두 수가 실제로 갈려 보인다 (API_TOOLS P3c)", () => {
+    const trimmed = toolEvent("tool.completed", {
+      ...asked,
+      ok: true,
+      result: { diagnosis: {} },
+      original_chars: 12400,
+      loaded_chars: 780,
+      sections: ["diagnosis"],
+    });
+
+    // 원문과 실은 것이 다른 수로 나란히 보인다 — 실제 절감을 사람이 읽는다.
+    expect(said(trimmed)).toContain("12400");
+    expect(said(trimmed)).toContain("780");
+  });
+
   it("도구가 일을 마치지 못한 자리는 그렇게 말하고 다음 걸음을 알려준다", () => {
     const failed = toolEvent("tool.completed", {
       ...asked,

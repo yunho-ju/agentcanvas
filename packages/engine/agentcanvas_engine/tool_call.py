@@ -41,10 +41,14 @@ class ToolReturned:
     result: object
     original_chars: int
     loaded_chars: int
+    #: 후처리가 남긴 것(고른 섹션 목록·원문 ref 등) — tool.completed payload에 그대로 실린다.
+    #: 원문 자체는 여기 싣지 않는다: 정직 보고의 의미(무엇을 얼마나 잘랐나)가 살아 있게.
+    handling: Mapping[str, object] | None = None
 
 
 #: 도구를 부르지 못했거나 답을 받지 못한 까닭.
-#: 앞의 여섯은 문서·정책의 문제(사람이 고쳐야 한다)고, 뒤의 셋은 이번 호출이 어그러진 것이다.
+#: 앞의 여섯과 unsupported_strategy는 문서·정책·아직 못 만든 기능(사람/우리가 고칠 일)이고,
+#: timeout/http_error/bad_output 셋만 이번 호출이 어그러진 것이라 error 포트로 흐른다.
 ToolTrouble = Literal[
     "unknown_binding",
     "unknown_tool",
@@ -55,6 +59,7 @@ ToolTrouble = Literal[
     "timeout",
     "http_error",
     "bad_output",
+    "unsupported_strategy",
 ]
 
 #: 그래프가 스스로 다룰 수 있는 어그러짐 — error 포트로 흘러 다음 노드가 받는다.
@@ -82,13 +87,22 @@ def _as_written(result: object) -> str:
     return json.dumps(result, ensure_ascii=False, sort_keys=True)
 
 
-def measured(result: object, original_chars: int | None = None) -> ToolReturned:
-    """돌려받은 것에 크기를 적어 돌려준다 — 통째로 실었으면 두 값이 같다."""
+def measured(
+    result: object,
+    original_chars: int | None = None,
+    handling: Mapping[str, object] | None = None,
+) -> ToolReturned:
+    """돌려받은 것에 크기를 적어 돌려준다 — 통째로 실었으면 두 값이 같다.
+
+    `original_chars`를 건네면(줄여 실은 전략) 두 수가 갈린다. `handling`은 무엇을 근거로
+    줄였는지(고른 섹션·원문 ref)를 함께 남긴다 — 원문 자체는 담지 않는다.
+    """
     loaded = len(_as_written(result))
     return ToolReturned(
         result=result,
         original_chars=loaded if original_chars is None else original_chars,
         loaded_chars=loaded,
+        handling=handling,
     )
 
 

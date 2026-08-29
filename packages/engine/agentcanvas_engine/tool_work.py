@@ -192,6 +192,9 @@ def completed(
         told["result"] = answer.result
         told["original_chars"] = answer.original_chars
         told["loaded_chars"] = answer.loaded_chars
+        if answer.handling is not None:
+            # 후처리가 남긴 것(고른 섹션·원문 ref)을 그대로 싣는다 — 무엇을 근거로 골랐나 리플레이.
+            told.update(answer.handling)
     else:
         told["error"] = {"reason": answer.reason, "message": answer.message}
         told["original_chars"] = 0
