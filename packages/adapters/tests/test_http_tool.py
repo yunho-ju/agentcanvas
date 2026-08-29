@@ -15,6 +15,7 @@ from agentcanvas_adapters.http_tool import (
 from agentcanvas_adapters.tool_adapters import ADAPTER_BY_KIND, tools_from
 from agentcanvas_contracts.agent_spec import Node, Position, ResourceBinding
 from agentcanvas_contracts.tool_def import ToolDef
+from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
 from agentcanvas_engine.tool_call import ToolAsk, ToolBalked, ToolReturned
 
 KEY = "sk-live-do-not-log-me"
@@ -619,9 +620,16 @@ class TestStrategiesNotBuiltYet:
         assert answer.reason == "unsupported_strategy"
 
     def test_a_mode_with_no_handler_is_unsupported_not_silently_full(self):
-        from agentcanvas_adapters.http_tool import HANDLE_BY_MODE, handler_for
+        from agentcanvas_adapters.http_tool import handler_for
 
-        assert handler_for("some_future_mode") is HANDLE_BY_MODE["digest"]
+        # 표에 없는 mode든, summarize 없는 digest든 — 조용한 Full이 아니라 정직한 미지원 balk다.
+        for handler in (
+            handler_for("some_future_mode", None),
+            handler_for("digest", None),
+        ):
+            answer = handler(an_ask(digest_tool()), {"anything": 1})
+            assert isinstance(answer, ToolBalked)
+            assert answer.reason == "unsupported_strategy"
 
 
 class TestRetrieve:
@@ -724,3 +732,241 @@ class TestCharsChunkingIsHonestAboutSize:
         assert answer.loaded_chars <= answer.original_chars
         # 원 응답 문자열이 이스케이프되어 통째로 다시 실리지 않는다.
         assert answer.loaded_chars == answer.original_chars
+
+
+def fixed_summary(text: str = "a short summary of the tool answer"):
+    """고정 텍스트를 돌려주는 요약 대역 — 실제 모델·네트워크 없이 결정론 (judged_by 선례)."""
+    seen: list[ModelAsk] = []
+
+    def summarize(ask: ModelAsk) -> ModelSaid:
+        seen.append(ask)
+        return ModelSaid(input_tokens=10, output_tokens=5, text=text)
+
+    return seen, summarize
+
+
+def digesting(send, summarize, env: dict | None = None):
+    from agentcanvas_adapters.http_tool import calls_http
+    from agentcanvas_adapters.secrets import env_vault
+
+    return calls_http(
+        send, env_vault(env if env is not None else VAULT), summarize=summarize
+    )
+
+
+class TestDigest:
+    def test_the_answer_is_summarised_down_by_the_model(self):
+        _sent, send = answers(text=BIG_BODY)
+        _seen, summarize = fixed_summary("asthma; plan; billing — a brief digest")
+
+        answer = digesting(send, summarize)(an_ask(digest_tool()))
+
+        assert isinstance(answer, ToolReturned)
+        assert answer.result == "asthma; plan; billing — a brief digest"
+        assert answer.loaded_chars < answer.original_chars
+
+    def test_a_summary_over_max_chars_is_trimmed_and_says_so(self):
+        _sent, send = answers(text=BIG_BODY)
+        _seen, summarize = fixed_summary("s" * 900)  # max_chars is 500
+
+        answer = digesting(send, summarize)(an_ask(digest_tool()))
+
+        assert isinstance(answer, ToolReturned)
+        assert answer.loaded_chars == 500  # 잘렸음을 크기가 말한다
+        assert len(answer.result) == 500
+
+    def test_a_summary_model_that_balks_makes_the_tool_balk(self):
+        _sent, send = answers(text=BIG_BODY)
+
+        def summarize(ask: ModelAsk) -> ModelBalked:
+            return ModelBalked(reason="provider_error", message="the model is down")
+
+        answer = digesting(send, summarize)(an_ask(digest_tool()))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "digest_failed"
+
+    def test_an_empty_summary_makes_the_tool_balk_not_load_nothing(self):
+        _sent, send = answers(text=BIG_BODY)
+        _seen, summarize = fixed_summary("")
+
+        answer = digesting(send, summarize)(an_ask(digest_tool()))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "digest_failed"
+
+    def test_it_asks_the_model_the_document_named_to_summarise(self):
+        _sent, send = answers(text=BIG_BODY)
+        seen, summarize = fixed_summary()
+
+        digesting(send, summarize)(an_ask(digest_tool()))
+
+        assert seen[0].model_ref == "model://summary"
+        # 요약 호출은 길 고르기가 아니다 — 본 실행의 llm 노드 호출과 섞이지 않는 별도 호출.
+        assert seen[0].ways == ()
+        # 무엇을 요약하는지: 원 응답의 내용이 그 호출의 지시에 실린다.
+        assert "diagnosis" in (seen[0].instruction or "")
+
+    def test_it_keeps_a_reference_and_the_sizes_but_not_the_whole_answer(self):
+        _sent, send = answers(text=BIG_BODY)
+        _seen, summarize = fixed_summary("brief")
+
+        answer = digesting(send, summarize)(an_ask(digest_tool()))
+
+        assert isinstance(answer, ToolReturned)
+        assert answer.handling is not None
+        assert answer.handling["original_ref"]["node_id"] == "lookup"
+        assert answer.original_chars != answer.loaded_chars
+        left = json.dumps(
+            {"result": answer.result, "handling": dict(answer.handling or {})}
+        )
+        assert "b" * 8000 not in left  # 원 응답 통째로 실리지 않는다
+        assert len(left) < len(BIG_BODY)
+
+    def test_without_a_summary_model_digest_is_honestly_unsupported(self):
+        """live provider가 아닌 서버 — summarize 미주입이면 조용한 Full이 아니라 미지원 balk."""
+        _sent, send = answers(text=BIG_BODY)
+
+        # 기존 calling()은 summarize를 주입하지 않는다.
+        answer = calling(send)(an_ask(digest_tool()))
+
+        assert isinstance(answer, ToolBalked)
+        assert answer.reason == "unsupported_strategy"
+
+    def test_the_model_is_called_once_per_tool_call(self):
+        _sent, send = answers(text=BIG_BODY)
+        seen, summarize = fixed_summary()
+
+        digesting(send, summarize)(an_ask(digest_tool()))
+
+        assert len(seen) == 1
+
+
+class TestDigestSurvivesAPause:
+    """durable: 요약은 모델 호출(부수효과)이다 — 재개 시 재요약·재호출이 없어야 한다."""
+
+    def _spec(self):
+        from agentcanvas_contracts.agent_spec import (
+            AgentSpec,
+            Edge,
+            EdgeEndpoint,
+            Node,
+            Position,
+            ResourceBinding,
+        )
+
+        tool = {
+            "name": "search_article",
+            "plain_description": {"ko": "찾는다.", "en": "Finds."},
+            "input_schema": {"type": "object", "properties": {}},
+            "output_schema": {"type": "object"},
+            "timeout_ms": 8000,
+            "call": {
+                "transport": "http",
+                "method": "GET",
+                "url_template": "https://api.example.com/articles",
+            },
+            "result_handling": {
+                "mode": "digest",
+                "model_ref": "model://summary",
+                "max_chars": 500,
+            },
+        }
+        binding = ResourceBinding.model_validate(
+            {
+                "id": "article-api",
+                "kind": "http.api",
+                "server_ref": "api://article-api",
+                "allowed_tools": [],
+                "approval_policy": "read_only_auto",
+                "tools": [tool],
+            }
+        )
+        draft = AgentSpec(
+            schema_version="agent.spec/v1",
+            id="digest-runner",
+            name=None,
+            version=1,
+            revision="sha256:" + "0" * 64,
+            status="draft",
+            input_schema={"type": "object", "properties": {}},
+            state_schema={
+                "type": "object",
+                "properties": {
+                    "checked": {"type": "object"},
+                    "done": {"type": "object"},
+                },
+            },
+            nodes=[
+                Node(
+                    id="input",
+                    type="core.input",
+                    position=Position(x=0, y=0),
+                    config={},
+                ),
+                Node(
+                    id="lookup",
+                    type="tool.mcp",
+                    position=Position(x=200, y=0),
+                    config={
+                        "resource_ref": "article-api",
+                        "tool_name": "search_article",
+                    },
+                ),
+                Node(
+                    id="gate",
+                    type="control.human_gate",
+                    position=Position(x=400, y=0),
+                    config={"approval_schema_ref": "schema://checked@1"},
+                ),
+                Node(
+                    id="done",
+                    type="core.output",
+                    position=Position(x=600, y=0),
+                    config={"binding": "state.done"},
+                ),
+            ],
+            edges=[
+                Edge(
+                    id="input-lookup",
+                    kind="control",
+                    source=EdgeEndpoint(node="input", port="ready"),
+                    target=EdgeEndpoint(node="lookup", port="input"),
+                ),
+                Edge(
+                    id="lookup-gate",
+                    kind="approval",
+                    source=EdgeEndpoint(node="lookup", port="result"),
+                    target=EdgeEndpoint(node="gate", port="review"),
+                ),
+                Edge(
+                    id="gate-done",
+                    kind="control",
+                    source=EdgeEndpoint(node="gate", port="approved"),
+                    target=EdgeEndpoint(node="done", port="input"),
+                ),
+            ],
+            resources=[binding],
+            execution=None,
+        )
+        return draft.model_copy(update={"revision": draft.computed_revision()})
+
+    def test_the_summary_model_is_not_called_again_when_the_run_resumes(self):
+        from datetime import UTC, datetime
+
+        from agentcanvas_contracts.run import ApprovalAnswer
+        from agentcanvas_engine.routed_runtime import resume_routed_run, routed_run
+
+        _sent, send = answers(text=BIG_BODY)
+        seen, summarize = fixed_summary("a brief digest")
+        tool = digesting(send, summarize)
+        spec = self._spec()
+        at = datetime(2026, 8, 1, 12, 30, tzinfo=UTC)
+
+        held = routed_run(spec, "run_digest", at, tool=tool)
+        assert len(seen) == 1  # 요약은 멈추기 전에 한 번 일어났다
+
+        resume_routed_run(spec, held, ApprovalAnswer(approved=True), tool=tool)
+
+        # 재개해도 도구(따라서 요약)는 다시 불리지 않는다 — 처리된 요약은 이벤트에서 복원된다.
+        assert len(seen) == 1

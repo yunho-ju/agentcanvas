@@ -422,7 +422,13 @@ class TestWhenTheDocumentItselfIsBroken:
 
     @pytest.mark.parametrize(
         "reason",
-        ["missing_secret", "no_adapter", "missing_input", "unsupported_strategy"],
+        [
+            "missing_secret",
+            "no_adapter",
+            "missing_input",
+            "unsupported_strategy",
+            "digest_failed",
+        ],
     )
     def test_trouble_with_the_document_is_not_a_way_the_graph_can_take(
         self, reason: str

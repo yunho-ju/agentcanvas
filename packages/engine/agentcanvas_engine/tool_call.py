@@ -47,7 +47,7 @@ class ToolReturned:
 
 
 #: 도구를 부르지 못했거나 답을 받지 못한 까닭.
-#: 앞의 여섯과 unsupported_strategy는 문서·정책·아직 못 만든 기능(사람/우리가 고칠 일)이고,
+#: 앞의 여섯과 unsupported_strategy·digest_failed는 문서·정책·우리 쪽 처리 실패(사람/우리가 고칠 일)이고,
 #: timeout/http_error/bad_output 셋만 이번 호출이 어그러진 것이라 error 포트로 흐른다.
 ToolTrouble = Literal[
     "unknown_binding",
@@ -60,6 +60,7 @@ ToolTrouble = Literal[
     "http_error",
     "bad_output",
     "unsupported_strategy",
+    "digest_failed",
 ]
 
 #: 그래프가 스스로 다룰 수 있는 어그러짐 — error 포트로 흘러 다음 노드가 받는다.

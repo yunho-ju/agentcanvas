@@ -944,6 +944,10 @@ const TEXTS = {
     ko: "이 도구는 아직 이 방식으로는 실행할 수 없어요 — 더 준비 중이에요",
     en: "This tool cannot run this way yet — it is still being built",
   },
+  "event.run.failed.digest_failed": {
+    ko: "응답을 줄일 요약을 만들지 못했어요 — 다른 요약 모델을 고르거나 잠시 뒤 다시 해보세요",
+    en: "The summary that shortens the answer could not be made — pick another summary model or try again",
+  },
   "event.run.failed.not_allowed": {
     ko: "이 연결이 그 도구는 쓰지 못하게 해 뒀어요 — 연결을 다시 가져와 목록을 넓혀 주세요",
     en: "This connection does not let that tool run — bring the connection in again to widen its list",

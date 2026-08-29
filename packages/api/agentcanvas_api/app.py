@@ -469,8 +469,21 @@ def tools_in(env: Mapping[str, str]) -> CallsATool:
     모델과 다른 점 하나: 도구는 "부를 곳이 있는가"를 미리 물을 수 없다 — 어느 열쇠가 필요한지는
     문서의 그 도구가 정한다. 그래서 자리는 언제나 서고, 열쇠가 없는 도구만 부를 때 그 까닭을
     답한다(부를 때마다 같은 까닭 — anthropic_from 선례와 같은 정직함이다).
+
+    digest 전략의 요약 모델은 **live provider일 때만** 주입한다 — 아니면 None이라 digest 도구는
+    조용한 Full이 아니라 정직한 미지원 balk가 된다(모델 배선의 nobody_to_ask와 같은 갈림).
     """
-    return tools_from(env_vault(env), sends_with_httpx)
+    summarize = (
+        None
+        if nobody_to_ask(env_vault(env), catalog_in(env))
+        else tools_summariser_in(env)
+    )
+    return tools_from(env_vault(env), sends_with_httpx, summarize)
+
+
+def tools_summariser_in(env: Mapping[str, str]) -> ModelCall:
+    """도구 응답을 줄일 요약 모델 — LLM 노드가 쓰는 그 ModelCall을 그대로 재사용한다."""
+    return asks_whoever_serves(env_vault(env), catalog_in(env))
 
 
 def _default_tool_call() -> CallsATool:

@@ -14,11 +14,13 @@ from typing import Literal
 from urllib.parse import quote
 
 from agentcanvas_contracts.tool_def import (
+    DigestResult,
     HttpCall,
     RetrieveResult,
     SectionsResult,
     ToolDef,
 )
+from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelCall
 from agentcanvas_engine.tool_call import (
     CallsATool,
     ToolAsk,
@@ -308,6 +310,63 @@ def _retrieve(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
     )
 
 
+#: 요약 프롬프트가 사는 이름 — 이 도구 호출 안의 별도 모델 호출이라 본 실행 프롬프트와 다르다.
+DIGEST_PROMPT_REF = "prompt://tool-digest@1"
+
+
+def _digest_prompt(max_chars: int, answer: str) -> str:
+    """요약 모델에게 보내는 지시 — 원 응답을 max_chars 안으로 줄이라고 말한다."""
+    return (
+        "Summarize the following tool response so a downstream agent can use it. "
+        f"Keep it under {max_chars} characters. Preserve the key facts; do not add "
+        "anything that is not in the response.\n\n"
+        f"{answer}"
+    )
+
+
+def _digest(
+    ask: ToolAsk, parsed: object, summarize: ModelCall
+) -> ToolReturned | ToolBalked:
+    """받은 전체를 요약 모델로 줄여 싣는다 — 이 요약 호출은 본 실행 llm 노드와 분리된다.
+
+    요약은 결정론이 아니고 정보 손실·환각 리스크가 있어(vision) 원문 ref 보존이 조건이다:
+    payload에 크기 두 수와 original_ref를 남기고, 원 응답 자체는 싣지 않는다(요약 텍스트만).
+    요약이 max_chars를 넘치면 잘라 싣되 loaded_chars가 그 사실을 말한다. 요약이 실패하면
+    조용히 Full로 떨어지지 않고 도구가 balk한다.
+    """
+    handling = ask.tool.result_handling
+    assert isinstance(handling, DigestResult)
+    original = _canonical(parsed)
+    said = summarize(
+        ModelAsk(
+            node=ask.node,
+            state={},
+            ways=(),
+            model_ref=handling.model_ref,
+            prompt_ref=DIGEST_PROMPT_REF,
+            instruction=_digest_prompt(handling.max_chars, original),
+        )
+    )
+    if isinstance(said, ModelBalked) or not said.text:
+        return ToolBalked(
+            reason="digest_failed",
+            message=(f"the summary model could not shorten {ask.tool.name!r}'s answer"),
+        )
+    summary = said.text[: handling.max_chars]
+    return ToolReturned(
+        result=summary,
+        original_chars=len(original),
+        loaded_chars=len(summary),
+        handling={
+            "digest": {
+                "model_ref": handling.model_ref,
+                "max_chars": handling.max_chars,
+            },
+            "original_ref": _original_ref(ask),
+        },
+    )
+
+
 def _unsupported(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
     """아직 못 만든 전략 — 조용히 Full로 떨어지지 않고 그 사실만 정직하게 말한다.
 
@@ -323,22 +382,46 @@ def _unsupported(ask: ToolAsk, parsed: object) -> ToolReturned | ToolBalked:
     )
 
 
-#: 응답을 어떻게 실을지 mode가 정한다 — 새 전략은 표에 handler 한 줄이지 분기가 아니다.
-#: 지금 unsupported balk 자리 표시로 남은 것은 digest뿐이다 — P3e가 진짜 handler로 바꾼다.
-HANDLE_BY_MODE: dict[str, Callable[[ToolAsk, object], ToolReturned | ToolBalked]] = {
-    "full": _full,
-    "sections": _sections,
-    "digest": _unsupported,
-    "retrieve": _retrieve,
+#: 한 응답을 실을 handler 하나 — (ask, parsed) → 처리된 것 또는 balk.
+Handle = Callable[[ToolAsk, object], ToolReturned | ToolBalked]
+
+#: 그 자리에 무엇을 넣을지 정하는 조립기 — 요약 모델(있으면)을 받아 handler를 만든다.
+#: full/sections/retrieve는 아무것도 필요 없고, digest만 요약 모델을 받는다(주입, 분기 아님).
+HandlerFor = Callable[[ModelCall | None], Handle]
+
+
+def _needs_nothing(handle: Handle) -> HandlerFor:
+    """의존 없이 서는 handler를 조립기 자리에 그대로 놓는다."""
+    return lambda _summarize: handle
+
+
+def _digest_slot(summarize: ModelCall | None) -> Handle:
+    """digest 자리 — 요약 모델이 주입됐을 때만 진짜 handler, 없으면 정직한 미지원.
+
+    live provider가 아닌 서버(summarize=None)에서는 조용히 Full로 떨어지지 않고 balk한다.
+    """
+    if summarize is None:
+        return _unsupported
+    return lambda ask, parsed: _digest(ask, parsed, summarize)
+
+
+#: 응답을 어떻게 실을지 mode가 정한다 — 새 전략은 표에 조립기 한 줄이지 분기가 아니다.
+HANDLE_BY_MODE: dict[str, HandlerFor] = {
+    "full": _needs_nothing(_full),
+    "sections": _needs_nothing(_sections),
+    "retrieve": _needs_nothing(_retrieve),
+    "digest": _digest_slot,
 }
 
 
-def handler_for(mode: str) -> Callable[[ToolAsk, object], ToolReturned | ToolBalked]:
-    """그 mode를 실을 자리 — 표에 없는(미래의) mode는 정직하게 미지원으로 답한다."""
-    return HANDLE_BY_MODE.get(mode, _unsupported)
+def handler_for(mode: str, summarize: ModelCall | None) -> Handle:
+    """그 mode를 실을 handler — 요약 모델을 조립해 넣는다. 표에 없는 mode는 정직한 미지원."""
+    return HANDLE_BY_MODE.get(mode, _needs_nothing(_unsupported))(summarize)
 
 
-def calls_http(send: Send, vault: SecretResolver) -> CallsATool:
+def calls_http(
+    send: Send, vault: SecretResolver, summarize: ModelCall | None = None
+) -> CallsATool:
     """HTTP로 감싼 도구를 부르는 자리 — 전송과 금고를 받아 하나의 부르는 자리가 된다.
 
     되묻지 않는다(재시도 없음): 바깥을 바꾸는 도구를 우리 마음대로 두 번 부르지 않는다.
@@ -398,7 +481,7 @@ def calls_http(send: Send, vault: SecretResolver) -> CallsATool:
         if isinstance(read, ToolBalked):
             return read
         # 원 응답을 받은 직후, 어댑터 안에서 후처리한다 — result 포트엔 처리된 것만 실린다.
-        return handler_for(ask.tool.result_handling.mode)(ask, read)
+        return handler_for(ask.tool.result_handling.mode, summarize)(ask, read)
 
     return asks
 
@@ -432,6 +515,7 @@ def sends_with_httpx(request: ToolRequest) -> ToolResponse | SendFailed:
 
 __all__ = [
     "CHUNK_BY",
+    "DIGEST_PROMPT_REF",
     "HANDLE_BY_MODE",
     "HIDDEN_KEY",
     "MAX_BODY_CHARS",

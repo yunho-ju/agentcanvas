@@ -243,3 +243,38 @@ class TestWhoTheServerAsksToCallTools:
 
         assert isinstance(answer, ToolBalked)
         assert answer.reason == "no_adapter"
+
+    def test_no_summary_model_is_injected_when_nothing_is_configured(self, monkeypatch):
+        """live provider가 아닌 서버는 요약 모델을 주입하지 않는다(None) — digest는 그때 정직히 balk.
+
+        요약 모델을 넣을지 말지는 tools_in 한 곳이 정한다(모델 배선의 nobody_to_ask와 같은 갈림).
+        전송(sends_with_httpx)까지 가지 않고 그 결정만 결정론적으로 확인한다.
+        """
+        from agentcanvas_api import app as app_module
+
+        captured: dict[str, object] = {}
+
+        def capture(vault, send, summarize=None):
+            captured["summarize"] = summarize
+            return lambda ask: None
+
+        monkeypatch.setattr(app_module, "tools_from", capture)
+        tools_in({})
+
+        assert captured["summarize"] is None
+
+    def test_a_summary_model_is_injected_when_a_model_is_configured(self, monkeypatch):
+        """live provider(여기선 로컬 모델)면 요약 모델을 주입한다 — digest가 살아 있게."""
+        from agentcanvas_api import app as app_module
+        from agentcanvas_api.app import LOCAL_MODEL_ENV
+
+        captured: dict[str, object] = {}
+
+        def capture(vault, send, summarize=None):
+            captured["summarize"] = summarize
+            return lambda ask: None
+
+        monkeypatch.setattr(app_module, "tools_from", capture)
+        tools_in({LOCAL_MODEL_ENV: "gemma4:26b"})
+
+        assert captured["summarize"] is not None
