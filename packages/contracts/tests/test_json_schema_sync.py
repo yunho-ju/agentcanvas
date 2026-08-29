@@ -42,6 +42,7 @@ def test_schema_models_cover_the_published_contracts():
         "instruction_preset_def",
         "model_def",
         "node_type",
+        "optimization_proposal",
         "release_manifest",
         "run",
         "run_event",

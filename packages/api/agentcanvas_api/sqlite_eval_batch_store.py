@@ -67,5 +67,17 @@ class SqliteEvalBatchStore:
             rows = connection.execute(query, params).fetchall()
         return [EvalBatch.model_validate(json.loads(row["batch_json"])) for row in rows]
 
+    def latest_for_spec(self, spec_id: str) -> EvalBatch | None:
+        # spec_id는 batch_json 안에 있다 — 최근부터 훑어 이 spec의 첫 배치를 돌려준다(읽기 전용).
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT batch_json FROM eval_batches ORDER BY rowid DESC"
+            ).fetchall()
+        for row in rows:
+            batch = EvalBatch.model_validate(json.loads(row["batch_json"]))
+            if batch.spec_id == spec_id:
+                return batch
+        return None
+
 
 __all__ = ["SqliteEvalBatchStore"]

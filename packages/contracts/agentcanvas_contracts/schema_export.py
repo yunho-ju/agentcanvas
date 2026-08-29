@@ -18,6 +18,7 @@ from .evaluator_catalog import DEFAULT_EVALUATOR_CATALOG, EvaluatorDef
 from .instruction_catalog import DEFAULT_INSTRUCTION_CATALOG, InstructionPresetDef
 from .model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
 from .node_registry import DEFAULT_NODE_TYPES, NodeType
+from .optimization import OptimizationProposal
 from .release import ReleaseManifest
 from .run import ApprovalAnswer, Run
 from .run_events import RunEvent
@@ -36,6 +37,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "instruction_preset_def": InstructionPresetDef,
     "model_def": ModelDef,
     "node_type": NodeType,
+    "optimization_proposal": OptimizationProposal,
     "release_manifest": ReleaseManifest,
     "run": Run,
     "run_event": RunEvent,

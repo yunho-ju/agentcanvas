@@ -23,7 +23,7 @@ canvas
 | 레이어 | 위치 | 구성 |
 |---|---|---|
 | `.layer-top-left` | 좌상 | DocCard(로고·문서명·메뉴) + HistoryControls(되돌리기 — 항상 보임) |
-| `.layer-top-center` | 상중앙 | ModeSegment (만들기/실행/평가) |
+| `.layer-top-center` | 상중앙 | ModeSegment (만들기/실행/평가/고치기) |
 | `.layer-top-right` | 우상 | 검증 pill + 실행 주 버튼 |
 | 좌측 독 | 좌 | 아이콘 독(36px) — 패널은 클릭 시 옆으로 펼침, **한 번에 하나** |
 | `.layer-right` | 우 | 세로 스택: inspector 카드(선택 시에만) → 이벤트 목록(실행 시) — **겹침 금지, 스택** |
@@ -324,6 +324,19 @@ run-history 카드 비교 선택 (pill variant 확장)
 - 2개 선택 시 compare-view 자동 오픈, 3번째 선택은 가장 오래된 선택을 교체
 - 채택된 실행 카드: '✓ 채택' success 3층 뱃지 (상시, hover 뒤 숨김 금지)
 - **실패로 끝난 실행 카드**: '✕ 실패' danger 3층 뱃지(상시, hover 뒤 숨김 금지 — §9 문제 상시 노출). 종결 상태는 그 실행의 이벤트에서 파생한다(따로 저장하지 않는다)
+
+optimize-card (고치기 — Optimize 모드의 화면, OPT-1)
+- 진입: ModeSegment의 네 번째 항목(쉬운 말 '고치기'). 모드여도 캔버스는 배경에 그대로 — 중앙 모달 금지, 자리는 `.layer-right` 세로 스택(eval-panel과 같은 문법·폭 var(--panel-inspector)). **빈 캔버스에서는 뜨지 않는다** — 고칠 그래프가 있어야 한다(문서 없으면 모드 버튼 disabled + title '먼저 만들거나 열어야 고칠 수 있어요')
+- guided-architect-card의 3상태 흐름(입력→review→승인)을 물려받는다. 다른 점만 적는다
+- 입력 상태: 제목 '무엇을 고칠까요'(--text-title) + 쉬운 설명 한 줄(--text-body — "지금 그래프에서 개선하고 싶은 것을 적으면, 바꿔 볼 후보를 지어 드려요") + objective textarea(.control, placeholder는 초대말 예: "비용을 줄이고 싶어요 / 이 케이스들을 더 맞히고 싶어요") + [후보 지어 줘 primary][그만두기 ghost]. 빈 입력은 primary disabled + title
+- 시험 결과가 없을 때: objective 입력 위 한 줄(--text-caption, ink-soft) '아직 시험 결과가 없어 추측으로 제안해요 — 시험을 먼저 돌리면 더 나은 근거로 고쳐요'(사전 경유). 없는 근거를 지어내지 않는다(§9 정직)
+- 기다림·실패: 비동기 loading/error는 guided 카드 문법. raw 모델 응답·서버 message 원문 미노출(§9). 실패해도 적은 objective 보존
+- review 상태(제안문이 핵심 — 왜 이렇게 바꾸자는지가 후보 검사보다 먼저 읽혀야 한다):
+  - **제안문 묶음**(맨 위): 가설 한 줄(hypothesis, --text-body '왜 지금이 약한가·무엇을 바꾸나') + 대상 노드(target_nodes — 그 노드 이름을 칩으로, 어디를 건드리는지) + 기대 효과(expected_effect, --text-body 서술). **수치를 지어내지 않는다** — 비용·지연 숫자는 텔레메트리(OPT-3) 전까지 없고, 있는 것은 서술뿐(vision '증거 없는 정밀도 금지')
+  - **근거 줄**(evidence): 어느 시험이 근거인가(배치·못 맞힌 케이스 요약, --text-caption). 시험 없이 지은 후보면 '시험 없이 추측으로 지었어요'
+  - **후보 검사 3종**(guided review 그대로): ✓ 계약 확인 / ✓ 흐름 확인 / ✓ 가짜 실행 + [후보 노드 N개·연결 M개] summary
+  - 버튼 행: [이 후보로 바꾸기 primary][다시 적기 ghost]. 승인=보통의 revision(architect 승인 경로 그대로), 1 undo 걸음. 승인 즉시 캔버스가 그 후보로 바뀐다 — 결과가 그 자리에서 보인다. **승인 전에는 그래프·시험·실행 무엇도 바뀌지 않는다**(제안문은 실행물이 아니다)
+- 문구 전부 사전 경유(ko/en 쉬운 말), 4상태는 기존 .control·button 재사용. 실행/저장 왕복 중 잠금은 기존 규칙
 
 eval-panel (시험해 보기 — Evaluate 모드의 화면)
 - 진입: ModeSegment의 새 항목(쉬운 말 '시험'). 모드여도 캔버스는 배경에 그대로 — 중앙 모달 금지, 자리는 `.layer-right` 세로 스택(inspector 문법·폭 var(--panel-inspector))

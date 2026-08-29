@@ -20,6 +20,7 @@ describe("generated contract types", () => {
       "instruction_preset_def",
       "model_def",
       "node_type",
+      "optimization_proposal",
       "run",
       "run_event",
       "schema_def",

@@ -17,6 +17,10 @@ export function ModeSegment() {
   const evalOpen = useEditor((state) => state.evalPanelOpen);
   const enterEvalMode = useEditor((state) => state.enterEvalMode);
   const leaveEvalMode = useEditor((state) => state.leaveEvalMode);
+  // 지금 그래프를 고치는 중인가 — 이 세그먼트에서만 열고 닫는다 (OPT-1).
+  const optimizeOpen = useEditor((state) => state.optimizeMode !== "closed");
+  const enterOptimizeMode = useEditor((state) => state.enterOptimizeMode);
+  const leaveOptimizeMode = useEditor((state) => state.leaveOptimizeMode);
   const t = useT();
 
   return (
@@ -29,6 +33,7 @@ export function ModeSegment() {
         onClick={() => {
           if (running) stopRun();
           if (evalOpen) leaveEvalMode();
+          if (optimizeOpen) leaveOptimizeMode();
         }}
       >
         {t("mode.build")}
@@ -63,6 +68,23 @@ export function ModeSegment() {
         onClick={() => (evalOpen ? leaveEvalMode() : enterEvalMode())}
       >
         {t("mode.eval")}
+      </button>
+      <button
+        type="button"
+        className="mode-segment__option"
+        aria-pressed={optimizeOpen}
+        disabled={spec === null}
+        title={spec === null ? t("mode.optimize.none") : t("mode.optimize.hint")}
+        onClick={() => {
+          if (optimizeOpen) {
+            leaveOptimizeMode();
+            return;
+          }
+          if (evalOpen) leaveEvalMode();
+          enterOptimizeMode();
+        }}
+      >
+        {t("mode.optimize")}
       </button>
     </div>
   );

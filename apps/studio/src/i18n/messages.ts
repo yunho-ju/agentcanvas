@@ -63,6 +63,75 @@ const TEXTS = {
   "architect.check.graph": { ko: "흐름 확인", en: "Flow check" },
   "architect.check.dryRun": { ko: "가짜 실행", en: "Fake run" },
   "architect.summary": { ko: "노드 {nodes}개 · 연결 {edges}개", en: "{nodes} nodes · {edges} connections" },
+
+  // 고치기 패널 (OPT-1 optimize-card — guided-architect-card 상속, 제안문 표시가 핵심)
+  "optimize.title": { ko: "고치기", en: "Improve" },
+  "optimize.description": {
+    ko: "무엇을 개선할지 적으면, 시험 결과를 딛고 고칠 방법을 제안해요.",
+    en: "Say what to improve, and we suggest a change grounded in the test results.",
+  },
+  "optimize.objective.label": { ko: "무엇을 고칠까요", en: "What should improve?" },
+  "optimize.objective.placeholder": {
+    ko: "예: 비용을 줄여요 / 이 케이스들을 더 맞혀요",
+    en: "e.g. cut the cost / get these cases right more often",
+  },
+  "optimize.loading": {
+    ko: "고칠 방법을 찾는 중이에요",
+    en: "Looking for a way to improve it",
+  },
+  "optimize.error.empty": {
+    ko: "무엇을 고칠지 한 줄 적어 주세요.",
+    en: "Write what you want to improve.",
+  },
+  "optimize.error.offline": {
+    ko: "서버에 닿지 못했어요 — 서버가 켜져 있는지 확인하고 다시 해보세요",
+    en: "Could not reach the server — check that it is running and try again",
+  },
+  "optimize.error.strange": {
+    ko: "알 수 없는 답이 왔어요 — 잠시 뒤 다시 해보세요",
+    en: "The answer could not be read — try again in a moment",
+  },
+  "optimize.error.failed": {
+    ko: "고칠 방법을 찾지 못했어요 ({status}) — 잠시 뒤 다시 해보세요",
+    en: "Could not find a way to improve it ({status}) — try again in a moment",
+  },
+  "optimize.build": { ko: "고칠 방법 찾기", en: "Find a way" },
+  "optimize.build.hint": {
+    ko: "목표와 시험 결과를 딛고 후보를 제안받아요",
+    en: "Ask for a candidate grounded in the goal and the test results",
+  },
+  "optimize.build.disabled": {
+    ko: "무엇을 고칠지 먼저 적어 주세요",
+    en: "Write what to improve first",
+  },
+  "optimize.leave": { ko: "그만두기", en: "Never mind" },
+  "optimize.leave.hint": {
+    ko: "그래프를 그대로 두고 닫아요",
+    en: "Close it and leave the graph as it is",
+  },
+  "optimize.review.title": { ko: "이렇게 고칠까요", en: "Improve it this way?" },
+  "optimize.review.checks": { ko: "후보 확인 결과", en: "Candidate review results" },
+  "optimize.expectedEffect": { ko: "기대 효과: ", en: "Expected effect: " },
+  "optimize.targetNodes": { ko: "고칠 자리: ", en: "Where it changes: " },
+  "optimize.targetNodes.none": { ko: "(적히지 않음)", en: "(not stated)" },
+  "optimize.evidence.grounded": {
+    ko: "근거: 최근 시험 {cases}개 케이스 중 {gaps}개가 기대를 못 맞췄어요",
+    en: "Grounded in the recent test: {gaps} of {cases} cases missed what was expected",
+  },
+  "optimize.evidence.guess": {
+    ko: "아직 시험 결과가 없어 추측으로 제안해요 — 시험을 돌리면 근거가 생겨요",
+    en: "There are no test results yet, so this is a guess — run a test to ground it",
+  },
+  "optimize.apply": { ko: "이대로 고치기", en: "Apply this change" },
+  "optimize.apply.hint": {
+    ko: "후보를 지금 그래프에 앉혀요 — 되돌리기로 언제든 물러날 수 있어요",
+    en: "Sits the candidate on the graph — undo takes it right back",
+  },
+  "optimize.back": { ko: "다시 적기", en: "Write again" },
+  "optimize.back.hint": {
+    ko: "무엇을 고칠지 다시 적어요",
+    en: "Go back to what to improve",
+  },
   "architect.apply": { ko: "캔버스에 적용", en: "Apply to canvas" },
   "architect.apply.hint": { ko: "빈 캔버스에 초안을 적용해요", en: "Apply the draft to the empty canvas" },
   "architect.apply.disabled": { ko: "모든 확인을 통과해야 적용할 수 있어요", en: "Every check must pass before applying" },
@@ -558,6 +627,15 @@ const TEXTS = {
   "mode.eval.hint": {
     ko: "케이스를 모아 두고 한 번에 돌려 본다",
     en: "Gathers cases and runs them all at once",
+  },
+  "mode.optimize": { ko: "고치기", en: "Improve" },
+  "mode.optimize.hint": {
+    ko: "지금 그래프를 목표에 맞게 고칠 방법을 제안받는다",
+    en: "Get a suggested way to improve this graph toward a goal",
+  },
+  "mode.optimize.none": {
+    ko: "고칠 그래프가 아직 없어요 — 먼저 무언가 만들어 보세요",
+    en: "There is no graph to improve yet — build something first",
   },
 
   // 실행 버튼과 실행 전 확인

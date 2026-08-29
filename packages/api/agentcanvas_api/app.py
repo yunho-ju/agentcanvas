@@ -31,6 +31,7 @@ from agentcanvas_contracts.architect_patch import AgentSpecPatch
 from agentcanvas_contracts.eval_case import EvalDataset
 from agentcanvas_contracts.eval_result import EvalBatch
 from agentcanvas_contracts.model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
+from agentcanvas_contracts.optimization import OptimizationProposal
 from agentcanvas_contracts.refs import ModelRef
 from agentcanvas_contracts.run import ApprovalAnswer
 from agentcanvas_engine.model_call import ModelCall, says_the_first_way
@@ -85,6 +86,7 @@ from .eval_suggestion_service import (
 )
 from .job_store import DurableJobStore, IdempotencyConflict
 from .job_worker import DurableJobWorker
+from .optimizer_service import OptimizerService
 from .run_service import (
     RunIdMaker,
     RunOutcome,
@@ -265,6 +267,16 @@ class ToolWrapBody(BaseModel):
     replacing: NonEmptyText | None = None
 
 
+class OptimizePreviewBody(BaseModel):
+    """지금 그래프를 objective로 고쳐 달라는 청 — 승인 전에는 문서를 건드리지 않는다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_ref: ModelRef
+    objective: NonEmptyText
+    base_spec: AgentSpec
+
+
 class ArchitectCostEvidence(BaseModel):
     status: Literal["estimate_requires_price_snapshot"]
     estimated_usd: float | None = None
@@ -295,6 +307,12 @@ class ArchitectPatchResponse(BaseModel):
     candidate: AgentSpec
     issues: list[ValidationIssue]
     evidence: ArchitectEvidence | None = None
+
+
+class OptimizePreviewResponse(ArchitectPatchResponse):
+    """architect preview 응답에 제안문 봉투를 더한 것 — patch는 여전히 별도 자리다."""
+
+    proposal: OptimizationProposal
 
 
 class SpecHistory(BaseModel):
@@ -666,14 +684,16 @@ def create_app(
             os.environ if model is None else None,
         ),
     )
+    eval_batch_store_used = (
+        eval_batch_store
+        if eval_batch_store is not None
+        else _default_eval_batch_store(database_path)
+    )
+    optimizer = OptimizerService(asks_a_model, eval_batch_store_used)
     eval_batches = EvalBatchService(
         datasets=eval_dataset_store_used,
         specs=specs,
-        batches=(
-            eval_batch_store
-            if eval_batch_store is not None
-            else _default_eval_batch_store(database_path)
-        ),
+        batches=eval_batch_store_used,
         model=asks_a_model,
         clock=clock,
         worker=worker,
@@ -890,6 +910,26 @@ def create_app(
                 replacing=asked.replacing,
             ),
             guided=True,
+        )
+
+    @app.post("/optimize/preview", response_model=OptimizePreviewResponse)
+    def optimize_preview(asked: OptimizePreviewBody) -> OptimizePreviewResponse:
+        """지금 그래프 + objective + eval 증거 → 후보 patch + 제안문. 승인 전 저장하지 않는다."""
+        _live_provider_or_503(asked.model_ref)
+        outcome, proposal = optimizer.preview(
+            base_spec=asked.base_spec,
+            objective=asked.objective,
+            model_ref=asked.model_ref,
+        )
+        # 거절이면 _architected가 여기서 끝맺는다(Architect/Wrapper와 같은 거절 관례).
+        base = _architected(outcome, guided=True)
+        assert proposal is not None  # 통과한 outcome에는 언제나 제안문이 붙는다
+        return OptimizePreviewResponse(
+            patch=base.patch,
+            candidate=base.candidate,
+            issues=base.issues,
+            evidence=base.evidence,
+            proposal=proposal,
         )
 
     @app.post("/specs", response_model=SavedSpec, status_code=201)

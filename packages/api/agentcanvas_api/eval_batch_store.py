@@ -53,5 +53,12 @@ class EvalBatchStore(Protocol):
         """
         ...
 
+    def latest_for_spec(self, spec_id: str) -> EvalBatch | None:
+        """그 spec을 가장 최근에 돌린 배치. 그 spec을 돈 배치가 없으면 없다.
+
+        Optimizer의 증거 조립(읽기 전용)이 쓴다 — 어느 데이터셋으로 돌렸든 이 spec의 것을 찾는다.
+        """
+        ...
+
 
 __all__ = ["EvalBatchStore", "EvalBatchSummary"]

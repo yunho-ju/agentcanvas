@@ -24,6 +24,7 @@ import { EvalPanel } from "./eval/EvalPanel";
 import { EvalCompareView } from "./eval/EvalCompareView";
 import { FirstStepsCard } from "./guide/FirstStepsCard";
 import { ArchitectPanel } from "./architect/ArchitectPanel";
+import { OptimizePanel } from "./optimize/OptimizePanel";
 import { Inspector } from "./inspector/Inspector";
 import { InspectorFocusProvider } from "./inspector/inspectorFocus";
 import { CompareView } from "./run/CompareView";
@@ -137,6 +138,7 @@ export function App() {
           {/* 시험 모드일 때만 선다 — 캔버스는 배경에 그대로다 (DESIGN §7 eval-panel). */}
           <EvalPanel />
           <ArchitectPanel />
+          <OptimizePanel />
           {/* 처음 온 사람의 네 걸음 — 스택의 마지막에서 안내하고, 다 걸으면 물러난다. */}
           {!architectOpen ? <FirstStepsCard /> : null}
         </div>

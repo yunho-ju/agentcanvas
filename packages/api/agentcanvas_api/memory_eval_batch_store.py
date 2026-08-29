@@ -23,5 +23,11 @@ class InMemoryEvalBatchStore:
         ]
         return matched if limit is None else matched[:limit]
 
+    def latest_for_spec(self, spec_id: str) -> EvalBatch | None:
+        for batch in reversed(list(self._batches.values())):
+            if batch.spec_id == spec_id:
+                return batch
+        return None
+
 
 __all__ = ["InMemoryEvalBatchStore"]

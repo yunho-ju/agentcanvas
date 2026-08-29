@@ -317,6 +317,63 @@ button:disabled {
 .architect-panel__check { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--danger-ink); }
 .architect-panel__check[data-passed="true"] { color: var(--success-ink); }
 
+/* ── 고치기 패널 (OPT-1 optimize-card — guided-architect-card 상속) ───────── */
+.optimize-panel {
+  width: var(--panel-inspector);
+  max-height: calc(100vh - var(--space-6) * 2);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+.optimize-panel__title,
+.optimize-panel__description,
+.optimize-panel__label,
+.optimize-panel__summary,
+.optimize-panel__error,
+.optimize-panel__status,
+.optimize-panel__hypothesis,
+.optimize-panel__effect,
+.optimize-panel__targets,
+.optimize-panel__evidence {
+  margin: 0;
+}
+.optimize-panel__title { font-size: var(--text-title); }
+.optimize-panel__hypothesis { font-size: var(--text-body); color: var(--ink); }
+.optimize-panel__description,
+.optimize-panel__label,
+.optimize-panel__summary,
+.optimize-panel__error,
+.optimize-panel__status,
+.optimize-panel__effect,
+.optimize-panel__targets,
+.optimize-panel__evidence { font-size: var(--text-caption); color: var(--ink-soft); }
+.optimize-panel__field-label { color: var(--ink-faint); }
+.optimize-panel__objective { min-height: calc(var(--space-6) * 3); resize: vertical; }
+.optimize-panel__proposal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+.optimize-panel__actions { display: flex; gap: var(--space-2); }
+.optimize-panel__actions button { padding: var(--space-2) var(--space-3); border: var(--border-hair) solid transparent; border-radius: var(--radius-control); font: inherit; font-size: var(--text-label); font-weight: var(--weight-semibold); cursor: pointer; }
+.optimize-panel__actions .button-primary { background: var(--accent); color: var(--on-accent); }
+.optimize-panel__actions .button-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.optimize-panel__actions .button-primary:active:not(:disabled) { background: var(--accent-active); transform: scale(0.98); }
+.optimize-panel__actions .button-ghost { background: transparent; color: var(--ink-soft); }
+.optimize-panel__actions .button-ghost:hover:not(:disabled) { background: var(--surface-hover); color: var(--ink); }
+.optimize-panel__actions .button-ghost:active:not(:disabled) { background: var(--surface-active); transform: scale(0.98); }
+.optimize-panel__actions button:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.optimize-panel__actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.optimize-panel__checks { display: flex; flex-direction: column; gap: var(--space-1); }
+.optimize-panel__check { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--danger-ink); }
+.optimize-panel__check[data-passed="true"] { color: var(--success-ink); }
+
 /* ── 아이콘 버튼 (독·되돌리기·화면 밝기·설정 닫기가 함께 쓴다) ───────────── */
 
 .icon-button {

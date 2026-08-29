@@ -54,6 +54,7 @@ from .node_registry import (
     config_issues,
     resolve_ports,
 )
+from .optimization import OptimizationProposal, ProposalEvidence
 from .refs import McpRef, ModelRef, PromptRef, SchemaRef, SecretRef, no_raw_secrets
 from .release import Approval, ModelSnapshot, ReleaseManifest
 from .revision import canonical_json, compute_revision
@@ -120,11 +121,13 @@ __all__ = [
     "Node",
     "NodeType",
     "NonEmptyText",
+    "OptimizationProposal",
     "PatchOperation",
     "PortSpec",
     "Ports",
     "Position",
     "PromptRef",
+    "ProposalEvidence",
     "ReleaseManifest",
     "RemoveEdgeOperation",
     "RemoveNodeOperation",

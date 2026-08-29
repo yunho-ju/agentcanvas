@@ -4,6 +4,7 @@ import { selectedEdgeOf, selectedNodeOf } from "../graph/selection";
 import type { FlowEdge, FlowNode } from "../graph/serialize";
 import { type DetachSlice, createDetachSlice } from "./detachSlice";
 import { type ArchitectSlice, createArchitectSlice } from "./architectSlice";
+import { type OptimizeSlice, createOptimizeSlice } from "./optimizeSlice";
 import { type EvalSlice, createEvalSlice } from "./evalSlice";
 import { type EvalSuggestSlice, createEvalSuggestSlice } from "./evalSuggestSlice";
 import { type EvalDatasetSlice, createEvalDatasetSlice } from "./evalDatasetSlice";
@@ -44,6 +45,7 @@ export type EditorState = GraphSlice &
   EvalHistorySlice &
   EvalStandingSlice &
   ArchitectSlice &
+  OptimizeSlice &
   ToolWrapSlice;
 
 export function selectedNode(state: EditorState): FlowNode | undefined {
@@ -56,6 +58,7 @@ export function selectedEdge(state: EditorState): FlowEdge | undefined {
 
 export const useEditor = create<EditorState>()((...args) => ({
   ...createArchitectSlice(...args),
+  ...createOptimizeSlice(...args),
   ...createToolWrapSlice(...args),
   ...createHistorySlice(...args),
   ...createSelectionSlice(...args),

@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "ProposalEvidence": {
+      "additionalProperties": false,
+      "description": "무엇을 근거로 골랐는가 — 어느 eval 배치의 어떤 케이스가 근거인가 (읽기 전용 사실).\n\n시험이 하나도 없으면 batch_id는 없음이고 셈도 0이다: 없는 근거를 지어내지 않는다.\n품질(eval)만 근거로 쓴다 — RunEvent에 token/latency/cost가 없으므로 비용·지연 근거는 없다.",
+      "properties": {
+        "batch_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Id"
+        },
+        "cases": {
+          "default": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "cases_with_gaps": {
+          "default": 0,
+          "title": "Cases With Gaps",
+          "type": "integer"
+        }
+      },
+      "title": "ProposalEvidence",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "왜 이렇게 바꾸자는가 — objective·가설·대상 노드·기대 효과·근거의 봉투.",
+  "properties": {
+    "evidence": {
+      "$ref": "#/$defs/ProposalEvidence"
+    },
+    "expected_effect": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "hypothesis": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "objective": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "target_nodes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Target Nodes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "objective",
+    "hypothesis",
+    "expected_effect",
+    "evidence"
+  ],
+  "title": "OptimizationProposal",
+  "type": "object"
+}
