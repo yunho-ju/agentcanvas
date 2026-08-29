@@ -230,4 +230,14 @@ describe("도구가 일한 자리를 읽는 말", () => {
     expect(said(strange).trim()).not.toBe("");
     expect(said(strange)).not.toContain("sunspots");
   });
+
+  it("도구를 부르기 전 사람 확인 요청은 어느 도구인지 말한다", () => {
+    const asking = toolEvent("human.approval_requested", asked);
+    const gate = toolEvent("human.approval_requested", { approval_schema_ref: "s" });
+
+    // 도구 승인은 밸브 승인과 다른 말이다 — 무엇을 승인하는지(도구 이름)를 말한다.
+    expect(said(asking)).toContain("search_article");
+    expect(said(asking)).not.toBe(said(gate));
+    expect(said(asking, "en")).not.toMatch(/[가-힣]/);
+  });
 });

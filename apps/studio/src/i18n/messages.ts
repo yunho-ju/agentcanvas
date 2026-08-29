@@ -315,6 +315,16 @@ const TEXTS = {
     ko: "이 연결을 문서에서 빼요 — 되돌리기로 언제든 살릴 수 있어요",
     en: "Takes this connection out — undo brings it right back",
   },
+  // 도구를 부를 때 사람 확인을 할지 — 값 둘을 쉬운 말로 (API_TOOLS P3b).
+  "resources.policy.label": {
+    ko: "이 연결의 도구를 부를 때",
+    en: "When this connection's tools are called",
+  },
+  "resources.policy.readOnlyAuto": { ko: "바로 부른다", en: "Call it right away" },
+  "resources.policy.askFirst": {
+    ko: "부를 때마다 물어본다",
+    en: "Ask me every time",
+  },
   "resources.kind.httpApi": { ko: "웹 API 연결", en: "Web API connection" },
   "resources.kind.mcpToolset": {
     ko: "도구 서버 연결",
@@ -491,6 +501,10 @@ const TEXTS = {
   "edit.rename": { ko: "문서 이름 바꾸기", en: "Renaming the document" },
   "edit.takeInConnection": { ko: "연결 들이기", en: "Taking in a connection" },
   "edit.dropConnection": { ko: "연결 지우기", en: "Deleting a connection to tools" },
+  "edit.approvalPolicy": {
+    ko: "사람 확인 정책 바꾸기",
+    en: "Changing when a person is asked",
+  },
   "edit.reimportConnection": {
     ko: "연결 다시 가져오기",
     en: "Bringing a connection in again",
@@ -670,6 +684,11 @@ const TEXTS = {
   "gate.body": {
     ko: "사람이 확인해야 다음으로 가요",
     en: "It goes on once a person has checked it",
+  },
+  // 도구를 부르기 전 확인이면 무엇을 승인하는지 말한다 (API_TOOLS P3b — gate-card 재사용).
+  "gate.tool.body": {
+    ko: "'{tool}' 도구를 불러도 될까요",
+    en: "May the run call the '{tool}' tool?",
   },
   "gate.approve": { ko: "승인하고 계속", en: "Approve and keep going" },
   "gate.reject": { ko: "거절하기", en: "Turn it down" },
@@ -855,6 +874,10 @@ const TEXTS = {
   "event.human.approvalRequested": {
     ko: "'{node}' 노드가 사람의 확인을 기다린다",
     en: "The '{node}' node is waiting for a person to check",
+  },
+  "event.human.toolApprovalRequested": {
+    ko: "'{node}' 노드가 '{tool}' 도구를 불러도 될지 확인을 기다린다",
+    en: "The '{node}' node is waiting for a person to okay calling '{tool}'",
   },
   "event.run.paused": { ko: "실행을 잠시 멈췄다", en: "The run stopped for a moment" },
   "event.run.resumed": {

@@ -1,19 +1,19 @@
 {
   "schema_version": "agent.spec/v1",
-  "id": "article-lookup",
+  "id": "charge-then-check",
   "version": 1,
-  "revision": "sha256:2452ec04bbf1759cf32e9081922f1827099de611469bd8bc26d641354e27a288",
+  "revision": "sha256:c8f15b372728d8f1244dd676e74a6dc4bce89567095e2945f46e082ed6641557",
   "status": "draft",
   "input_schema": {
     "type": "object",
     "properties": {
       "query": {
         "type": "object",
-        "title": "What to look for",
+        "title": "무엇을 청구할지",
         "properties": {
           "text": {
             "type": "string",
-            "title": "The words to search"
+            "title": "청구 내용"
           }
         }
       }
@@ -26,41 +26,43 @@
     "type": "object",
     "properties": {
       "query": {
-        "type": "string"
+        "type": "object"
       },
       "answer": {
         "type": "object"
       },
-      "trouble": {
+      "checked": {
+        "type": "object"
+      },
+      "done": {
         "type": "object"
       }
     }
   },
   "resources": [
     {
-      "id": "article-api",
+      "id": "billing-api",
       "kind": "http.api",
-      "server_ref": "api://article-api",
-      "allowed_tools": [
-        "search_articles"
-      ],
+      "server_ref": "api://billing-api",
+      "allowed_tools": [],
+      "approval_policy": "ask_first",
       "tools": [
         {
-          "name": "search_articles",
+          "name": "charge_card",
           "plain_description": {
-            "ko": "물어본 말과 관련 있는 글을 찾아 목록으로 돌려준다.",
-            "en": "Finds articles about what you asked and lists them."
+            "ko": "카드에서 돈을 청구한다.",
+            "en": "Charges money from the card."
           },
           "input_schema": {
             "type": "object",
             "properties": {
               "query": {
                 "type": "object",
-                "title": "What to look for",
+                "title": "무엇을 청구할지",
                 "properties": {
                   "text": {
                     "type": "string",
-                    "title": "The words to search"
+                    "title": "청구 내용"
                   }
                 }
               }
@@ -70,20 +72,13 @@
             ]
           },
           "output_schema": {
-            "type": "object",
-            "properties": {
-              "articles": {
-                "type": "array",
-                "title": "Articles that were found"
-              }
-            }
+            "type": "object"
           },
           "timeout_ms": 8000,
           "call": {
             "transport": "http",
-            "method": "GET",
-            "url_template": "https://api.example.com/articles/search",
-            "auth": "secret://article-api-key"
+            "method": "POST",
+            "url_template": "https://api.example.com/charge"
           }
         }
       ]
@@ -94,8 +89,8 @@
       "id": "input",
       "type": "core.input",
       "position": {
-        "x": 80,
-        "y": 240
+        "x": 0,
+        "y": 0
       },
       "config": {
         "bindings": {
@@ -104,58 +99,69 @@
       }
     },
     {
-      "id": "lookup",
+      "id": "charge",
       "type": "tool.mcp",
       "position": {
-        "x": 400,
-        "y": 240
+        "x": 200,
+        "y": 0
       },
       "config": {
-        "resource_ref": "article-api",
-        "tool_name": "search_articles"
+        "resource_ref": "billing-api",
+        "tool_name": "charge_card"
       }
     },
     {
       "id": "answer",
       "type": "core.output",
       "position": {
-        "x": 720,
-        "y": 160
+        "x": 400,
+        "y": 0
       },
       "config": {
         "binding": "state.answer"
       }
     },
     {
-      "id": "trouble",
-      "type": "core.output",
+      "id": "gate",
+      "type": "control.human_gate",
       "position": {
-        "x": 720,
-        "y": 340
+        "x": 400,
+        "y": 200
       },
       "config": {
-        "binding": "state.trouble"
+        "approval_schema_ref": "schema://checked@1"
+      }
+    },
+    {
+      "id": "done",
+      "type": "core.output",
+      "position": {
+        "x": 600,
+        "y": 200
+      },
+      "config": {
+        "binding": "state.done"
       }
     }
   ],
   "edges": [
     {
-      "id": "input-lookup",
+      "id": "input-charge",
       "kind": "data",
       "source": {
         "node": "input",
         "port": "query"
       },
       "target": {
-        "node": "lookup",
+        "node": "charge",
         "port": "input"
       }
     },
     {
-      "id": "lookup-answer",
+      "id": "charge-answer",
       "kind": "data",
       "source": {
-        "node": "lookup",
+        "node": "charge",
         "port": "result"
       },
       "target": {
@@ -164,14 +170,26 @@
       }
     },
     {
-      "id": "lookup-trouble",
-      "kind": "data",
+      "id": "charge-gate",
+      "kind": "approval",
       "source": {
-        "node": "lookup",
+        "node": "charge",
         "port": "error"
       },
       "target": {
-        "node": "trouble",
+        "node": "gate",
+        "port": "review"
+      }
+    },
+    {
+      "id": "gate-done",
+      "kind": "control",
+      "source": {
+        "node": "gate",
+        "port": "approved"
+      },
+      "target": {
+        "node": "done",
         "port": "input"
       }
     }

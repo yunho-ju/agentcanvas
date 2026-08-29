@@ -32,7 +32,8 @@ export function asServerAnswer(spec: AgentSpec): AgentSpec {
       kind: resource.kind,
       server_ref: resource.server_ref,
       allowed_tools: resource.allowed_tools ?? [],
-      approval_policy: resource.approval_policy,
+      // 서버는 정책을 적지 않은 연결에 계약 기본값(read_only_auto)을 채워 돌려준다.
+      approval_policy: resource.approval_policy ?? "read_only_auto",
       // 도구의 처리 방법은 아무 말이 없으면 계약이 "통째로"라고 대신 적어 준다.
       tools: (resource.tools ?? []).map((tool) => ({
         ...tool,

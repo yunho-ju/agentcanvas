@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.agent_spec import AgentSpec, coerce_known_policies
 
 from .sqlite_database import PreparedDatabase
 from .store import (
@@ -134,7 +134,9 @@ class SqliteSpecStore:
 
     def _stored(self, row: sqlite3.Row) -> StoredSpec:
         return StoredSpec(
-            spec=AgentSpec.model_validate(json.loads(row["spec_json"])),
+            spec=AgentSpec.model_validate(
+                coerce_known_policies(json.loads(row["spec_json"]))
+            ),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 

@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from agentcanvas_contracts.agent_spec import AgentSpec, Node, ResourceBinding
+from agentcanvas_contracts.agent_spec import (
+    AgentSpec,
+    ApprovalPolicy,
+    Node,
+    ResourceBinding,
+)
 from agentcanvas_contracts.node_registry import (
     DEFAULT_NODE_TYPES,
     TOOL_NAME_FIELD,
@@ -24,6 +29,39 @@ from .tool_call import ToolBalked, ToolReturned
 #: 도구가 잘 끝났을 때와 어그러졌을 때, 그 결과가 나가는 포트.
 #: 사람의 답이 나가는 두 포트(PORT_BY_ANSWER)와 같은 문법이다 — 결과에 따라 한쪽만 흐른다.
 PORT_BY_OUTCOME = {True: "result", False: "error"}
+
+#: 사람이 도구 실행을 멈춰 세웠을 때 error 포트로 흐르는 값의 까닭.
+STOPPED_BY_PERSON = "stopped_by_person"
+
+
+def wants_approval(binding: ResourceBinding) -> bool:
+    """이 연결은 도구를 부르기 전에 사람에게 물어보는가 — 정책이 정한다."""
+    return binding.approval_policy is ApprovalPolicy.ASK_FIRST
+
+
+def asks_the_person(node: Node, binding: ResourceBinding, tool: ToolDef) -> _Emission:
+    """도구를 부르기 전에 사람에게 청하는 일 — 무엇을 승인하는지 함께 적는다.
+
+    사람 확인 밸브(control.human_gate)와 같은 이벤트를 쓰되, 이 승인이 **어느 도구
+    호출을 위한 것인지**를 payload에 실어 카드가 무엇을 묻는지 알 수 있게 한다.
+    """
+    return _Emission(
+        EventType.HUMAN_APPROVAL_REQUESTED,
+        {
+            "node_id": node.id,
+            "resource_ref": binding.id,
+            "tool_name": tool.name,
+        },
+        node.id,
+    )
+
+
+def stopped(node: Node) -> dict[str, object]:
+    """사람이 멈춰 세운 자리 — error 포트로 흐르는 값(도구 실패와 같은 모양)."""
+    return {
+        "reason": STOPPED_BY_PERSON,
+        "message": f"a person stopped the tool on node {node.id!r} before it ran",
+    }
 
 
 def tool_name_field(node: Node) -> str | None:
@@ -163,11 +201,15 @@ def completed(
 
 __all__ = [
     "PORT_BY_OUTCOME",
+    "STOPPED_BY_PERSON",
+    "asks_the_person",
     "checked",
     "completed",
     "input_for",
     "is_allowed",
     "points_at",
     "requested",
+    "stopped",
     "tool_name_field",
+    "wants_approval",
 ]

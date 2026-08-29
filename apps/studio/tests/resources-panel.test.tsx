@@ -306,6 +306,41 @@ describe("연결을 고치고 지우기", () => {
       expect(button).toBeDisabled();
       expect(button).toHaveAttribute("title", expect.stringContaining("실행"));
     }
+    expect(within(connectionRow()).getByRole("combobox")).toBeDisabled();
+  });
+
+  function policySelect() {
+    return within(connectionRow()).getByRole("combobox", {
+      name: "이 연결의 도구를 부를 때",
+    });
+  }
+
+  it("연결 줄에서 도구를 부를 때 사람 확인을 할지 쉬운 말로 고른다", async () => {
+    render(<App />);
+    await openPanel();
+
+    const select = policySelect() as HTMLSelectElement;
+    // 정책을 적지 않은 연결은 기본값 — 바로 부른다.
+    expect(select.value).toBe("read_only_auto");
+    expect(
+      within(select).getByRole("option", { name: "바로 부른다" }),
+    ).toBeInTheDocument();
+    expect(
+      within(select).getByRole("option", { name: "부를 때마다 물어본다" }),
+    ).toBeInTheDocument();
+  });
+
+  it("고르면 그 자리에서 문서에 반영되고, 되돌리기 한 걸음으로 돌아간다", async () => {
+    render(<App />);
+    await openPanel();
+    const steps = store().undoStack.length;
+
+    await userEvent.selectOptions(policySelect(), "ask_first");
+
+    expect(store().spec?.resources?.[0].approval_policy).toBe("ask_first");
+    expect(store().undoStack.length).toBe(steps + 1);
+    act(() => store().undo());
+    expect(store().spec?.resources?.[0].approval_policy).not.toBe("ask_first");
   });
 
   it("다시 가져오기는 그 연결을 제목에 걸고 카드를 연다", async () => {

@@ -6,7 +6,7 @@ import { LOCALES, type Locale } from "../src/i18n/locale";
 import { MESSAGES, type Message, type MessageKey, msg, translate } from "../src/i18n/messages";
 
 /** 빈칸을 채울 대역 — 내부 이름표처럼 생긴 값을 일부러 넣는다. */
-const STAND_IN = { id: "human-gate", label: "검토 의견" };
+const STAND_IN = { id: "human-gate", label: "검토 의견", tool: "charge_card" };
 
 const GATE_KEYS = (Object.keys(MESSAGES) as MessageKey[]).filter((key) =>
   key.startsWith("gate."),

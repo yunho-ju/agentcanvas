@@ -49,6 +49,7 @@ from .node_work import (
 )
 from .run_log import (
     ROUTE,
+    _answer_payload,
     _answers_from,
     _Emission,
     _nodes_that_worked,
@@ -65,12 +66,15 @@ from .tool_call import (
 )
 from .tool_work import (
     PORT_BY_OUTCOME,
+    asks_the_person,
     checked,
     completed,
     input_for,
     is_allowed,
     points_at,
     requested,
+    stopped,
+    wants_approval,
 )
 
 #: 사람의 답이 흘러나가는 두 포트 — 답에 따라 그중 한쪽의 연결만 흐른다.
@@ -160,13 +164,19 @@ class _Flow:
         """
         again = node.id in self._already_worked
         answer = self._answers.get(node.id)
-        if answer is not None:
+        # 사람의 답이 나가는 두 포트는 밸브의 것이다 — 도구는 result/error로 스스로 가른다.
+        if answer is not None and kind_of(node).waits_for_person:
             self._went_out_by[node.id] = PORT_BY_ANSWER[answer.approved]
         if kind_of(node).waits_for_person and answer is None:
             # 답이 오기 전에는 어느 갈래도 흐르지 않는다 — 답이 적히지 않은 옛 기록도 다시 묻지 않는다.
             if again:
                 return [], []
             return _holds(node), None
+        if not again and answer is None:
+            # 부를 때마다 물어보는 연결의 도구는 부르기 전에 멈춰 사람을 기다린다 (기존 hold 재사용).
+            asking = self._asks_before_the_tool(node)
+            if asking is not None:
+                return asking, None
         said: list[_Emission] = []
         if not again:
             said.extend(self._works(node, answer))
@@ -187,11 +197,12 @@ class _Flow:
 
         모델에게 물어보지 못한 노드는 마쳤다고 말하지 않는다: 일어나지 않은 일을 적지 않는다.
         """
-        own = (
-            _resumes(node, answer)
-            if answer is not None
-            else self._starts_and_finishes(node)
-        )
+        if answer is None:
+            own = self._starts_and_finishes(node)
+        elif kind_of(node).runs_a_tool:
+            own = self._resumes_a_tool(node, answer)
+        else:
+            own = _resumes(node, answer)
         return [replace(emission, node_id=node.id) for emission in own]
 
     def _starts_and_finishes(self, node: Node) -> list[_Emission]:
@@ -259,8 +270,15 @@ class _Flow:
                 ),
             )
             return told
+        return [*told, *self._makes_the_call(node, binding, tool)]
+
+    def _makes_the_call(self, node: Node, binding, tool) -> list[_Emission]:
+        """실제로 도구를 부르는 자리 — 부탁하고, 받은 것(또는 어그러진 까닭)을 적는다.
+
+        정책 확인(allowed_tools)은 이미 앞에서 끝났다: 이 자리는 부르는 일만 한다.
+        """
         given = input_for(tool, self._state)
-        told.append(requested(node, binding, tool, given))
+        told = [requested(node, binding, tool, given)]
         answer = self._tool(ToolAsk(node=node, binding=binding, tool=tool, input=given))
         if (
             isinstance(answer, ToolBalked)
@@ -271,6 +289,60 @@ class _Flow:
             return told
         self._took(node, answer)
         return [*told, completed(node, binding, tool, answer)]
+
+    def _asks_before_the_tool(self, node: Node) -> list[_Emission] | None:
+        """부를 때마다 물어보는 연결의 도구는 부르기 전에 멈춰 사람을 기다린다.
+
+        gate와 같은 hold를 쓰되, 무엇을 승인하는지(어느 도구 호출)를 함께 적는다.
+        읽지 못하는 문서·못 쓰는 도구는 여기서 멈추지 않고 평소의 balk 자리로 흘려보낸다:
+        사람에게 승인하라고 청하기 전에 그 그림이 성립해야 한다.
+        """
+        if not kind_of(node).runs_a_tool:
+            return None
+        found = points_at(self._spec, node)
+        if isinstance(found, ToolBalked):
+            return None
+        binding, tool = found
+        if not is_allowed(binding, tool) or not wants_approval(binding):
+            return None
+        return [
+            _Emission(EventType.NODE_QUEUED, {"node_type": node.type}, node.id),
+            _Emission(EventType.NODE_STARTED, {"node_type": node.type}, node.id),
+            replace(checked(node, binding, tool, True), node_id=node.id),
+            asks_the_person(node, binding, tool),
+            _Emission(EventType.RUN_PAUSED, {"waiting_for": node.id}, node.id),
+        ]
+
+    def _resumes_a_tool(self, node: Node, answer: ApprovalAnswer) -> list[_Emission]:
+        """사람이 답한 뒤 도구 노드가 마치는 일 — 허락하면 부르고, 멈추면 부르지 않는다.
+
+        정책 확인은 멈춰 설 때 이미 적혔다: 여기서 다시 적지 않는다.
+        허락하면 그때 도구를 부르고(정확히 한 번), 멈추면 error 포트로 "사람이 멈췄어요"가
+        흐른다 — 부르지 않은 것을 적지 않는다.
+        """
+        # 무엇을 답했는지 함께 적는다 — 사람이 멈춘 자리는 초록불이 아니라 '멈춤'으로 보인다
+        # (control.human_gate 거절과 같은 세 번째 결말을 화면이 재사용한다).
+        said = _answer_payload(answer)
+        resumed = _Emission(EventType.RUN_RESUMED, {"waiting_for": node.id, **said})
+        if not answer.approved:
+            self._came_out_of[node.id] = stopped(node)
+            self._went_out_by[node.id] = PORT_BY_OUTCOME[False]
+            return [
+                resumed,
+                _Emission(EventType.NODE_COMPLETED, {"node_type": node.type, **said}),
+            ]
+        found = points_at(self._spec, node)
+        # 멈춰 설 때 성립했던 그림이라 여기서는 언제나 연결·도구를 찾는다.
+        assert not isinstance(found, ToolBalked)
+        binding, tool = found
+        calls = self._makes_the_call(node, binding, tool)
+        if self._balked is not None:
+            return [resumed, *calls]
+        return [
+            resumed,
+            *calls,
+            _Emission(EventType.NODE_COMPLETED, {"node_type": node.type}),
+        ]
 
     def _took(self, node: Node, answer: ToolReturned | ToolBalked) -> None:
         """도구가 낸 것과 그것이 나가는 포트를 기억한다 — 다음 노드가 그 자리에서 받는다."""
@@ -515,6 +587,23 @@ def spoken_llm_texts(spec: AgentSpec, events: Sequence[RunEvent]) -> list[str]:
     return [said for _node_id, said in _spoken_events(spec, events)]
 
 
+def _gate_answers_in(
+    spec: AgentSpec, events: Sequence[RunEvent]
+) -> dict[str, ApprovalAnswer]:
+    """사람이 답한 밸브들 — **control.human_gate만** 답을 남긴다.
+
+    도구 노드도 node.completed에 approved를 적지만(거절이면 error 포트로 갈렸다는 표시일 뿐),
+    그것은 밸브의 answer가 아니다. gate는 answer를 남기고 tool은 포트를 남긴다 — 두 벌로 겹쳐
+    쓰지 않는다. 이 갈림이 없으면 거절된 도구가 answer로 오인돼 갈래가 어긋난다.
+    """
+    gate_ids = {node.id for node in spec.nodes if kind_of(node).waits_for_person}
+    return {
+        node_id: answer
+        for node_id, answer in _answers_from(events).items()
+        if node_id in gate_ids
+    }
+
+
 def _tool_events(events: Sequence[RunEvent]) -> Iterator[tuple[str, dict]]:
     """도구가 끝난 사건들 — (노드 id, 그때 적힌 것) 쌍이다."""
     for event in events:
@@ -533,12 +622,27 @@ def _tools_gave_in(events: Sequence[RunEvent]) -> dict[str, object]:
     }
 
 
-def _ports_taken_in(events: Sequence[RunEvent]) -> dict[str, str]:
-    """도구가 낸 것이 이미 나간 포트 — 이어 달려도 같은 갈래가 흐른다."""
-    return {
+def _ports_taken_in(spec: AgentSpec, events: Sequence[RunEvent]) -> dict[str, str]:
+    """도구 노드의 결과가 이미 나간 포트 — 이어 달려도 같은 갈래만 흐른다.
+
+    도구가 불렸으면 tool.completed가 result/error를 가른다. 사람이 부르기 전에 멈춰 세운
+    도구는 tool.completed가 없다 — 그 결말은 node.completed{approved:false}가 error 포트로
+    말한다. 두 결말 모두 여기서 복원해야, 뒤이은 pause를 재개할 때 성공 갈래가 허위로 살아나지
+    않는다(거절했는데 result 브랜치가 흐르는 거짓 초록불 금지).
+    """
+    tool_ids = {node.id for node in spec.nodes if kind_of(node).runs_a_tool}
+    taken = {
         node_id: PORT_BY_OUTCOME[bool(told.get("ok"))]
         for node_id, told in _tool_events(events)
     }
+    for event in events:
+        if (
+            event.event_type is EventType.NODE_COMPLETED
+            and event.node_id in tool_ids
+            and event.payload.get("approved") is False
+        ):
+            taken[event.node_id] = PORT_BY_OUTCOME[False]
+    return taken
 
 
 @dataclass(frozen=True)
@@ -595,11 +699,11 @@ def resume_routed_run_stream(
         model,
         state=_state_from(so_far),
         already_worked=_nodes_that_worked(so_far),
-        answers={**_answers_from(so_far), read.valve: approval},
+        answers={**_gate_answers_in(spec, so_far), read.valve: approval},
         already_reached=[read.valve],
         already_said={**_spoken_in(spec, so_far), **_tools_gave_in(so_far)},
         tool=tool,
-        already_took=_ports_taken_in(so_far),
+        already_took=_ports_taken_in(spec, so_far),
     )
     yield from _stamped(spec, so_far[0].run_id, clock, flow.go(), start=len(so_far))
 

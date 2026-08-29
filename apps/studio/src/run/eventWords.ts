@@ -129,7 +129,14 @@ const SENTENCE: Record<EventType, (event: RunEvent, run: RunEvent[]) => Message>
       to: textOf(event, "to", "event.state.to"),
     }),
   "checkpoint.created": () => msg("event.checkpoint.created"),
-  "human.approval_requested": aboutNode("event.human.approvalRequested"),
+  // 도구를 부르기 전 사람 확인은 무엇을 승인하는지(도구 이름) 말한다 — 밸브 승인과 다른 말이다.
+  "human.approval_requested": (event) =>
+    textIn(event.payload, "tool_name") !== undefined
+      ? msg("event.human.toolApprovalRequested", {
+          node: nodeName(event),
+          tool: toolName(event),
+        })
+      : msg("event.human.approvalRequested", { node: nodeName(event) }),
   "run.paused": () => msg("event.run.paused"),
   // 사람의 답은 흐름을 다시 열기도 하고 여기서 마치기도 한다 — 같은 사건이 두 가지를 말한다.
   "run.resumed": (event) =>

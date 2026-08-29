@@ -61,7 +61,7 @@ def binding(binding_id: str) -> dict:
         "id": binding_id,
         "kind": "mcp",
         "server_ref": f"mcp://{binding_id}",
-        "approval_policy": "ask",
+        "approval_policy": "ask_first",
     }
 
 

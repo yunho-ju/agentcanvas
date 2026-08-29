@@ -57,6 +57,15 @@
       "title": "AddResourceOperation",
       "type": "object"
     },
+    "ApprovalPolicy": {
+      "description": "연결이 도구를 부르기 전에 사람에게 물어보는가.\n\n값은 둘뿐이다: 바로 부르거나(read_only_auto, 기본), 부를 때마다 사람의 확인을\n기다린다(ask_first). \"무엇을 쓸 수 있나\"는 allowed_tools가 이미 정하므로,\n\"부르지 마라\" 같은 세 번째 값은 두지 않는다.",
+      "enum": [
+        "read_only_auto",
+        "ask_first"
+      ],
+      "title": "ApprovalPolicy",
+      "type": "string"
+    },
     "ChunkRule": {
       "additionalProperties": false,
       "description": "긴 글을 어떤 단위로 얼마씩 자를지.",
@@ -520,9 +529,8 @@
           "type": "array"
         },
         "approval_policy": {
-          "minLength": 1,
-          "title": "Approval Policy",
-          "type": "string"
+          "$ref": "#/$defs/ApprovalPolicy",
+          "default": "read_only_auto"
         },
         "id": {
           "minLength": 1,
@@ -550,8 +558,7 @@
       "required": [
         "id",
         "kind",
-        "server_ref",
-        "approval_policy"
+        "server_ref"
       ],
       "title": "ResourceBinding",
       "type": "object"

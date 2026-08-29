@@ -305,3 +305,23 @@ describe("a node whose tool could not finish", () => {
     expect(toolFellShortIn(events)).toBe(false);
   });
 });
+
+// 사람이 도구 실행을 멈춰 세운 노드는 초록불이 아니라 '멈춤'으로 보인다 (API_TOOLS P3b).
+describe("사람이 멈춰 세운 도구 노드", () => {
+  function rejectedTool(): RunEvent[] {
+    const started = events[seqOfFirst("node.started", "input")];
+    return [
+      ...events.slice(0, started.seq + 1),
+      { ...started, seq: 92, event_type: "human.approval_requested", payload: { node_id: "input", tool_name: "charge_card" } },
+      { ...started, seq: 93, event_type: "run.paused", payload: { waiting_for: "input" } },
+      { ...started, seq: 94, event_type: "run.resumed", payload: { waiting_for: "input", approved: false } },
+      { ...started, seq: 95, event_type: "node.completed", payload: { node_type: "tool.mcp", approved: false } },
+    ];
+  }
+
+  it("마친 것도 실패한 것도 아닌 '멈춤' 결말로 보인다 — 초록불이 아니다", () => {
+    const status = nodeRunFacts(rejectedTool(), 95).input.status;
+    expect(status).toBe("rejected");
+    expect(status).not.toBe("completed");
+  });
+});

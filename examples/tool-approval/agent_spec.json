@@ -1,8 +1,8 @@
 {
   "schema_version": "agent.spec/v1",
-  "id": "article-lookup",
+  "id": "article-lookup-ask-first",
   "version": 1,
-  "revision": "sha256:2452ec04bbf1759cf32e9081922f1827099de611469bd8bc26d641354e27a288",
+  "revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
   "status": "draft",
   "input_schema": {
     "type": "object",
@@ -86,7 +86,8 @@
             "auth": "secret://article-api-key"
           }
         }
-      ]
+      ],
+      "approval_policy": "ask_first"
     }
   ],
   "nodes": [

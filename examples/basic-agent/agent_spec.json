@@ -28,7 +28,6 @@
       "kind": "mcp.toolset",
       "server_ref": "mcp://clinical-reference",
       "allowed_tools": ["search_article", "get_article"],
-      "approval_policy": "read_only_auto",
       "tools": [
         {
           "name": "search_article",

@@ -1594,6 +1594,14 @@ button:disabled {
   color: var(--ink-soft);
 }
 
+/* 도구 승인 카드가 무엇을 하는 도구인지 쉬운 말로 한 줄 더한다 (API_TOOLS P3b). */
+.gate-card__tool-what {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: var(--leading-body);
+  color: var(--ink-soft);
+}
+
 /* 사람이 값을 적는 자리 — 묻는 말과 답하는 버튼 사이에 선다 (세로 스택). */
 .gate-card__form {
   display: flex;
@@ -4711,6 +4719,19 @@ button:disabled {
 .palette__tool:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* 도구를 부를 때 사람 확인을 할지 — 라벨 위, 셀렉트 아래의 세로 한 줄 (API_TOOLS P3b). */
+.resources-panel__policy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.resources-panel__policy-label {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
 }
 
 .resources-panel__actions {

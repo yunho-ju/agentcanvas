@@ -227,14 +227,14 @@ def test_a_binding_can_be_added_and_the_revision_moves_with_it():
 def test_replacing_a_binding_swaps_the_whole_binding_including_its_tools():
     base = a_spec([a_binding("clinical-reference", a_tool("search_article"))])
     replacement = a_binding("clinical-reference", a_tool("get_article"))
-    replacement["approval_policy"] = "ask_every_time"
+    replacement["approval_policy"] = "ask_first"
     patch = a_patch(base, {"op": "replace_resource", "resource": replacement})
 
     candidate = apply_patch(base, patch)
 
     assert [resource.id for resource in candidate.resources] == ["clinical-reference"]
     assert [tool.name for tool in candidate.resources[0].tools] == ["get_article"]
-    assert candidate.resources[0].approval_policy == "ask_every_time"
+    assert candidate.resources[0].approval_policy == "ask_first"
 
 
 def test_replacing_a_binding_leaves_it_where_it_was():

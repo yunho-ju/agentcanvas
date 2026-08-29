@@ -502,3 +502,274 @@ class TestPickingTheRunBackUp:
             and event.payload["node_id"] == "after"
         ]
         assert asked_after[0]["input"] == {"review": gave}
+
+
+def ask_first(**overrides) -> dict:
+    return a_binding(approval_policy="ask_first", **overrides)
+
+
+def counting_tool():
+    """무엇을 몇 번 불렸는지 세는 도구 — 승인 후 정확히 한 번만 불려야 한다."""
+    asked: list[ToolAsk] = []
+
+    def tool(ask: ToolAsk) -> ToolReturned:
+        asked.append(ask)
+        return echoes_the_input(ask)
+
+    return asked, tool
+
+
+class TestAToolThatAsksFirst:
+    def test_read_only_auto_still_runs_without_asking_anyone(self):
+        events = ran(a_spec())
+
+        assert "human.approval_requested" not in kinds(events)
+        assert payload_of(events, EventType.TOOL_COMPLETED)["ok"] is True
+
+    def test_it_stops_to_ask_before_calling_the_tool(self):
+        asked, tool = counting_tool()
+
+        events = ran(a_spec(binding=ask_first()), tool)
+
+        assert kinds(events).count("tool.policy_checked") == 1
+        requested_the_person = payload_of(events, EventType.HUMAN_APPROVAL_REQUESTED)
+        assert requested_the_person["resource_ref"] == "article-api"
+        assert requested_the_person["tool_name"] == "search_article"
+        assert events[-1].event_type is EventType.RUN_PAUSED
+        # 아직 부르지 않았다 — 부르지 않은 것을 적지 않는다.
+        assert "tool.requested" not in kinds(events)
+        assert asked == []
+
+    def test_the_policy_check_comes_before_the_person_is_asked(self):
+        events = ran(a_spec(binding=ask_first()))
+        order = kinds(events)
+
+        assert order.index("tool.policy_checked") < order.index(
+            "human.approval_requested"
+        )
+
+    def test_a_tool_not_on_the_list_is_refused_before_anyone_is_asked(self):
+        """정책보다 먼저 allowed_tools가 말한다 — 못 쓰는 도구는 승인 물음까지 가지 않는다."""
+        events = ran(
+            a_spec(binding=ask_first(allowed_tools=["get_article"]), error_edge=True)
+        )
+
+        assert payload_of(events, EventType.TOOL_POLICY_CHECKED)["allowed"] is False
+        assert events[-1].event_type is EventType.RUN_FAILED
+        assert events[-1].payload["reason"] == "not_allowed"
+        assert "human.approval_requested" not in kinds(events)
+
+
+class TestApprovingAToolCall:
+    def test_the_tool_runs_after_the_person_says_yes(self):
+        asked, tool = counting_tool()
+        spec = a_spec(binding=ask_first())
+        held = ran(spec, tool)
+
+        carried_on = resume_routed_run(spec, held, approved(), tool=tool)
+
+        after = kinds(carried_on)
+        assert "run.resumed" in after
+        assert after.count("tool.requested") == 1
+        assert payload_of(carried_on, EventType.TOOL_COMPLETED)["ok"] is True
+        # 정확히 한 번 — 승인이 도구를 두 번 부르지 않는다.
+        assert len(asked) == 1
+        assert carried_on[-1].event_type is EventType.RUN_COMPLETED
+
+    def test_the_result_flows_out_the_result_port(self):
+        spec = a_spec(binding=ask_first())
+        held = ran(spec)
+
+        carried_on = resume_routed_run(spec, held, approved())
+
+        crossed = [
+            event.payload
+            for event in carried_on
+            if event.event_type is EventType.STATE_PATCH
+            and event.payload.get("edge_id") == "lookup-answer"
+        ]
+        assert (
+            crossed[0]["patch"][0]["value"]
+            == payload_of(carried_on, EventType.TOOL_COMPLETED)["result"]
+        )
+
+    def test_resuming_again_does_not_call_the_tool_a_second_time(self):
+        """멱등 — 이미 마친 도구는 다시 부르지 않는다 (durable 재개)."""
+        asked, tool = counting_tool()
+        spec = a_spec(binding=ask_first())
+        held = ran(spec, tool)
+        done = resume_routed_run(spec, held, approved(), tool=tool)
+
+        again = resume_routed_run(spec, done, approved(), tool=tool)
+
+        assert len(asked) == 1
+        assert again[-1].event_type is EventType.RUN_COMPLETED
+
+
+class TestStoppingAToolCall:
+    def test_the_tool_is_not_called_when_the_person_says_no(self):
+        asked, tool = counting_tool()
+        spec = a_spec(binding=ask_first(), error_edge=True)
+        held = ran(spec, tool)
+
+        carried_on = resume_routed_run(spec, held, rejected(), tool=tool)
+
+        assert "tool.requested" not in kinds(carried_on)
+        assert asked == []
+
+    def test_the_stop_flows_out_the_error_port(self):
+        spec = a_spec(binding=ask_first(), error_edge=True)
+        held = ran(spec)
+
+        carried_on = resume_routed_run(spec, held, rejected())
+
+        crossed = [
+            event.payload
+            for event in carried_on
+            if event.event_type is EventType.STATE_PATCH
+            and event.payload.get("edge_id") == "lookup-trouble"
+        ]
+        assert crossed and crossed[0]["patch"][0]["value"]["reason"] == (
+            "stopped_by_person"
+        )
+        assert not [
+            event
+            for event in carried_on
+            if event.event_type is EventType.STATE_PATCH
+            and event.payload.get("edge_id") == "lookup-answer"
+        ]
+
+
+def rejected() -> ApprovalAnswer:
+    return ApprovalAnswer(approved=False)
+
+
+def a_multi_pause_spec() -> AgentSpec:
+    """리뷰어 재현 그래프: 도구 거절이 error 포트로 gate에 닿고, gate 승인이 또 재개된다.
+
+    input -> lookup(ask_first) --result--> answer
+                              \\--error--> gate(human) --approved--> done
+    거절하면 result 갈래(answer)는 흐르지 않아야 한다 — 2차 재개에서도.
+    """
+    draft = AgentSpec(
+        schema_version="agent.spec/v1",
+        id="two-pauses",
+        name=None,
+        version=1,
+        revision="sha256:" + "0" * 64,
+        status=AgentStatus.DRAFT,
+        input_schema={"type": "object", "properties": {"query": {"type": "string"}}},
+        state_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "answer": {"type": "object"},
+                "checked": {"type": "object"},
+                "done": {"type": "object"},
+            },
+        },
+        nodes=[
+            Node(
+                id="input",
+                type="core.input",
+                position=Position(x=0, y=0),
+                config={"bindings": {"query": "input.query"}},
+            ),
+            Node(
+                id="lookup",
+                type="tool.mcp",
+                position=Position(x=200, y=0),
+                config={"resource_ref": "article-api", "tool_name": "search_article"},
+            ),
+            Node(
+                id="answer",
+                type="core.output",
+                position=Position(x=400, y=0),
+                config={"binding": "state.answer"},
+            ),
+            Node(
+                id="gate",
+                type="control.human_gate",
+                position=Position(x=400, y=200),
+                config={"approval_schema_ref": "schema://checked@1"},
+            ),
+            Node(
+                id="done",
+                type="core.output",
+                position=Position(x=600, y=200),
+                config={"binding": "state.done"},
+            ),
+        ],
+        edges=[
+            Edge(
+                id="input-lookup",
+                kind="data",
+                source=EdgeEndpoint(node="input", port="query"),
+                target=EdgeEndpoint(node="lookup", port="input"),
+            ),
+            Edge(
+                id="lookup-answer",
+                kind="data",
+                source=EdgeEndpoint(node="lookup", port="result"),
+                target=EdgeEndpoint(node="answer", port="input"),
+            ),
+            Edge(
+                id="lookup-gate",
+                kind="approval",
+                source=EdgeEndpoint(node="lookup", port="error"),
+                target=EdgeEndpoint(node="gate", port="review"),
+            ),
+            Edge(
+                id="gate-done",
+                kind="control",
+                source=EdgeEndpoint(node="gate", port="approved"),
+                target=EdgeEndpoint(node="done", port="input"),
+            ),
+        ],
+        resources=[ResourceBinding.model_validate(ask_first())],
+        execution=None,
+    )
+    return draft.model_copy(update={"revision": draft.computed_revision()})
+
+
+def worked_nodes(events: list[RunEvent]) -> list[str]:
+    return [
+        event.node_id
+        for event in events
+        if event.event_type is EventType.NODE_COMPLETED and event.node_id is not None
+    ]
+
+
+class TestRejectingAToolThatFeedsAnotherPause:
+    def test_the_result_branch_never_runs_after_the_tool_was_stopped(self):
+        """거절한 도구의 성공 갈래는 2차 재개에서도 살아나지 않는다 (거짓 초록불 재발 금지)."""
+        spec = a_multi_pause_spec()
+        asked, tool = counting_tool()
+
+        held = ran(spec, tool)
+        after_reject = resume_routed_run(spec, held, rejected(), tool=tool)
+        # 도구 거절이 error 포트로 gate에 닿아 다시 멈춰 선다.
+        assert after_reject[-1].event_type is EventType.RUN_PAUSED
+
+        after_gate = resume_routed_run(spec, after_reject, approved(), tool=tool)
+
+        worked = worked_nodes(after_gate)
+        assert "answer" not in worked  # result 갈래는 흐르지 않는다
+        assert "done" in worked  # error → gate → 승인 → done 은 흐른다
+        assert asked == []  # 도구는 끝내 불리지 않았다 (합격조건 4 유지)
+        assert after_gate[-1].event_type is EventType.RUN_COMPLETED
+
+    def test_approving_the_tool_then_the_gate_runs_the_result_branch(self):
+        """짝: 도구를 승인하면 result 갈래(answer)가 흐르고, 도구는 한 번 불린다."""
+        spec = a_multi_pause_spec()
+        asked, tool = counting_tool()
+
+        held = ran(spec, tool)
+        after_approve = resume_routed_run(spec, held, approved(), tool=tool)
+
+        worked = worked_nodes(after_approve)
+        assert "answer" in worked  # 승인된 도구의 결과가 result 갈래로 흐른다
+        assert "gate" not in worked  # error 갈래(gate)는 흐르지 않는다
+        assert "done" not in worked
+        assert len(asked) == 1
+        assert after_approve[-1].event_type is EventType.RUN_COMPLETED

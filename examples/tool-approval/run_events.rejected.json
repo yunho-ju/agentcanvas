@@ -1,0 +1,179 @@
+[
+  {
+    "seq": 0,
+    "run_id": "run_tool_approval",
+    "event_type": "run.started",
+    "timestamp": "2026-08-01T12:30:00Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "spec_id": "article-lookup-ask-first",
+      "input": {
+        "query": {
+          "text": "asthma in adults"
+        }
+      }
+    },
+    "node_id": null
+  },
+  {
+    "seq": 1,
+    "run_id": "run_tool_approval",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:00.400000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 2,
+    "run_id": "run_tool_approval",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:00.800000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 3,
+    "run_id": "run_tool_approval",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:01.200000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "core.input"
+    },
+    "node_id": "input"
+  },
+  {
+    "seq": 4,
+    "run_id": "run_tool_approval",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:01.600000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "tool.mcp"
+    },
+    "node_id": "lookup"
+  },
+  {
+    "seq": 5,
+    "run_id": "run_tool_approval",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:02Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "tool.mcp"
+    },
+    "node_id": "lookup"
+  },
+  {
+    "seq": 6,
+    "run_id": "run_tool_approval",
+    "event_type": "tool.policy_checked",
+    "timestamp": "2026-08-01T12:30:02.400000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_id": "lookup",
+      "resource_ref": "article-api",
+      "tool_name": "search_articles",
+      "allowed": true
+    },
+    "node_id": "lookup"
+  },
+  {
+    "seq": 7,
+    "run_id": "run_tool_approval",
+    "event_type": "human.approval_requested",
+    "timestamp": "2026-08-01T12:30:02.800000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_id": "lookup",
+      "resource_ref": "article-api",
+      "tool_name": "search_articles"
+    },
+    "node_id": "lookup"
+  },
+  {
+    "seq": 8,
+    "run_id": "run_tool_approval",
+    "event_type": "run.paused",
+    "timestamp": "2026-08-01T12:30:03.200000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "waiting_for": "lookup"
+    },
+    "node_id": "lookup"
+  },
+  {
+    "seq": 9,
+    "run_id": "run_tool_approval",
+    "event_type": "run.resumed",
+    "timestamp": "2026-08-01T12:30:03.600000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "waiting_for": "lookup",
+      "approved": false
+    },
+    "node_id": "lookup"
+  },
+  {
+    "seq": 10,
+    "run_id": "run_tool_approval",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:04Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "tool.mcp",
+      "approved": false
+    },
+    "node_id": "lookup"
+  },
+  {
+    "seq": 11,
+    "run_id": "run_tool_approval",
+    "event_type": "node.queued",
+    "timestamp": "2026-08-01T12:30:04.400000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "trouble"
+  },
+  {
+    "seq": 12,
+    "run_id": "run_tool_approval",
+    "event_type": "node.started",
+    "timestamp": "2026-08-01T12:30:04.800000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "trouble"
+  },
+  {
+    "seq": 13,
+    "run_id": "run_tool_approval",
+    "event_type": "node.completed",
+    "timestamp": "2026-08-01T12:30:05.200000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_type": "core.output"
+    },
+    "node_id": "trouble"
+  },
+  {
+    "seq": 14,
+    "run_id": "run_tool_approval",
+    "event_type": "run.completed",
+    "timestamp": "2026-08-01T12:30:05.600000Z",
+    "spec_revision": "sha256:44589c816d961b979f893609c44e5a49afd4683f8debffccb4a2b4444916d4b0",
+    "payload": {
+      "node_count": 3
+    },
+    "node_id": null
+  }
+]

@@ -214,3 +214,29 @@ def test_a_reopened_file_still_holds_what_was_written(tmp_path: Path):
     assert stored is not None
     assert stored.spec == example_spec(version=1)
     assert [entry.version for entry in reopened.revisions("clinical-assistant")] == [1]
+
+
+def test_a_stored_spec_with_an_unknown_policy_is_healed_on_the_way_out(tmp_path: Path):
+    """옛 파일에 낯선 승인 정책이 있어도 열린다 — 로드 경로가 기본값으로 되돌린다 (P3b)."""
+    import sqlite3
+
+    from agentcanvas_api.sqlite_database import prepare_database
+    from agentcanvas_contracts.agent_spec import ApprovalPolicy
+
+    spec = example_spec(version=1)
+    raw = spec.model_dump(mode="json")
+    raw["resources"][0]["approval_policy"] = "from_the_future"
+    path = tmp_path / "specs.db"
+    prepare_database(path)
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "INSERT INTO spec_revisions"
+            " (spec_id, version, revision, spec_json, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (spec.id, 1, spec.revision, json.dumps(raw), at(30).isoformat()),
+        )
+
+    stored = SqliteSpecStore(path).latest(spec.id)
+
+    assert stored is not None
+    assert stored.spec.resources[0].approval_policy == ApprovalPolicy.READ_ONLY_AUTO

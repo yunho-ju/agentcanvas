@@ -55,6 +55,26 @@ export function dropConnection(
 }
 
 /**
+ * 연결의 승인 정책 하나만 바꾼다 — 도구를 부르기 전에 사람에게 물어볼지 말지.
+ * 정책은 포트를 바꾸지 않으므로(도구는 그대로다) 그래프는 건드리지 않는다.
+ * 재-import(swapConnection)와 같은 편집 경로(withConnection)를 타 두 벌 상태를 만들지 않는다.
+ */
+export function setApprovalPolicy(
+  current: ResourceBinding[],
+  id: string,
+  policy: ResourceBinding["approval_policy"],
+): Command {
+  const target = current.find((binding) => binding.id === id);
+  if (!target || target.approval_policy === policy) return doNothing;
+  const next = withConnection(current, { ...target, approval_policy: policy });
+  return {
+    label: msg("edit.approvalPolicy"),
+    apply: (scene) => ({ ...scene, resources: next }),
+    revert: (scene) => ({ ...scene, resources: current }),
+  };
+}
+
+/**
  * 다시 가져온 연결 하나를 그 자리에서 갈아 끼운다. 승인 1회 = 되돌리기 한 걸음이다.
  * 그 연결을 쓰던 노드의 포트는 새 도구의 모양으로 다시 그려지고, 그 때문에 어긋나
  * 끊어지는 연결선은 기존 설정 변경 경로(checkConnection)가 판정해 그 사실을 말한다.

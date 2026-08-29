@@ -39,7 +39,14 @@ export type EdgeId = string;
 export type Op4 = "remove_edge";
 export type Op5 = "add_resource";
 export type AllowedTools = string[];
-export type ApprovalPolicy = string;
+/**
+ * 연결이 도구를 부르기 전에 사람에게 물어보는가.
+ *
+ * 값은 둘뿐이다: 바로 부르거나(read_only_auto, 기본), 부를 때마다 사람의 확인을
+ * 기다린다(ask_first). "무엇을 쓸 수 있나"는 allowed_tools가 이미 정하므로,
+ * "부르지 마라" 같은 세 번째 값은 두지 않는다.
+ */
+export type ApprovalPolicy = "read_only_auto" | "ask_first";
 export type Id2 = string;
 export type Kind = string;
 export type ServerRef = string;
@@ -138,7 +145,7 @@ export interface AddResourceOperation {
 }
 export interface ResourceBinding {
   allowed_tools?: AllowedTools;
-  approval_policy: ApprovalPolicy;
+  approval_policy?: ApprovalPolicy;
   id: Id2;
   kind: Kind;
   server_ref: ServerRef;

@@ -202,3 +202,128 @@ class TestTheToolRunThatWasWrittenDown:
         assert "answer" in worked
         # error 포트에 매달린 노드는 차례를 받지 못한다 — 그 갈래는 결판났고 흐르지 않았다.
         assert "trouble" not in worked
+
+
+# ── 도구 실행 전에 사람이 멈춰 세우는 실행 (API_TOOLS P3b) ─────────────────────
+
+APPROVAL_DIR = Path(__file__).resolve().parents[3] / "examples/tool-approval"
+APPROVAL_RUN_ID = "run_tool_approval"
+
+
+def approval_example_spec() -> AgentSpec:
+    return AgentSpec.model_validate(
+        json.loads((APPROVAL_DIR / "agent_spec.json").read_text(encoding="utf-8"))
+    )
+
+
+def committed_approval_run(name: str) -> list[RunEvent]:
+    raw = json.loads((APPROVAL_DIR / name).read_text(encoding="utf-8"))
+    return [RunEvent.model_validate(event) for event in raw]
+
+
+def remade_approval_run(approved: bool) -> list[RunEvent]:
+    spec = approval_example_spec()
+    held = routed_run(
+        spec,
+        APPROVAL_RUN_ID,
+        STARTED_AT,
+        input={"query": {"text": "asthma in adults"}},
+    )
+    return resume_routed_run(spec, held, ApprovalAnswer(approved=approved))
+
+
+class TestTheToolApprovalRunsThatWereWrittenDown:
+    def test_the_graph_is_one_nobody_has_to_fix_first(self):
+        assert [
+            issue for issue in validate_graph(approval_example_spec()) if issue.severity
+        ] == []
+
+    def test_its_revision_matches_what_is_written_in_it(self):
+        spec = approval_example_spec()
+        assert spec.revision == spec.computed_revision()
+
+    @pytest.mark.parametrize(
+        ("name", "approved"),
+        [
+            ("run_events.approved.json", True),
+            ("run_events.rejected.json", False),
+        ],
+    )
+    def test_the_runtime_remakes_them_event_for_event(self, name: str, approved: bool):
+        assert remade_approval_run(approved) == committed_approval_run(name)
+
+    def test_the_person_is_asked_before_the_tool_is_called(self):
+        events = committed_approval_run("run_events.approved.json")
+        kinds = [event.event_type for event in events]
+
+        assert kinds.index(EventType.HUMAN_APPROVAL_REQUESTED) < kinds.index(
+            EventType.TOOL_REQUESTED
+        )
+        asked = next(
+            event
+            for event in events
+            if event.event_type is EventType.HUMAN_APPROVAL_REQUESTED
+        )
+        assert asked.payload["tool_name"] == "search_articles"
+
+    def test_saying_no_never_calls_the_tool(self):
+        events = committed_approval_run("run_events.rejected.json")
+
+        assert EventType.TOOL_REQUESTED not in [e.event_type for e in events]
+        assert EventType.HUMAN_APPROVAL_REQUESTED in [e.event_type for e in events]
+
+
+# ── 거절된 도구가 또 다른 pause로 이어지는 실행 (API_TOOLS P3b 회귀 가드) ─────────
+
+CHAIN_DIR = Path(__file__).resolve().parents[3] / "examples/tool-approval-chain"
+CHAIN_RUN_ID = "run_charge_chain"
+
+
+def chain_spec() -> AgentSpec:
+    return AgentSpec.model_validate(
+        json.loads((CHAIN_DIR / "agent_spec.json").read_text(encoding="utf-8"))
+    )
+
+
+def committed_chain_run() -> list[RunEvent]:
+    raw = json.loads(
+        (CHAIN_DIR / "run_events.rejected_then_gate.json").read_text(encoding="utf-8")
+    )
+    return [RunEvent.model_validate(event) for event in raw]
+
+
+def remade_chain_run() -> list[RunEvent]:
+    spec = chain_spec()
+    held = routed_run(
+        spec, CHAIN_RUN_ID, STARTED_AT, input={"query": {"text": "seat 14A"}}
+    )
+    after_reject = resume_routed_run(spec, held, ApprovalAnswer(approved=False))
+    return resume_routed_run(spec, after_reject, ApprovalAnswer(approved=True))
+
+
+class TestARejectedToolThatFeedsAnotherPause:
+    def test_the_graph_is_one_nobody_has_to_fix_first(self):
+        assert [issue for issue in validate_graph(chain_spec()) if issue.severity] == []
+
+    def test_its_revision_matches_what_is_written_in_it(self):
+        spec = chain_spec()
+        assert spec.revision == spec.computed_revision()
+
+    def test_the_runtime_remakes_it_event_for_event(self):
+        assert remade_chain_run() == committed_chain_run()
+
+    def test_the_stopped_tools_result_branch_never_runs(self):
+        """거절된 도구의 성공 갈래(answer)는 2차 재개에서도 흐르지 않는다 (거짓 초록불 금지)."""
+        worked = {
+            event.node_id
+            for event in committed_chain_run()
+            if event.event_type is EventType.NODE_COMPLETED
+        }
+
+        assert "answer" not in worked
+        assert "done" in worked
+
+    def test_the_tool_is_never_called(self):
+        events = committed_chain_run()
+
+        assert EventType.TOOL_REQUESTED not in [e.event_type for e in events]

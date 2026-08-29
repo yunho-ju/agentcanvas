@@ -117,6 +117,7 @@ gate-card (승인 카드 — 노드 부속물 배치 규칙 §4 적용)
 - ghost-danger 버튼: transparent bg + 1px var(--danger) border + var(--danger-ink) 글자, hover: var(--danger-soft) 바탕 (4상태 동일 규칙)
 - 거절 확인 모드(거절하기 클릭 시 카드 내용 교체, 새 레이어 금지): 본문 '거절하면 흐름이 여기서 끝나요' + 버튼 행 [정말 거절하기: var(--danger-soft) 바탕 + var(--danger-ink) 글자 + 1px var(--danger) border][돌아가기 ghost]. Esc = 돌아가기
 - 거절 후: 카드 닫힘, gate 노드 rail·뱃지 var(--warn) '✋ 거절했어요' (거절은 실패가 아니다 — danger 금지), 이벤트 목록 쉬운 말 '사람이 거절해서 흐름을 여기서 마쳤다'
+- **도구 승인 사용례(P3b)**: `ask_first` 정책의 도구 노드가 실행 전에 멈추면 같은 gate-card를 그대로 쓴다 — 본문이 '이 도구를 불러도 될까요'를 도구 이름·쉬운 설명(plain_description)과 함께 말하고, 무엇을 줄지(입력 요약)를 한 줄로. 새 카드 발명 금지. 허락=도구를 부른다, 거절=부르지 않고 흐름을 error 포트로(부르지 않은 것을 적지 않는다). control.human_gate의 승인과 같은 문법·같은 이벤트(human.approval_requested)
 - 카드 존재 중 노드 툴팁·출력 포트 라벨 숨김
 - **승인 폼**(gate의 입력 양식이 해석됐을 때, 본문과 버튼 행 사이): 필드 세로 스택, 필드 간격 var(--space-2). 필드 = 라벨(--text-label, ink) + 컨트롤(inspector 폼 컨트롤과 같은 스펙 재사용 — 새 시각 발명 금지). 필수 필드는 라벨 뒤 '(필수)' 글자 표기(기호만으로 나누지 않는다)
 - 필수 미입력이면 '승인하고 계속' disabled(40% + title '필수 입력을 채우면 승인할 수 있어요' — button-primary disabled 규칙). 거절·멈춘 채 두기는 입력과 무관하게 항상 살아 있다(응답을 강요하지 않는다)
@@ -281,6 +282,7 @@ resources-panel (문서의 연결과 도구를 보는 독 패널 — API_TOOLS P
 - 내용: 이 문서의 연결(spec.resources) 목록. 연결 한 줄 = 이름(id, --text-label) + 종류의 쉬운 말 캡션(--text-caption, ink-soft — 'http.api' 원문이 아니라 '웹 API 연결' 같은 쉬운 말, 원문은 title로) + 그 연결이 든 도구들(이름 + 쉬운 설명 plain_description 두 언어). 도구가 없는 연결은 '이 연결에는 아직 도구가 없어요'(tool-select와 같은 사전 키 재사용)
 - 빈 상태: '이 문서에는 아직 연결이 없어요' 한 줄 + [새 연결 primary]. 빈 목록을 말없이 던지지 않는다(§9)
 - [새 연결]은 tool-wrap-card(중앙 모달)를 연다. 실행을 보는 동안(잠금)은 비활성 + 이유 title(기존 잠금 규칙 그대로, 새 잠금 로직 금지)
+- 연결 줄의 승인 정책 셀렉트(P3b): 연결 이름 아래 작은 셀렉트(.control select 문법 그대로, 값 둘) — '부를 때마다 물어본다'(ask_first) / '바로 부른다'(read_only_auto). 고름 1회 = undo 1걸음(P2c 연결 편집 Command 경로 재사용, 두 벌 상태 금지). 이 정책은 그 연결의 **모든 도구**에 걸린다는 뜻을 캡션 한 줄로(--text-caption, ink-soft). 실행 중 잠금은 다른 행동과 같은 규칙
 - 연결 줄의 행동 2개(P2c): [다시 가져오기](button-ghost — tool-wrap-card를 그 연결의 재-import 모드로 연다) · [지우기](inspector-card 지우기 문법 그대로 — button-ghost 4상태 + 글자만 var(--danger-ink), 확인 대화 없음, title에 이유). 지우기 1회 = undo 1걸음, 캡션 '되돌리기로 언제든 살릴 수 있어요' 재사용. 어떤 노드가 그 연결을 쓰고 있어도 즉시 지운다 — 구조(노드·연결선)는 아무것도 빠지지 않고 노드 뱃지·필드 오류가 후속 상태를 말하므로, 빼기 확인 카드 대신 기존 편집 영향 알림(§9 설정 변경 notice)으로 어느 노드가 연결을 잃었는지 그 자리에서 말한다(조용히 끊지 않는다). 실행 중 잠금은 [새 연결]과 같은 규칙
 
 tool-wrap-card (붙여 넣으면 도구가 된다 — API 문서/curl/산문 → 연결+도구 제안·승인, API_TOOLS P2b)

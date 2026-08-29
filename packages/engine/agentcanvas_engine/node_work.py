@@ -137,6 +137,8 @@ class _NodeKind:
     work: _Work = _does_nothing_worth_saying
     picks_a_way: bool = False
     waits_for_person: bool = False
+    #: 바깥 도구를 부르는 노드인가 — 연결의 정책에 따라 부르기 전에 사람을 기다릴 수 있다.
+    runs_a_tool: bool = False
 
 
 #: 표에 없는 타입의 성격 — 남길 말도, 고를 길도, 기다릴 사람도 없다.
@@ -147,7 +149,7 @@ KIND_BY_NODE_TYPE: dict[str, _NodeKind] = {
     ROUTER: _NodeKind(work=_asks_a_model_and_picks_a_way, picks_a_way=True),
     "llm.agent": _NodeKind(work=_asks_a_model),
     GATE: _NodeKind(waits_for_person=True),
-    TOOL: _NodeKind(work=_calls_a_tool),
+    TOOL: _NodeKind(work=_calls_a_tool, runs_a_tool=True),
 }
 
 

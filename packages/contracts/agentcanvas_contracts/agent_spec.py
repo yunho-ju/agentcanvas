@@ -33,6 +33,18 @@ class AgentStatus(str, Enum):
     DEPRECATED = "deprecated"
 
 
+class ApprovalPolicy(str, Enum):
+    """연결이 도구를 부르기 전에 사람에게 물어보는가.
+
+    값은 둘뿐이다: 바로 부르거나(read_only_auto, 기본), 부를 때마다 사람의 확인을
+    기다린다(ask_first). "무엇을 쓸 수 있나"는 allowed_tools가 이미 정하므로,
+    "부르지 마라" 같은 세 번째 값은 두지 않는다.
+    """
+
+    READ_ONLY_AUTO = "read_only_auto"
+    ASK_FIRST = "ask_first"
+
+
 class EdgeKind(str, Enum):
     DATA = "data"
     CONTROL = "control"
@@ -86,7 +98,7 @@ class ResourceBinding(ContractModel):
     kind: str = Field(min_length=1)
     server_ref: ServerRef
     allowed_tools: list[str] = Field(default_factory=list)
-    approval_policy: str = Field(min_length=1)
+    approval_policy: ApprovalPolicy = ApprovalPolicy.READ_ONLY_AUTO
     tools: list[ToolDef] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -121,10 +133,28 @@ class AgentSpec(ContractModel):
         return compute_revision(self.model_dump(mode="json"))
 
 
+def coerce_known_policies(raw: dict) -> dict:
+    """저장된 spec을 관대히 읽는다: 낯선 승인 정책은 기본값으로 되돌린다 (관대한 입력).
+
+    저장 경로는 Enum이 강제하므로 낯선 값은 애초에 저장될 수 없다 — 이건 미래의 낯선
+    값에 부서지지 않기 위한 과거 데이터의 안전줄이지, 조용한 무시(§9)가 아니다.
+    적지 않은 자리는 건드리지 않는다: 그 자리는 필드 기본값이 채운다.
+    """
+    known = {policy.value for policy in ApprovalPolicy}
+    for resource in raw.get("resources", []):
+        if not isinstance(resource, dict):
+            continue
+        policy = resource.get("approval_policy")
+        if policy is not None and policy not in known:
+            resource["approval_policy"] = ApprovalPolicy.READ_ONLY_AUTO.value
+    return raw
+
+
 __all__ = [
     "SCHEMA_VERSION",
     "AgentSpec",
     "AgentStatus",
+    "ApprovalPolicy",
     "ContractModel",
     "Edge",
     "EdgeCondition",
@@ -138,4 +168,5 @@ __all__ = [
     "Position",
     "ResourceBinding",
     "UtcDatetime",
+    "coerce_known_policies",
 ]

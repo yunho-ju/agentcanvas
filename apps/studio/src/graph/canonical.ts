@@ -22,6 +22,7 @@ function isBlank(value: unknown): boolean {
  */
 const WRITTEN_FOR_US: { at: string[]; value: unknown }[] = [
   { at: ["resources", "*", "tools", "*", "result_handling"], value: { mode: "full" } },
+  { at: ["resources", "*", "approval_policy"], value: "read_only_auto" },
 ];
 
 /** 문서 안에서 도구 하나가 서 있는 자리 — 도구끼리 견줄 때 이 자리부터 잰다. */

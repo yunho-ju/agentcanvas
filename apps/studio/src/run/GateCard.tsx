@@ -2,13 +2,15 @@
 // 무엇을 기다리는지는 화면이 정하지 않는다: awaitingGate는 RunEvent에서 파생된 사실이다.
 // 거절은 되돌릴 수 없으므로 한 번 더 묻는다 — 새 창을 띄우지 않고 이 카드 안에서 묻는다.
 import { useEffect, useRef, useState } from "react";
-import { useT } from "../i18n/useT";
+import { useShallow } from "zustand/react/shallow";
+import { localized } from "../i18n/locale";
+import { useLocale, useT } from "../i18n/useT";
 import { SchemaFields } from "../inspector/SchemaFields";
 import { describeForm, missingRequired } from "../inspector/schemaForm";
 import { withValue } from "../inspector/values";
 import { resolveSchema } from "../registry/schemaCatalog";
 import { useEditor } from "../store/editor";
-import { gateSchemaRef } from "../store/gateSlice";
+import { gateSchemaRef, gateToolAsk } from "../store/gateSlice";
 import { awaitingGate } from "../store/runSlice";
 
 export function GateCard({ nodeId }: { nodeId: string }) {
@@ -28,6 +30,8 @@ export function GateCard({ nodeId }: { nodeId: string }) {
   const t = useT();
   // 이 밸브가 요구한 형식을 카탈로그가 풀어 준다 — 못 풀면 폼 없이 답만 받는다.
   // 이름은 풀렸어도 그릴 항목이 하나도 없으면 사람에게는 못 찾은 것과 같다 (무언의 빈 폼 금지).
+  const toolAsk = useEditor(useShallow(gateToolAsk));
+  const locale = useLocale();
   const asked = resolveSchema(useEditor(gateSchemaRef));
   const drawn = asked ? describeForm(asked.schema) : undefined;
   const form = drawn && drawn.fields.length > 0 ? drawn : undefined;
@@ -69,9 +73,27 @@ export function GateCard({ nodeId }: { nodeId: string }) {
         </span>
         {t("gate.title")}
       </p>
-      <p className="gate-card__body">{confirming ? t("gate.reject.body") : t("gate.body")}</p>
+      {/* 도구를 부르기 전 확인이면 무엇을 승인하는지(어느 도구·무엇을 하는지) 말한다. */}
+      {toolAsk && !confirming ? (
+        <>
+          <p className="gate-card__body">
+            {t("gate.tool.body", { tool: toolAsk.toolName })}
+          </p>
+          {toolAsk.plainDescription ? (
+            <p className="gate-card__tool-what">
+              {localized(toolAsk.plainDescription, locale)}
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="gate-card__body">
+          {confirming ? t("gate.reject.body") : t("gate.body")}
+        </p>
+      )}
       {/* 다시 묻는 동안에는 그 물음만 남는다 — 적어 둔 값은 카드가 그대로 들고 있다. */}
+      {/* 도구 승인은 적을 폼이 없다 — 무엇을 하는지만 말하고 허락/멈추기를 받는다. */}
       {!confirming &&
+        !toolAsk &&
         (form ? (
           <SchemaFields
             fields={form.fields}

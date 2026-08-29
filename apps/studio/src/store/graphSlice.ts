@@ -8,7 +8,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
 } from "@xyflow/react";
-import type { AgentSpec, EdgeKind } from "../generated/agent_spec";
+import type { AgentSpec, EdgeKind, ResourceBinding } from "../generated/agent_spec";
 import {
   type Alignment,
   type Box,
@@ -40,9 +40,12 @@ import {
   moveNodes,
   removeParts,
 } from "../history/graphCommands";
-import { renameDoc } from "../history/docCommands";
+import {
+  dropConnection,
+  renameDoc,
+  setApprovalPolicy,
+} from "../history/docCommands";
 import { nodeTypes } from "../registry/registry";
-import { dropConnection } from "../history/docCommands";
 import { nodesUsing } from "../graph/connections";
 import type { EditorState } from "./editor";
 import { CLOSED_TOOL_WRAP } from "./toolWrapSlice";
@@ -67,6 +70,11 @@ export interface GraphSlice extends FlowGraph {
   addNode: (type: string, position: Position, config?: Record<string, unknown>) => void;
   /** 연결 하나를 문서에서 뺀다 — 되돌리기 한 걸음이고, 잃은 노드가 있으면 말한다 */
   dropConnection: (id: string) => void;
+  /** 이 연결의 도구를 부를 때 사람 확인을 할지 정한다 — 되돌리기 한 걸음이다 */
+  setApprovalPolicy: (
+    id: string,
+    policy: ResourceBinding["approval_policy"],
+  ) => void;
   /** 손을 놓은 자리(at)는 이을 수 없을 때 그 이유가 설 자리다 (DESIGN §7 connection-hint) */
   connect: (connection: Connection, at: Position) => void;
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void;
@@ -243,6 +251,10 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
     dropConnection: (id) => {
       const current = get().spec?.resources ?? [];
       get().runCommand(dropConnection(current, id, nodesUsing(get().nodes, id)));
+    },
+
+    setApprovalPolicy: (id, policy) => {
+      get().runCommand(setApprovalPolicy(get().spec?.resources ?? [], id, policy));
     },
 
     connect: (connection, at) => {
