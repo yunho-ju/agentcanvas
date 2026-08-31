@@ -757,6 +757,32 @@ const TEXTS = {
     ko: "실행하지 못했어요: {reason}",
     en: "Could not run it: {reason}",
   },
+
+  // 대화 — 게시된 판과 주고받는 말들. 판은 서버가 집으므로 화면은 판을 말하지 않는다.
+  "chat.start.notPublished": {
+    ko: "아직 사람들에게 내놓은 판이 없어요 — 먼저 게시하면 말을 걸 수 있어요",
+    en: "No version is published yet — publish one and you can talk to it",
+  },
+  "chat.thread.read.offline": {
+    ko: "서버에 닿지 못해 오간 말을 불러오지 못했어요 — 서버가 켜져 있는지 보고 다시 열어 주세요",
+    en: "Could not reach the server, so the conversation did not load — check the server is up and open it again",
+  },
+  "chat.thread.read.failed": {
+    ko: "오간 말을 불러오지 못했어요 ({status}) — 잠시 뒤 다시 열어 주세요",
+    en: "Could not load the conversation ({status}) — try opening it again in a moment",
+  },
+  "chat.thread.delete.offline": {
+    ko: "서버에 닿지 못해 대화를 지우지 못했어요 — 서버가 켜져 있는지 보고 다시 눌러 주세요",
+    en: "Could not reach the server, so nothing was deleted — check the server is up and press it again",
+  },
+  "chat.thread.delete.stillGoing": {
+    ko: "아직 끝나지 않은 말이 있어 하나도 지우지 않았어요 — 끝나거나 그만둔 뒤에 지울 수 있어요",
+    en: "A turn is still going, so nothing was deleted — you can delete it once it ends or you stop it",
+  },
+  "chat.thread.delete.failed": {
+    ko: "대화를 지우지 못했어요 ({status}) — 잠시 뒤 다시 눌러 주세요",
+    en: "Could not delete the conversation ({status}) — try again in a moment",
+  },
   "run.answer.offline": {
     ko: "서버에 닿지 못해 답을 보내지 못했어요 — 서버가 켜져 있는지 보고 다시 눌러 주세요",
     en: "Could not reach the server, so your answer did not go — check the server is up and press it again",

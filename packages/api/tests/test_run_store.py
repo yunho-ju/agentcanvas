@@ -308,3 +308,30 @@ def test_a_thread_does_not_see_another_threads_runs(store: RunStore):
 
 def test_an_empty_thread_is_an_empty_list(store: RunStore):
     assert store.runs_in_thread("nobody-here") == []
+
+
+def test_deleting_a_thread_takes_its_runs_and_their_events_with_it(store: RunStore):
+    store.start(a_run(run_id="mine"))  # its own solo thread
+    store.start(
+        Run(
+            id="theirs",
+            spec_id="clinical-assistant",
+            spec_revision=REVISION,
+            created_at=at(40),
+            thread_id="chat_7",
+        )
+    )
+    store.append("theirs", [an_event(0, run_id="theirs")])
+
+    store.delete_thread("chat_7")
+
+    assert store.get("theirs") is None
+    assert store.events("theirs") == []
+    assert store.runs_in_thread("chat_7") == []
+    assert store.get("mine") is not None, "남의 대화는 건드리지 않는다"
+
+
+def test_deleting_a_thread_nobody_started_is_no_trouble(store: RunStore):
+    store.delete_thread("nobody-here")
+
+    assert store.runs_in_thread("nobody-here") == []

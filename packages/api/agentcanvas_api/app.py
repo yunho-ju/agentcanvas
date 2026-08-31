@@ -33,8 +33,8 @@ from agentcanvas_contracts.eval_result import EvalBatch
 from agentcanvas_contracts.model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
 from agentcanvas_contracts.optimization import OptimizationProposal
 from agentcanvas_contracts.publication import SpecPublication
-from agentcanvas_contracts.refs import ModelRef
-from agentcanvas_contracts.run import ApprovalAnswer
+from agentcanvas_contracts.refs import EndUserRef, ModelRef
+from agentcanvas_contracts.run import ApprovalAnswer, Run
 from agentcanvas_engine.model_call import ModelCall, says_the_first_way
 from agentcanvas_engine.routed_runtime import (
     resume_routed_run_stream,
@@ -89,6 +89,7 @@ from .job_store import DurableJobStore, IdempotencyConflict
 from .job_worker import DurableJobWorker
 from .optimizer_service import OptimizerService
 from .run_service import (
+    RevisionSource,
     RunIdMaker,
     RunOutcome,
     RunRefusal,
@@ -182,6 +183,9 @@ RUN_REFUSAL_STATUS: dict[RunRefusal, int] = {
     "unknown_spec": 404,
     "unknown_run": 404,
     "stale_revision": 409,
+    "not_published": 409,
+    # 판을 집는 쪽은 서버다 — 함께 적어 보낸 판은 뜻이 부딪히므로 청 자체를 물린다.
+    "revision_not_yours_to_pick": 400,
     "revision_gone": 409,
     "not_paused": 409,
     "already_answered": 409,
@@ -352,6 +356,12 @@ class RunRequest(BaseModel):
 
     spec_revision: str | None = None
     input: dict[str, Any] | None = None
+    #: 이 말이 이어 붙는 대화 — 안 주면 이 실행 하나가 자기만의 대화다.
+    thread_id: str | None = None
+    #: 말한 이를 가리키는 이름 — 신원이 아니라 참조다 (없으면 만든 사람이 시험한 것이다).
+    end_user_ref: EndUserRef | None = None
+    #: 어느 판을 돌릴지 정하는 법 — 게시된 판을 고르면 판은 서버가 집는다.
+    revision_source: RevisionSource = "latest"
 
 
 class EvalBatchRequest(BaseModel):
@@ -976,6 +986,16 @@ def create_app(
             raise HTTPException(status_code=404, detail=f"no graph called {spec_id!r}")
         return SavedSpec(spec=view.stored.spec, issues=view.issues)
 
+    @app.get("/specs/{spec_id}/revisions/{revision}", response_model=SavedSpec)
+    def read_revision(spec_id: str, revision: str) -> SavedSpec:
+        """지나간 판 하나 — 지금 저장된 판을 읽는 것과 같은 모습으로 온다."""
+        view = service.read_revision(spec_id, revision)
+        if view is None:
+            raise HTTPException(
+                status_code=404, detail=f"no revision {revision!r} of {spec_id!r}"
+            )
+        return SavedSpec(spec=view.stored.spec, issues=view.issues)
+
     @app.get("/specs/{spec_id}/revisions", response_model=SpecHistory)
     def read_revisions(spec_id: str) -> SpecHistory:
         _found(spec_id)
@@ -1045,12 +1065,31 @@ def create_app(
                     wanted.spec_revision,
                     wanted.input,
                     _idempotency_key(idempotency_key),
+                    thread_id=wanted.thread_id,
+                    end_user_ref=wanted.end_user_ref,
+                    revision_source=wanted.revision_source,
                 )
             )
         except IdempotencyConflict as conflict:
             raise HTTPException(
                 status_code=409, detail="idempotency key conflicts with another request"
             ) from conflict
+
+    @app.get("/threads/{thread_id}/runs", response_model=list[Run])
+    def read_thread(thread_id: str) -> list[Run]:
+        """한 대화에 오간 말들 — 말한 순서대로.
+
+        스레드는 실행들을 묶는 끈일 뿐 따로 만들어 두는 것이 아니다: 아무도 말하지 않은
+        대화는 없다고 하지 않고 비어 있다.
+        """
+        return runs.runs_in_thread(thread_id)
+
+    @app.delete("/threads/{thread_id}", status_code=204)
+    def delete_thread(thread_id: str) -> None:
+        """대화 하나를 통째로 거둔다 — 아직 흐르는 말이 있으면 하나도 지우지 않는다."""
+        kept = runs.delete_thread(thread_id)
+        if kept is not None:
+            raise HTTPException(status_code=409, detail=kept.message)
 
     @app.get("/runs/{run_id}", response_model=RunView)
     def read_run(run_id: str) -> RunView:

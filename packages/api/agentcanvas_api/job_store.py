@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Protocol
@@ -176,6 +177,10 @@ class DurableJobStore(Protocol):
     ) -> None: ...
 
     def get(self, job_id: str) -> DurableJob | None: ...
+
+    def forget_runs(self, run_ids: Sequence[str]) -> None:
+        """지워진 실행들이 남긴 일감을 함께 거둔다 — 실행과 일감이 어긋나 남지 않는다."""
+        ...
 
     def latest_for_reference(
         self, kind: JobKind, reference_id: str

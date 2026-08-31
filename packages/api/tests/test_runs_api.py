@@ -10,7 +10,8 @@ import threading
 import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from itertools import count
 from pathlib import Path
 from typing import get_args
 
@@ -202,6 +203,145 @@ class TestStartingARun:
         )
 
         assert response.status_code == 409
+
+
+class TestTalkingToTheGraphThatWasPublished:
+    """말을 거는 문 — 어느 대화의 누구 말인지 적어 보내고, 판은 서버가 집는다."""
+
+    def test_a_graph_that_was_never_published_has_nobody_to_talk_to(
+        self, client: TestClient
+    ):
+        response = client.post(
+            f"/specs/{SPEC_ID}/runs", json={"revision_source": "published"}
+        )
+
+        assert response.status_code == 409
+
+    def test_naming_a_revision_while_talking_to_the_published_graph_is_refused(
+        self, client: TestClient
+    ):
+        """판을 집는 쪽은 서버다 — 두 뜻이 부딪히는 청은 조용히 한쪽을 고르지 않는다."""
+        client.post(f"/specs/{SPEC_ID}/publish")
+        saved = client.get(f"/specs/{SPEC_ID}").json()["spec"]["revision"]
+
+        response = client.post(
+            f"/specs/{SPEC_ID}/runs",
+            json={"revision_source": "published", "spec_revision": saved},
+        )
+
+        assert response.status_code == 400
+
+    def test_the_run_is_tied_to_the_thread_and_to_the_one_who_spoke(
+        self, client: TestClient
+    ):
+        client.post(f"/specs/{SPEC_ID}/publish")
+
+        response = client.post(
+            f"/specs/{SPEC_ID}/runs",
+            json={
+                "revision_source": "published",
+                "thread_id": "thread_1",
+                "end_user_ref": "end-user://amy",
+            },
+        )
+
+        assert response.status_code == 201
+        run = response.json()["run"]
+        assert run["thread_id"] == "thread_1"
+        assert run["end_user_ref"] == "end-user://amy"
+
+    def test_a_speaker_that_is_not_a_reference_is_refused(self, client: TestClient):
+        """말한 이는 가리키는 이름으로만 온다 — 이메일이나 사람 이름을 그대로 싣지 않는다."""
+        response = client.post(f"/specs/{SPEC_ID}/runs", json={"end_user_ref": "amy"})
+
+        assert response.status_code == 422
+
+    def test_a_way_of_picking_the_revision_nobody_knows_is_refused(
+        self, client: TestClient
+    ):
+        response = client.post(
+            f"/specs/{SPEC_ID}/runs", json={"revision_source": "whatever"}
+        )
+
+        assert response.status_code == 422
+
+
+def a_chatty_client() -> TestClient:
+    """말이 여러 번 오가는 시험 — 실행마다 이름이 다르고, 뒤에 온 말이 뒤에 선다."""
+    names = iter([f"run_{turn}" for turn in range(1, 10)])
+    ticks = count(1)
+    client = TestClient(
+        create_app(
+            store=InMemorySpecStore(),
+            run_store=InMemoryRunStore(),
+            clock=lambda: STARTED_AT + timedelta(seconds=next(ticks)),
+            new_run_id=lambda: next(names),
+            stream_timing=QUICK,
+            worker=right_here,
+        )
+    )
+    client.post("/specs", json=payload())
+    client.post(f"/specs/{SPEC_ID}/publish")
+    return client
+
+
+class TestLookingAtAThread:
+    """한 대화에 오간 말들 — 스레드는 실행들을 묶는 끈일 뿐이라 따로 만들지 않는다."""
+
+    def test_the_turns_of_a_thread_come_back_in_the_order_they_were_spoken(self):
+        client = a_chatty_client()
+        asked = {"revision_source": "published", "thread_id": "thread_1"}
+        client.post(f"/specs/{SPEC_ID}/runs", json=asked)
+        client.post(f"/specs/{SPEC_ID}/runs", json=asked)
+
+        response = client.get("/threads/thread_1/runs")
+
+        assert response.status_code == 200
+        assert [run["id"] for run in response.json()] == ["run_1", "run_2"]
+
+    def test_a_thread_nobody_has_spoken_in_is_an_empty_list(self, client: TestClient):
+        """스레드는 만들어 두는 것이 아니다 — 없는 대화는 없다고 말하지 않고 비어 있다."""
+        response = client.get("/threads/nobody-here/runs")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_a_run_that_named_no_thread_stands_alone_in_its_own(
+        self, client: TestClient
+    ):
+        start_a_run(client)
+
+        response = client.get(f"/threads/{RUN_ID}/runs")
+
+        assert [run["id"] for run in response.json()] == [RUN_ID]
+
+
+class TestDeletingAConversation:
+    """지우는 길 — 다 끝난 대화는 통째로 사라지고, 아직 흐르는 대화는 그대로 남는다."""
+
+    def test_a_conversation_that_has_ended_is_deleted_whole(self, client: TestClient):
+        start_a_run(client)
+        client.post(f"/runs/{RUN_ID}/approval", json={"approved": True})
+
+        response = client.delete(f"/threads/{RUN_ID}")
+
+        assert response.status_code == 204
+        assert client.get(f"/runs/{RUN_ID}").status_code == 404
+        assert client.get(f"/threads/{RUN_ID}/runs").json() == []
+
+    def test_a_conversation_that_is_still_going_is_left_alone(self, client: TestClient):
+        start_a_run(client)
+
+        response = client.delete(f"/threads/{RUN_ID}")
+
+        assert response.status_code == 409
+        assert client.get(f"/runs/{RUN_ID}").status_code == 200
+
+    def test_deleting_a_conversation_nobody_started_says_it_is_done(
+        self, client: TestClient
+    ):
+        """두 번 눌러도 같은 답이다 — 없는 것을 지웠다고 나무라지 않는다."""
+        assert client.delete("/threads/nobody-here").status_code == 204
 
 
 class TestLookingAtARun:

@@ -284,3 +284,31 @@ def test_durability_turned_off_while_a_job_store_is_injected_refuses_to_start(
             durability=False,
             job_store=SqliteJobStore(tmp_path / "agentcanvas.db"),
         )
+
+
+def test_a_conversation_is_deleted_with_its_jobs_once_every_turn_has_ended(
+    tmp_path: Path,
+):
+    """일감을 저장해 두고 도는 자리에서도 지우는 뜻은 같다 — 끝난 대화만, 통째로."""
+    path = tmp_path / "agentcanvas.db"
+    jobs = PausedClaimJobStore(path)
+    with TestClient(create_app(job_store=jobs, model=says_hello)) as client:
+        client.post("/specs", json=spec_payload())
+        client.post(f"/specs/{SPEC_ID}/publish")
+        run_id = client.post(
+            f"/specs/{SPEC_ID}/runs",
+            json={"revision_source": "published", "thread_id": "thread_1"},
+            headers={"Idempotency-Key": "first-turn"},
+        ).json()["run"]["id"]
+
+        still_going = client.delete("/threads/thread_1")
+
+        assert still_going.status_code == 409
+        assert client.get(f"/runs/{run_id}").status_code == 200
+
+        assert client.post(f"/runs/{run_id}/cancel").json()["status"] == "failed"
+        deleted = client.delete("/threads/thread_1")
+
+        assert deleted.status_code == 204
+        assert client.get("/threads/thread_1/runs").json() == []
+        assert jobs.latest_for_reference("run", run_id) is None

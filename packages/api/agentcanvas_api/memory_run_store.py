@@ -29,8 +29,15 @@ class InMemoryRunStore:
         """한 스레드의 실행들 — 시작한 순서(created_at)대로, 말들이 차례로 묶인다."""
         return sorted(
             (run for run in self._runs.values() if run.thread_id == thread_id),
-            key=lambda run: run.created_at,
+            key=lambda run: (run.created_at, run.id),
         )
+
+    def delete_thread(self, thread_id: str) -> None:
+        """한 대화에 묶인 실행들과 그 이벤트를 통째로 거둔다."""
+        with self._writing:
+            for run in self.runs_in_thread(thread_id):
+                self._runs.pop(run.id, None)
+                self._events.pop(run.id, None)
 
     def append(self, run_id: str, events: Sequence[RunEvent]) -> None:
         with self._writing:

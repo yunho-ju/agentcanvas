@@ -1,6 +1,7 @@
 """파일 하나에 실행을 쌓아 두는 저장소 (SQLite).
 
 SQL은 이 파일에만 있다. 표는 덧붙이기만 한다 — 일어난 일을 고쳐 쓰는 문장은 여기에 없다.
+지우는 문장은 하나뿐이다: 대화를 통째로 거둘 때. 고쳐 쓰지 않고, 반쪽만 남기지도 않는다.
 """
 
 from __future__ import annotations
@@ -83,10 +84,20 @@ class SqliteRunStore:
         with self._connect() as connection:
             rows = connection.execute(
                 f"SELECT {_RUN_COLUMNS} FROM runs"
-                " WHERE thread_id = ? ORDER BY created_at",
+                " WHERE thread_id = ? ORDER BY created_at, run_id",
                 (thread_id,),
             ).fetchall()
         return [_run_from_row(row) for row in rows]
+
+    def delete_thread(self, thread_id: str) -> None:
+        """한 대화에 묶인 실행들과 그 이벤트를 통째로 거둔다 — 둘은 함께 사라진다."""
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM run_events WHERE run_id IN"
+                " (SELECT run_id FROM runs WHERE thread_id = ?)",
+                (thread_id,),
+            )
+            connection.execute("DELETE FROM runs WHERE thread_id = ?", (thread_id,))
 
     def append(self, run_id: str, events: Sequence[RunEvent]) -> None:
         try:

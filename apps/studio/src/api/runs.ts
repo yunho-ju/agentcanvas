@@ -153,6 +153,46 @@ export async function startRunOnServer(
   };
 }
 
+/** 대화 한 마디로 실을 것 — 어느 대화의, 누구의 말이고, 무엇을 건네는가. */
+export interface ChatTurn {
+  /** 이 말이 이어 붙는 대화 — 같은 대화의 말들은 처음 만난 판과 계속 이야기한다 */
+  threadId: string;
+  /** 말한 이를 가리키는 이름(`end-user://...`) — 없으면 만든 사람이 자기 그래프에 말을 건 것이다 */
+  endUserRef?: string;
+  input?: Record<string, unknown>;
+}
+
+/**
+ * 게시된 판에 말을 건다 — 어느 판과 이야기할지는 서버가 집는다.
+ * 화면은 revision을 계산하지 않는다: 대화 도중 게시가 바뀌어도 하던 대화는 첫 판으로 이어진다.
+ */
+export async function startChatTurnOnServer(
+  specId: string,
+  turn: ChatTurn,
+  options: RunApiOptions = {},
+): Promise<RunStartOutcome> {
+  const base = options.baseUrl ?? apiBaseUrl();
+  const url = `${base}/specs/${encodeURIComponent(specId)}/runs`;
+  // 적지 않은 것은 적은 척 보내지 않는다 — 서버는 모르는 자리를 조용히 삼키지 않는다.
+  const asked = {
+    revision_source: "published",
+    thread_id: turn.threadId,
+    ...(turn.endUserRef ? { end_user_ref: turn.endUserRef } : {}),
+    ...(turn.input && Object.keys(turn.input).length > 0 ? { input: turn.input } : {}),
+  };
+  const answer = await tellServer(url, asked, options);
+  if (answer === null) return { failure: msg("run.start.offline") };
+  if (answer.status === CREATED) return runOf(answer.body, msg("run.start.strange"));
+  if (answer.status === 404) return { failure: msg("run.start.notSaved") };
+  if (answer.status === 409) return { failure: msg("chat.start.notPublished") };
+  if (answer.body === UNREADABLE) return { failure: msg("run.start.strange") };
+  return {
+    failure: msg("run.start.failed", {
+      reason: reasonOf(answer.body) || String(answer.status),
+    }),
+  };
+}
+
 /** 밸브 앞에 멈춰 선 실행에 사람의 답을 보낸다 — 이어지는 이벤트는 스트림으로 온다. */
 export async function answerGateOnServer(
   runId: string,

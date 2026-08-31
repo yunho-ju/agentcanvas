@@ -14,6 +14,7 @@ from typing import Literal
 from uuid import uuid4
 
 from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.refs import EndUserRef
 from agentcanvas_contracts.run import (
     RUN_ENDINGS,
     ApprovalAnswer,
@@ -41,7 +42,7 @@ from .job_store import (
 )
 from .run_store import RunStore, SeqAlreadyStored
 from .service import Clock, utc_now
-from .store import SpecStore
+from .store import SpecStore, StoredSpec
 
 #: 실행의 이름을 발급하는 것 — 시험은 언제나 같은 이름을 내주는 것을 넣는다.
 RunIdMaker = Callable[[], str]
@@ -65,6 +66,10 @@ Work = Callable[[], None]
 
 #: 그 일을 맡아 하는 일꾼 — 기본은 배경에서 하고, 시험은 그 자리에서 곧장 하는 것을 넣는다.
 Worker = Callable[[Work], None]
+
+#: 어느 판을 돌릴지 정하는 법 — 저장된 최신 판인가, 대화 상대로 내놓은(게시된) 판인가.
+#: 참·거짓 대신 이름이다: 판을 집는 법이 늘어도 부르는 쪽의 말이 뜻을 잃지 않는다.
+RevisionSource = Literal["latest", "published"]
 
 
 #: 실행이 예상 밖의 일로 어그러졌을 때 남기는 말 — 사람에게는 무슨 일인지, 기계에는 그 종류만.
@@ -95,11 +100,13 @@ class RunView(BaseModel):
     status: RunStatus
 
 
-#: 실행을 물리는 까닭. 없는 그래프인가, 오래된 판인가, 없는 실행인가, 멈춰 있지 않은가,
-#: 다른 답이 한 발 먼저였는가.
+#: 실행을 물리는 까닭. 없는 그래프인가, 오래된 판인가, 내놓은 판이 없는가, 없는 실행인가,
+#: 멈춰 있지 않은가, 다른 답이 한 발 먼저였는가.
 RunRefusal = Literal[
     "unknown_spec",
     "stale_revision",
+    "not_published",
+    "revision_not_yours_to_pick",
     "unknown_run",
     "not_paused",
     "revision_gone",
@@ -130,6 +137,17 @@ class RunRefused:
 
 
 RunOutcome = RunView | RunRefused
+
+
+@dataclass(frozen=True)
+class ThreadKept:
+    """대화를 지우지 않았고, 왜 그런지 — 예외 대신 답으로 돌려준다."""
+
+    message: str
+
+
+#: 대화를 지운 결과 — 지웠으면 더 할 말이 없고, 남겼으면 왜 남겼는지 말한다.
+ThreadDeletion = ThreadKept | None
 
 
 def _refused_to_carry_on(run_id: str, snag: CannotResume) -> RunRefused:
@@ -169,10 +187,16 @@ class RunService:
         spec_revision: str | None = None,
         input: Mapping[str, object] | None = None,
         idempotency_key: str | None = None,
+        *,
+        thread_id: str | None = None,
+        end_user_ref: EndUserRef | None = None,
+        revision_source: RevisionSource = "latest",
     ) -> RunOutcome:
-        """저장된 그래프를 지금 돌린다 — 언제나 서버에 저장된 최신 판이다.
+        """저장된 그래프를 지금 돌린다 — 기본은 서버에 저장된 최신 판이다.
 
         어느 판을 돌릴지 적어 보냈다면 그 판이 최신일 때만 돈다: 오래된 판을 조용히 돌리지 않는다.
+        게시된 판과 말을 주고받을 때는 판을 서버가 집는다 (`revision_source="published"`).
+        스레드 이름을 주면 이 실행은 그 대화에 이어 붙는다 — 안 주면 홀로 선 스레드다.
         함께 건넨 값은 실행기에게 그대로 넘어간다 — 그것이 실행이 여는 상태다.
         """
         command = {
@@ -180,6 +204,9 @@ class RunService:
             "spec_id": spec_id,
             "spec_revision": spec_revision,
             "input": dict(input) if input is not None else None,
+            "thread_id": thread_id,
+            "end_user_ref": end_user_ref,
+            "revision_source": revision_source,
         }
         fingerprint = request_fingerprint(command)
         if self._jobs is not None and idempotency_key is not None:
@@ -198,23 +225,21 @@ class RunService:
                     status=run_status(self._runs.events(accepted_run.id)),
                 )
 
-        stored = self._specs.latest(spec_id)
-        if stored is None:
-            return RunRefused(
-                reason="unknown_spec", message=f"no graph called {spec_id!r}"
-            )
-        spec = stored.spec
-        if spec_revision is not None and spec_revision != spec.revision:
-            return RunRefused(
-                reason="stale_revision",
-                message=f"{spec_id!r} has moved on — its latest revision is"
-                f" {spec.revision}",
-            )
+        found = (
+            self._published_revision(spec_id, spec_revision, thread_id)
+            if revision_source == "published"
+            else self._latest_revision(spec_id, spec_revision)
+        )
+        if isinstance(found, RunRefused):
+            return found
+        spec = found.spec
         run = Run(
             id=self._new_run_id(),
             spec_id=spec.id,
             spec_revision=spec.revision,
             created_at=self._clock(),
+            thread_id=thread_id,
+            end_user_ref=end_user_ref,
         )
         if self._jobs is not None:
             payload = {
@@ -223,6 +248,8 @@ class RunService:
                 "spec_revision": spec.revision,
                 "input": command["input"],
                 "run_id": run.id,
+                "thread_id": run.thread_id,
+                "end_user_ref": run.end_user_ref,
             }
             accepted = self._jobs.accept_run(
                 run,
@@ -246,6 +273,68 @@ class RunService:
         batches = self._start_run(spec, run.id, self._clock, input)
         self._worker(lambda: self._pours(run.id, batches, spec.revision))
         return RunView(run=run, status=run_status([]))
+
+    def _latest_revision(
+        self, spec_id: str, spec_revision: str | None
+    ) -> StoredSpec | RunRefused:
+        """만드는 사람이 돌리는 판 — 언제나 지금 저장된 최신 판이다.
+
+        어느 판을 돌릴 셈이었는지 적어 보냈다면 그것이 최신일 때만 돈다.
+        """
+        stored = self._specs.latest(spec_id)
+        if stored is None:
+            return RunRefused(
+                reason="unknown_spec", message=f"no graph called {spec_id!r}"
+            )
+        if spec_revision is not None and spec_revision != stored.spec.revision:
+            return RunRefused(
+                reason="stale_revision",
+                message=f"{spec_id!r} has moved on — its latest revision is"
+                f" {stored.spec.revision}",
+            )
+        return stored
+
+    def _published_revision(
+        self, spec_id: str, spec_revision: str | None, thread_id: str | None
+    ) -> StoredSpec | RunRefused:
+        """말을 거는 사람이 만나는 판 — 이 스레드가 첫 마디에 집은 판이고, 없으면 게시된 판이다.
+
+        대화 도중 다른 판이 게시되거나 게시가 내려가도 하던 대화는 첫 판으로 이어진다:
+        게시된 판은 말을 주고받는 동안 움직이지 않는다.
+        """
+        if self._specs.latest(spec_id) is None:
+            return RunRefused(
+                reason="unknown_spec", message=f"no graph called {spec_id!r}"
+            )
+        if spec_revision is not None:
+            return RunRefused(
+                reason="revision_not_yours_to_pick",
+                message="the published graph brings its own revision — do not name one",
+            )
+        revision = self._revision_the_thread_took(thread_id)
+        if revision is None:
+            published = self._specs.publication(spec_id)
+            if published is None:
+                return RunRefused(
+                    reason="not_published",
+                    message=f"{spec_id!r} is not published, so there is nobody to talk to",
+                )
+            revision = published.revision
+        stored = self._specs.by_revision(spec_id, revision)
+        if stored is None:
+            # 저장소는 덧붙이기만 하므로 집은 판은 그대로 남아 있다 — 여기까지 오지 않는다.
+            return RunRefused(
+                reason="revision_gone",
+                message="the revision this conversation started on is no longer stored",
+            )
+        return stored
+
+    def _revision_the_thread_took(self, thread_id: str | None) -> str | None:
+        """이 대화가 이미 집은 판 — 첫 마디가 만난 판을 끝까지 쓴다. 첫 마디면 아직 없다."""
+        if thread_id is None:
+            return None
+        so_far = self._runs.runs_in_thread(thread_id)
+        return so_far[0].spec_revision if so_far else None
 
     def _pours(
         self, run_id: str, batches: Iterator[EventBatch], spec_revision: str
@@ -298,6 +387,23 @@ class RunService:
     def runs_in_thread(self, thread_id: str) -> list[Run]:
         """한 스레드에 묶인 실행들 — 시작한 순서대로 (말들이 차례로 묶인다)."""
         return self._runs.runs_in_thread(thread_id)
+
+    def delete_thread(self, thread_id: str) -> ThreadDeletion:
+        """대화 하나를 통째로 거둔다 — 지울 수 있어야 사람들이 마음 놓고 말을 건다.
+
+        아직 끝나지 않은 말이 하나라도 있으면 하나도 지우지 않는다: 반쪽만 지워진 대화는
+        기록도 아니고 없는 것도 아니다. (끝내려면 먼저 그 실행을 그만두게 한다.)
+        없는 대화를 지워도 탈은 없다 — 두 번 눌러도 같은 답이다.
+        """
+        so_far = self._runs.runs_in_thread(thread_id)
+        if any(not self.has_ended(run.id) for run in so_far):
+            return ThreadKept(
+                message="this conversation is still going, so nothing was deleted"
+            )
+        if self._jobs is not None:
+            self._jobs.forget_runs([run.id for run in so_far])
+        self._runs.delete_thread(thread_id)
+        return None
 
     def has_ended(self, run_id: str) -> bool:
         """끝난 실행에는 더 보낼 것도 기다릴 것도 없다 — 마지막 이벤트 하나만 보고 안다.
@@ -559,6 +665,7 @@ __all__ = [
     "RUN_WENT_WRONG",
     "EventBatch",
     "ResumesARun",
+    "RevisionSource",
     "RunIdMaker",
     "RunOutcome",
     "RunRefusal",
@@ -566,6 +673,8 @@ __all__ = [
     "RunService",
     "RunView",
     "StartsARun",
+    "ThreadDeletion",
+    "ThreadKept",
     "Work",
     "Worker",
     "in_the_background",

@@ -21,9 +21,13 @@ from agentcanvas_api.run_service import (
     RunRefused,
     RunService,
     RunView,
+    ThreadKept,
     Work,
 )
 from agentcanvas_api.run_store import SeqAlreadyStored
+from agentcanvas_api.sqlite_job_store import SqliteJobStore
+from agentcanvas_api.sqlite_run_store import SqliteRunStore
+from agentcanvas_api.store import StoredSpec
 from agentcanvas_contracts.agent_spec import AgentSpec, EdgeCondition
 from agentcanvas_contracts.run import RUN_ENDINGS, ApprovalAnswer, RunStatus, run_status
 from agentcanvas_contracts.run_events import EventType, RunEvent
@@ -729,3 +733,245 @@ class TestARunThatCannotBeCarriedOn:
 
         assert isinstance(outcome, RunRefused)
         assert outcome.reason == "another_revision"
+
+
+def a_second_draft() -> AgentSpec:
+    """같은 그래프의 다음 판 — 게시가 가리키는 판과 최신 판을 갈라 놓는다."""
+    spec = example_spec(version=example_spec().version + 1, name="A second draft")
+    return spec.model_copy(update={"revision": spec.computed_revision()})
+
+
+def a_service_that_names_each_run(
+    specs: InMemorySpecStore, runs: InMemoryRunStore
+) -> RunService:
+    """한 스레드에 말이 여러 번 오가는 시험 — 실행마다 이름이 달라야 한다."""
+    names = iter([f"run_{turn}" for turn in range(1, 10)])
+    return RunService(
+        specs=specs,
+        runs=runs,
+        clock=lambda: STARTED_AT,
+        new_run_id=lambda: next(names),
+        worker=right_here,
+    )
+
+
+def a_turn(
+    service: RunService, thread_id: str | None = None, **asked: object
+) -> RunView:
+    """대화 한 마디 — 게시된 판과 말을 주고받는다."""
+    outcome = service.start(
+        SPEC_ID, thread_id=thread_id, revision_source="published", **asked
+    )
+    assert isinstance(outcome, RunView)
+    return outcome
+
+
+class TestRunningTheRevisionThatWasPublished:
+    """대화는 게시된 판과 한다 — 판을 집는 쪽은 서버고, 그 판은 대화 도중 움직이지 않는다."""
+
+    def test_a_graph_that_was_never_published_cannot_be_talked_to(
+        self, service: RunService
+    ):
+        """게시하지 않은 그래프에 말을 걸면, 최신 판이 조용히 도는 대신 까닭을 듣는다."""
+        outcome = service.start(SPEC_ID, revision_source="published")
+
+        assert isinstance(outcome, RunRefused)
+        assert outcome.reason == "not_published"
+
+    def test_a_graph_that_was_never_saved_cannot_be_talked_to_either(
+        self, service: RunService
+    ):
+        """없는 그래프는 게시된 판을 물어도 없는 그래프다 — 까닭이 갈리지 않는다."""
+        outcome = service.start("nothing-like-that", revision_source="published")
+
+        assert isinstance(outcome, RunRefused)
+        assert outcome.reason == "unknown_spec"
+
+    def test_the_published_revision_runs_even_though_a_newer_one_is_saved(
+        self, specs: InMemorySpecStore, runs: InMemoryRunStore
+    ):
+        """대화 상대는 내놓은 판이다 — 그 뒤로 저장한 초고가 사람 앞에서 돌지 않는다."""
+        published = example_spec().revision
+        specs.set_publication(SPEC_ID, published, STARTED_AT)
+        specs.append(a_second_draft(), created_at=STARTED_AT)
+        service = a_service_that_names_each_run(specs, runs)
+
+        view = a_turn(service)
+
+        assert view.run.spec_revision == published
+        assert a_second_draft().revision != published
+
+    def test_a_thread_keeps_the_revision_its_first_turn_took(
+        self, specs: InMemorySpecStore, runs: InMemoryRunStore
+    ):
+        """대화 도중 다른 판이 게시돼도, 하던 대화는 처음 만난 판과 계속한다."""
+        specs.set_publication(SPEC_ID, example_spec().revision, STARTED_AT)
+        service = a_service_that_names_each_run(specs, runs)
+        first = a_turn(service, thread_id="thread_1")
+        newer = a_second_draft()
+        specs.append(newer, created_at=STARTED_AT)
+        specs.set_publication(SPEC_ID, newer.revision, STARTED_AT)
+
+        second = a_turn(service, thread_id="thread_1")
+
+        assert second.run.spec_revision == first.run.spec_revision
+
+    def test_a_thread_carries_on_after_the_graph_is_taken_down(
+        self, specs: InMemorySpecStore, runs: InMemoryRunStore
+    ):
+        """게시를 내려도 이미 하던 대화는 끊기지 않는다 — 새 대화만 열리지 않는다."""
+        specs.set_publication(SPEC_ID, example_spec().revision, STARTED_AT)
+        service = a_service_that_names_each_run(specs, runs)
+        first = a_turn(service, thread_id="thread_1")
+        specs.clear_publication(SPEC_ID)
+
+        second = a_turn(service, thread_id="thread_1")
+
+        assert second.run.spec_revision == first.run.spec_revision
+
+    def test_the_revision_is_not_the_callers_to_name(self, specs: InMemorySpecStore):
+        """판을 집는 쪽은 서버다 — 판을 함께 적어 보내면 뜻이 부딪히므로 물린다."""
+        specs.set_publication(SPEC_ID, example_spec().revision, STARTED_AT)
+        service = a_service(specs, InMemoryRunStore())
+
+        outcome = service.start(
+            SPEC_ID,
+            spec_revision=example_spec().revision,
+            revision_source="published",
+        )
+
+        assert isinstance(outcome, RunRefused)
+        assert outcome.reason == "revision_not_yours_to_pick"
+
+    def test_a_conversation_whose_revision_is_gone_is_refused_instead_of_breaking(
+        self, runs: InMemoryRunStore
+    ):
+        """되찾을 수 없는 판이면 터지는 대신 물린다 — 500은 사람에게 아무 말도 해 주지 못한다."""
+        specs = ForgetsThePastRevisions()
+        specs.append(example_spec(), created_at=STARTED_AT)
+        specs.set_publication(SPEC_ID, example_spec().revision, STARTED_AT)
+        service = a_service(specs, runs)
+
+        outcome = service.start(SPEC_ID, revision_source="published")
+
+        assert isinstance(outcome, RunRefused)
+        assert outcome.reason == "revision_gone"
+
+    def test_a_run_that_asks_for_nothing_still_takes_the_latest_saved_revision(
+        self, specs: InMemorySpecStore, service: RunService
+    ):
+        """게시가 있어도 기본은 그대로다 — 만드는 사람의 시험 실행은 최신 초고를 돈다."""
+        specs.set_publication(SPEC_ID, example_spec().revision, STARTED_AT)
+        newer = a_second_draft()
+        specs.append(newer, created_at=STARTED_AT)
+
+        view = started(service)
+
+        assert view.run.spec_revision == newer.revision
+
+
+class TestDeletingAConversation:
+    """지울 수 있어야 사람들이 안심하고 말을 건다 — 다만 흐르는 말을 반쪽만 지우지는 않는다."""
+
+    def test_a_conversation_that_has_ended_is_deleted_whole(self, service: RunService):
+        started(service)
+        service.answer("run_1", ApprovalAnswer(approved=True))
+
+        assert service.delete_thread("run_1") is None
+        assert service.view("run_1") is None
+        assert service.events("run_1") == []
+        assert service.runs_in_thread("run_1") == []
+
+    def test_a_conversation_that_is_still_going_is_left_alone(
+        self, service: RunService
+    ):
+        """멈춰 서서 사람을 기다리는 말도 아직 끝난 말이 아니다 — 하나도 지우지 않는다."""
+        view = started(service)
+
+        kept = service.delete_thread("run_1")
+
+        assert isinstance(kept, ThreadKept)
+        assert service.view("run_1") is not None
+        assert service.runs_in_thread("run_1") == [view.run]
+
+    def test_a_conversation_nobody_started_is_deleted_without_complaint(
+        self, service: RunService
+    ):
+        """없는 것을 지워도 탈이 없다 — 두 번 눌러도 같은 답이다."""
+        assert service.delete_thread("nobody-here") is None
+
+    def test_one_turn_that_is_still_going_keeps_the_whole_conversation(
+        self, specs: InMemorySpecStore, runs: InMemoryRunStore
+    ):
+        """반쪽만 지워진 대화는 기록도 아니고 없는 것도 아니다."""
+        service = a_service_that_names_each_run(specs, runs)
+        service.start(SPEC_ID, thread_id="thread_1")
+        service.answer("run_1", ApprovalAnswer(approved=True))
+        service.start(SPEC_ID, thread_id="thread_1")
+
+        kept = service.delete_thread("thread_1")
+
+        assert isinstance(kept, ThreadKept)
+        assert [run.id for run in service.runs_in_thread("thread_1")] == [
+            "run_1",
+            "run_2",
+        ]
+
+
+class TestARunTheDurableQueueWillCarryOut:
+    """실행을 저장해 두고 일꾼이 나중에 집을 때도, 적어 둔 청은 같은 말을 해야 한다."""
+
+    def test_the_stored_command_carries_the_thread_the_speaker_and_the_published_revision(
+        self, tmp_path: Path
+    ):
+        """나중에 일꾼이 읽을 청 — 어느 대화의 누구 말이고, 어느 판을 집었는지가 적혀 있다."""
+        specs = InMemorySpecStore()
+        specs.append(example_spec(), created_at=STARTED_AT)
+        specs.set_publication(SPEC_ID, example_spec().revision, STARTED_AT)
+        specs.append(a_second_draft(), created_at=STARTED_AT)
+        jobs = SqliteJobStore(tmp_path / "durable.db")
+        service = RunService(
+            specs=specs,
+            runs=SqliteRunStore(tmp_path / "durable.db"),
+            clock=lambda: STARTED_AT,
+            new_run_id=lambda: "run_1",
+            worker=right_here,
+            jobs=jobs,
+        )
+
+        view = a_turn(service, thread_id="thread_1", end_user_ref="end-user://amy")
+
+        job = jobs.latest_for_reference("run", view.run.id)
+        assert job is not None
+        assert job.payload["thread_id"] == "thread_1"
+        assert job.payload["end_user_ref"] == "end-user://amy"
+        assert job.payload["spec_revision"] == example_spec().revision
+
+
+class ForgetsThePastRevisions(InMemorySpecStore):
+    """지나간 판을 되찾아 주지 않는 저장소 — 이론상 없는 자리이나 터지지는 않아야 한다."""
+
+    def by_revision(self, spec_id: str, revision: str) -> StoredSpec | None:
+        return None
+
+
+class TestTheThreadARunBelongsTo:
+    """실행은 스레드에 묶인다 — 이름을 주면 그 끈에, 안 주면 홀로 선 끈에."""
+
+    def test_a_run_that_names_no_thread_is_its_own_thread(self, service: RunService):
+        view = started(service)
+
+        assert view.run.thread_id == view.run.id
+
+    def test_a_run_that_names_a_thread_is_tied_to_it(self, service: RunService):
+        outcome = service.start(SPEC_ID, thread_id="thread_1")
+
+        assert isinstance(outcome, RunView)
+        assert outcome.run.thread_id == "thread_1"
+        assert service.runs_in_thread("thread_1") == [outcome.run]
+
+    def test_the_one_who_spoke_is_written_on_the_run(self, service: RunService):
+        outcome = service.start(SPEC_ID, end_user_ref="end-user://amy")
+
+        assert isinstance(outcome, RunView)
+        assert outcome.run.end_user_ref == "end-user://amy"

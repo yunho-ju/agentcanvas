@@ -111,6 +111,16 @@ class SpecService:
             return None
         return SpecView(stored=stored, issues=validate_graph(stored.spec))
 
+    def read_revision(self, spec_id: str, revision: str) -> SpecView | None:
+        """지나간 판 하나를 그대로 다시 본다 — 손볼 곳은 읽는 순간 다시 잰다.
+
+        대화는 게시된 판과 오간다: 그 판이 어떤 그래프였는지 여기서 열어 본다.
+        """
+        stored = self._store.by_revision(spec_id, revision)
+        if stored is None:
+            return None
+        return SpecView(stored=stored, issues=validate_graph(stored.spec))
+
     def revisions(self, spec_id: str) -> list[SpecRevision]:
         return self._store.revisions(spec_id)
 

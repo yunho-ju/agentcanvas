@@ -157,6 +157,36 @@ def test_the_old_version_is_still_in_the_history(client: TestClient):
     assert history[0]["created_at"] > history[1]["created_at"]
 
 
+def test_a_past_revision_can_be_read_back_whole(client: TestClient):
+    """지나간 판도 그대로 읽힌다 — 대화가 어느 판과 오갔는지 화면이 열어 볼 수 있어야 한다."""
+    first = client.post("/specs", json=payload()).json()["spec"]
+    client.put(
+        f"/specs/{SPEC_ID}",
+        headers={"If-Match": first["revision"]},
+        json=payload(name="고친 판"),
+    )
+
+    response = client.get(f"/specs/{SPEC_ID}/revisions/{first['revision']}")
+
+    assert response.status_code == 200
+    assert response.json()["spec"] == first
+    assert response.json()["issues"] == client.get(f"/specs/{SPEC_ID}").json()["issues"]
+
+
+def test_a_revision_nobody_saved_is_not_there(client: TestClient):
+    client.post("/specs", json=payload())
+
+    response = client.get(f"/specs/{SPEC_ID}/revisions/sha256:{'0' * 64}")
+
+    assert response.status_code == 404
+
+
+def test_a_revision_of_a_graph_nobody_saved_is_not_there(client: TestClient):
+    response = client.get(f"/specs/nowhere/revisions/sha256:{'0' * 64}")
+
+    assert response.status_code == 404
+
+
 def test_saving_the_same_thing_again_changes_nothing(client: TestClient):
     first = client.post("/specs", json=payload()).json()
 

@@ -601,6 +601,14 @@ class SqliteJobStore:
             ).fetchone()
         return None if row is None else self._job(row)
 
+    def forget_runs(self, run_ids: Sequence[str]) -> None:
+        """지워진 실행이 남긴 일감을 함께 거둔다 — 없는 실행을 집으려 드는 일꾼이 없게."""
+        with self._write() as connection:
+            connection.executemany(
+                "DELETE FROM durable_jobs WHERE kind = 'run' AND reference_id = ?",
+                [(run_id,) for run_id in run_ids],
+            )
+
     def latest_for_reference(
         self, kind: JobKind, reference_id: str
     ) -> DurableJob | None:

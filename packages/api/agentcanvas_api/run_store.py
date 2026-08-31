@@ -32,6 +32,13 @@ class RunStore(Protocol):
         """한 스레드에 묶인 실행들 — 시작한 순서(created_at)대로. 빈 스레드는 빈 목록."""
         ...
 
+    def delete_thread(self, thread_id: str) -> None:
+        """한 대화에 묶인 실행들과 그 이벤트를 통째로 거둔다. 빈 스레드를 지워도 탈은 없다.
+
+        지우는 자리는 여기 하나다 — 남는 실행은 고쳐 쓰이지 않고, 지운 실행은 남지 않는다.
+        """
+        ...
+
     def append(self, run_id: str, events: Sequence[RunEvent]) -> None:
         """실행이 남긴 이벤트를 끝에 잇는다.
 
