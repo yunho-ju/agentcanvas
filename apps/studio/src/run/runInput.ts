@@ -12,7 +12,7 @@ function asObject(value: unknown): Record<string, unknown> | null {
 }
 
 /** 입력 노드가 받기로 한 값 이름들 — 이름이 곧 사람에게 물을 것이다. */
-function boundNames(spec: AgentSpec): string[] {
+export function inputBindingNames(spec: AgentSpec): string[] {
   const names = spec.nodes
     .filter((node) => node.type === INPUT_NODE_TYPE)
     .flatMap((node) => Object.keys(asObject(node.config?.bindings) ?? {}))
@@ -30,7 +30,7 @@ function schemaFor(properties: Record<string, unknown>, name: string): JsonSchem
  * 그때는 카드도 서지 않는다 (빈 카드를 띄우지 않는다).
  */
 export function runInputFields(spec: AgentSpec): FormField[] {
-  const names = boundNames(spec);
+  const names = inputBindingNames(spec);
   if (names.length === 0) return [];
 
   const schema = asObject(spec.input_schema) ?? {};

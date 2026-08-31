@@ -3,7 +3,7 @@
 // 화면에서 부르는 자리는 CHAT-3b가 연다 — 여기서는 문의 계약만 고정한다.
 import { describe, expect, it } from "vitest";
 import type { HttpResponse } from "../src/api/http";
-import { startChatTurnOnServer } from "../src/api/runs";
+import { cancelRunOnServer, startChatTurnOnServer } from "../src/api/runs";
 import { deleteThreadOnServer, fetchThreadRuns } from "../src/api/threads";
 import { translate } from "../src/i18n/messages";
 
@@ -147,5 +147,49 @@ describe("대화를 지우는 일", () => {
 
     expect(outcome.ok).toBeUndefined();
     expect(translate("ko", outcome.failure!).length).toBeGreaterThan(0);
+  });
+});
+
+describe("첫 말은 대화 이름 없이 나간다 (CHAT-3b 결정 5)", () => {
+  it("아직 대화가 없으면 대화 이름을 지어내지 않는다 — 서버가 실행 이름으로 연다", async () => {
+    const { calls, fetch } = server({ status: 201, body: { run, status: "running" } });
+
+    await startChatTurnOnServer(
+      SPEC_ID,
+      { input: { message: "안녕" } },
+      { baseUrl: "http://here", fetch },
+    );
+
+    expect(calls[0].body).toEqual({
+      revision_source: "published",
+      input: { message: "안녕" },
+    });
+  });
+});
+
+describe("기다리던 말을 그만두는 일", () => {
+  it("그 실행을 그만두라고 서버에 부탁한다", async () => {
+    const { calls, fetch } = server({ status: 200, body: { run, status: "cancelled" } });
+
+    const outcome = await cancelRunOnServer("abc123", {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(calls[0].url).toBe("http://here/runs/abc123/cancel");
+    expect(calls[0].method).toBe("POST");
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("그만두지 못했으면 까닭을 쉬운 말로 돌려준다 — 서버 원문은 싣지 않는다", async () => {
+    const { fetch } = server({ status: 404, body: { detail: "no run called abc123" } });
+
+    const outcome = await cancelRunOnServer("abc123", {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(outcome.ok).toBeUndefined();
+    expect(translate("ko", outcome.failure!)).not.toContain("no run called");
   });
 });

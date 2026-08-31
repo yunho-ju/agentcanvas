@@ -5,6 +5,7 @@ import type { AgentSpec } from "../src/generated/agent_spec";
 import {
   fetchSavedDocs,
   fetchSavedSpec,
+  fetchSpecRevision,
   fetchSpecRevisions,
   sendSpecToServer,
 } from "../src/api/specs";
@@ -382,5 +383,36 @@ describe("저장해 둔 문서의 판 기록", () => {
 
     expect(said).toContain("500");
     expect(said).not.toContain("secret provider trace");
+  });
+});
+
+// 게시된 판의 몸통을 읽는 문 (CHAT-3b) — 대화 문을 열지 말지는 이 판의 bindings가 정한다.
+describe("지나간 판 하나를 읽는 일", () => {
+  it("그 판의 그래프를 통째로 가져온다", async () => {
+    const { calls, fetch } = server({ status: 200, body: envelope(saved) });
+
+    const outcome = await fetchSpecRevision("clinical-assistant", saved.revision, {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    // 주소에 그대로 실리지 않는 글자(:)는 감싸서 보낸다 — 서버가 받아 풀면 그 판을 가리킨다.
+    expect(decodeURIComponent(calls[0].url)).toBe(
+      `http://here/specs/clinical-assistant/revisions/${saved.revision}`,
+    );
+    expect(calls[0].method).toBe("GET");
+    expect(outcome.saved?.revision).toBe(saved.revision);
+  });
+
+  it("그런 판이 없으면 던지지 않고 까닭을 돌려준다", async () => {
+    const { fetch } = server({ status: 404, body: { detail: "no revision" } });
+
+    const outcome = await fetchSpecRevision("clinical-assistant", saved.revision, {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(outcome.saved).toBeUndefined();
+    expect(translate("ko", outcome.failure!)).not.toContain("no revision");
   });
 });

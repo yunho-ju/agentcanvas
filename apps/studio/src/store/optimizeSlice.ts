@@ -57,6 +57,8 @@ export const createOptimizeSlice: StateCreator<EditorState, [], [], OptimizeSlic
     // 고칠 그래프가 없으면 들어가지 않는다 — Optimizer는 빈 캔버스가 아니라 기존 그래프의 것이다.
     enterOptimizeMode: () => {
       if (get().spec === null) return;
+      // 우측 자리는 하나다 — 고치기를 열면 대화는 물러난다 (DESIGN §1 배치표).
+      get().leaveChatMode();
       set({ ...CLOSED_OPTIMIZE, optimizeMode: "input" });
     },
     leaveOptimizeMode: () => {

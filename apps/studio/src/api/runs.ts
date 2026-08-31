@@ -155,8 +155,11 @@ export async function startRunOnServer(
 
 /** 대화 한 마디로 실을 것 — 어느 대화의, 누구의 말이고, 무엇을 건네는가. */
 export interface ChatTurn {
-  /** 이 말이 이어 붙는 대화 — 같은 대화의 말들은 처음 만난 판과 계속 이야기한다 */
-  threadId: string;
+  /**
+   * 이 말이 이어 붙는 대화 — 같은 대화의 말들은 처음 만난 판과 계속 이야기한다.
+   * 첫 말에는 없다: 서버가 그 실행의 이름으로 대화를 연다 (CHAT-1 확정 의미).
+   */
+  threadId?: string;
   /** 말한 이를 가리키는 이름(`end-user://...`) — 없으면 만든 사람이 자기 그래프에 말을 건 것이다 */
   endUserRef?: string;
   input?: Record<string, unknown>;
@@ -176,7 +179,7 @@ export async function startChatTurnOnServer(
   // 적지 않은 것은 적은 척 보내지 않는다 — 서버는 모르는 자리를 조용히 삼키지 않는다.
   const asked = {
     revision_source: "published",
-    thread_id: turn.threadId,
+    ...(turn.threadId ? { thread_id: turn.threadId } : {}),
     ...(turn.endUserRef ? { end_user_ref: turn.endUserRef } : {}),
     ...(turn.input && Object.keys(turn.input).length > 0 ? { input: turn.input } : {}),
   };
@@ -191,6 +194,27 @@ export async function startChatTurnOnServer(
       reason: reasonOf(answer.body) || String(answer.status),
     }),
   };
+}
+
+/** 실행을 그만두라고 부탁한 결말 — 그만두었거나, 그만두지 못한 까닭이다. */
+export type RunCancelOutcome =
+  | { ok: true; failure?: undefined }
+  | { ok?: undefined; failure: Message };
+
+/**
+ * 기다리던 실행을 여기서 그만둔다 — 답을 기다리는 동안에는 그 대화를 지울 수 없기 때문이다.
+ * 그만둔 사실은 이벤트로 이어 온다: 이 문은 부탁이 닿았는지만 말한다.
+ */
+export async function cancelRunOnServer(
+  runId: string,
+  options: RunApiOptions = {},
+): Promise<RunCancelOutcome> {
+  const base = options.baseUrl ?? apiBaseUrl();
+  const url = `${base}/runs/${encodeURIComponent(runId)}/cancel`;
+  const said = await tellServer(url, {}, options);
+  if (said === null) return { failure: msg("chat.stop.offline") };
+  if (said.status === OK) return { ok: true };
+  return { failure: msg("chat.stop.failed", { status: String(said.status) }) };
 }
 
 /** 밸브 앞에 멈춰 선 실행에 사람의 답을 보낸다 — 이어지는 이벤트는 스트림으로 온다. */

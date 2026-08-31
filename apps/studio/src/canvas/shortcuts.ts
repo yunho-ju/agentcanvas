@@ -68,6 +68,12 @@ export function isToolWrapFieldFocused(target: EventTarget | null): boolean {
   return isEditingElement(target) && target.closest(".tool-wrap-card") !== null;
 }
 
+/** 대화에서 할 말을 적는 칸에 손이 있는가 — 그 칸의 Esc는 손을 떼는 일이다 (DESIGN §7 chat-panel). */
+export function isChatFieldFocused(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return isEditingElement(target) && target.closest(".chat-panel") !== null;
+}
+
 /** 빼기 전 경고 자체에 초점이 있는가 — 그 안의 버튼은 자기 키를 스스로 받는다. */
 export function isPreviewFocused(target: EventTarget | null): boolean {
   return focusedWithin(target, '[role="alertdialog"]');
@@ -157,6 +163,16 @@ export interface ShortcutContext {
   toolWrapOpen: boolean;
   /** 손이 그 카드의 붙여 넣는 칸 안에 있는가 */
   onToolWrapField: boolean;
+  /** 대화 패널이 열려 있는가 */
+  chatOpen: boolean;
+  /** 손이 대화에서 할 말을 적는 칸 안에 있는가 */
+  onChatField: boolean;
+  /** 대화를 정말 지울지 되묻는 중인가 */
+  chatDeleteAsking: boolean;
+  /** 대화 안의 확인 카드가 사람에게 묻고 있는가 */
+  chatGateAsking: boolean;
+  /** 그 물음이 "정말 거절할까요"인가 */
+  chatGateConfirming: boolean;
 }
 
 /** 물러나는 한 걸음 — 이 자리에 있으면(when) 이 일을 한다(step). */
@@ -173,6 +189,11 @@ const ESCAPE_CHAIN: RetreatStep[] = [
   { when: (it) => it.pickerOpen, step: ({ editor }) => editor.closePicker() },
   { when: (it) => it.previewing, step: ({ editor }) => editor.cancelDetach() },
   { when: (it) => it.gateConfirming, step: ({ editor }) => editor.cancelReject() },
+  { when: (it) => it.chatDeleteAsking, step: ({ editor }) => editor.cancelDeleteChat() },
+  {
+    when: (it) => it.chatGateConfirming,
+    step: ({ editor }) => editor.cancelChatRejectGate(),
+  },
   { when: (it) => it.askingBeforeOpen, step: ({ editor }) => editor.cancelOpening() },
   { when: (it) => it.fileOpenAsking, step: ({ editor }) => editor.cancelFileOpen() },
   // 실행에 넣을 값을 적던 칸에 손이 있으면 그 손만 뗀다 (DESIGN §7 run-input-card).
@@ -182,7 +203,16 @@ const ESCAPE_CHAIN: RetreatStep[] = [
   // 폼 칸에 손이 있으면 그 손만 뗀다 — 카드는 그대로 서 있다 (DESIGN §7 승인 폼).
   { when: (it) => it.onGateField, step: ({ blurField }) => blurField() },
   { when: (it) => it.gateAsking, step: ({ editor }) => editor.setGateCardOpen(false) },
+  // 대화 안의 확인 카드도 실행 화면의 것과 같은 자리에서 물러난다 — 멈춘 채로 두고 닫는다.
+  {
+    when: (it) => it.chatGateAsking,
+    step: ({ editor }) => editor.setChatGateCardOpen(false),
+  },
   { when: (it) => it.docListOpen, step: ({ editor }) => editor.closeDocList() },
+  // 적던 말에 손이 있으면 그 손만 뗀다 — 긴 말을 한 번의 Esc로 잃지 않는다.
+  { when: (it) => it.onChatField, step: ({ blurField }) => blurField() },
+  // 대화 패널은 문서 목록 다음, 독 패널보다 먼저 물러난다 (DESIGN §1 ③′).
+  { when: (it) => it.chatOpen, step: ({ editor }) => editor.leaveChatMode() },
   // 붙여 넣던 칸에 손이 있으면 그 손만 뗀다 — 긴 붙여넣기를 한 번의 Esc로 잃지 않는다.
   { when: (it) => it.onToolWrapField, step: ({ blurField }) => blurField() },
   { when: (it) => it.toolWrapOpen, step: ({ editor }) => editor.closeToolWrap() },
@@ -205,7 +235,8 @@ export function findShortcut(
       (context.pickerOpen ||
         context.onGateField ||
         context.onRunInputField ||
-        context.onToolWrapField));
+        context.onToolWrapField ||
+        context.onChatField));
   if (context.editing && !typingException) return undefined;
   // Esc는 언제나 체인이 답한다 — 손이 어디에 있든 물러나는 순서는 같다.
   if (name === "Escape") return ESCAPE_CHAIN.find((retreat) => retreat.when(context))?.step;

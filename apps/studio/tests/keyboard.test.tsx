@@ -394,6 +394,11 @@ describe("saving when saving is not possible", () => {
     fileOpenAsking: true,
     toolWrapOpen: true,
     onToolWrapField: true,
+    chatOpen: true,
+    onChatField: true,
+    chatDeleteAsking: true,
+    chatGateAsking: true,
+    chatGateConfirming: true,
   };
 
   it("저장할 수 없는 자리에서도 그 키는 앱이 받는다 — 브라우저가 가져가지 않는다", () => {
@@ -451,6 +456,11 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
     fileOpenAsking: false,
     toolWrapOpen: false,
     onToolWrapField: false,
+    chatOpen: false,
+    onChatField: false,
+    chatDeleteAsking: false,
+    chatGateAsking: false,
+    chatGateConfirming: false,
   };
 
   /** Esc 한 번이 무엇을 물렸는지 — 걸음은 하나뿐이어야 한다. */
@@ -466,6 +476,10 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
       setGateCardOpen: () => done.push("gate.card"),
       closeDocList: () => done.push("docList"),
       closeToolWrap: () => done.push("toolWrap"),
+      cancelDeleteChat: () => done.push("chat.ask"),
+      cancelChatRejectGate: () => done.push("chat.gate.reject"),
+      setChatGateCardOpen: () => done.push("chat.gate.card"),
+      leaveChatMode: () => done.push("chat"),
       clearCompare: () => done.push("compare"),
       stopRun: () => done.push("run"),
       clearSelection: () => done.push("selection"),
@@ -555,6 +569,43 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
 
   it("목록이 닫혀 있으면 순서는 예전 그대로다", () => {
     expect(whatEscapeDid({ panelOpen: true, hasSelection: true })).toEqual(["panel"]);
+  });
+
+  // 대화 패널은 목록 다음, 독 패널보다 먼저 물러난다 (DESIGN §1 ③′).
+  it("지우기 되묻기가 대화 패널보다 먼저 물러난다", () => {
+    expect(whatEscapeDid({ chatDeleteAsking: true, chatOpen: true })).toEqual([
+      "chat.ask",
+    ]);
+  });
+
+  it("적던 말에 손이 있으면 초점만 거두고 대화는 그대로 둔다", () => {
+    expect(whatEscapeDid({ onChatField: true, editing: true, chatOpen: true })).toEqual([
+      "field.blur",
+    ]);
+  });
+
+  // 대화 안의 밸브도 실행 화면과 같은 순서로 물러난다 (DESIGN §1 ①·②).
+  it("대화 안의 되묻기가 그 카드보다 먼저 물러난다", () => {
+    expect(
+      whatEscapeDid({ chatGateConfirming: true, chatGateAsking: true, chatOpen: true }),
+    ).toEqual(["chat.gate.reject"]);
+  });
+
+  it("열린 확인 카드가 대화 패널보다 먼저 물러난다 — 답을 강요하지 않고 멈춘 채 둔다", () => {
+    expect(whatEscapeDid({ chatGateAsking: true, chatOpen: true })).toEqual([
+      "chat.gate.card",
+    ]);
+  });
+
+  it("카드를 닫은 다음의 Esc가 대화를 닫는다 — 한 걸음씩이다", () => {
+    expect(whatEscapeDid({ chatOpen: true })).toEqual(["chat"]);
+  });
+
+  it("대화 패널은 문서 목록 다음, 독 패널보다 먼저 물러난다", () => {
+    expect(whatEscapeDid({ chatOpen: true, docListOpen: true })).toEqual(["docList"]);
+    expect(whatEscapeDid({ chatOpen: true, panelOpen: true, hasSelection: true })).toEqual([
+      "chat",
+    ]);
   });
 });
 

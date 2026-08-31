@@ -137,6 +137,33 @@ export async function fetchSavedSpec(
   return envelopeOf(answer.body);
 }
 
+/**
+ * 저장해 둔 판 하나를 통째로 가져온다 — 지금 저장된 판을 읽는 것과 같은 봉투로 온다.
+ * 게시된 판이 무엇을 받는지(대화를 열 수 있는지)는 캔버스가 아니라 이 몸통이 말한다.
+ */
+export async function fetchSpecRevision(
+  id: string,
+  revision: string,
+  options: SpecApiOptions = {},
+): Promise<SaveOutcome> {
+  const base = options.baseUrl ?? apiBaseUrl();
+  const answer = await askServer(
+    `${base}/specs/${encodeURIComponent(id)}/revisions/${encodeURIComponent(revision)}`,
+    options,
+  );
+  if (answer === null) return { failure: msg("open.offline") };
+  if (answer.body === UNREADABLE) return unreadable(answer.response);
+  if (answer.response.status === NOT_THERE) return { failure: msg("open.notFound") };
+  if (answer.response.status !== OK) {
+    return {
+      failure: msg("open.failed", {
+        reason: reasonOf(answer.body) || String(answer.response.status),
+      }),
+    };
+  }
+  return envelopeOf(answer.body);
+}
+
 /** 저장된 판의 머리말만 가져온다 — 서버가 준 순서를 그대로 보존한다. */
 export async function fetchSpecRevisions(
   id: string,

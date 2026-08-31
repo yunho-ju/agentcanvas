@@ -234,6 +234,8 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
     clearPollTimer: (handle) => globalThis.clearTimeout(handle as Parameters<typeof clearTimeout>[0]),
 
     enterEvalMode: () => {
+      // 우측 자리는 하나다 — 시험을 열면 대화는 물러난다(듣던 스트림도 함께, DESIGN §1 배치표).
+      get().leaveChatMode();
       set({ evalPanelOpen: true });
       loadDatasetForCurrentDoc();
       // 이 서버에 어떤 판정 층이 섰는지도 이때 알아본다 — 못 들어도 패널은 그대로 열린다.

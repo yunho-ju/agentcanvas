@@ -705,6 +705,11 @@ const TEXTS = {
     ko: "지금 그래프를 목표에 맞게 고칠 방법을 제안받는다",
     en: "Get a suggested way to improve this graph toward a goal",
   },
+  "mode.chat": { ko: "대화", en: "Talk" },
+  "mode.chat.hint": {
+    ko: "내놓은 판에 말을 걸어 본다 — 사람들이 보는 그 판이다",
+    en: "Say something to the published version — the one people see",
+  },
   "mode.optimize.none": {
     ko: "고칠 그래프가 아직 없어요 — 먼저 무언가 만들어 보세요",
     en: "There is no graph to improve yet — build something first",
@@ -782,6 +787,109 @@ const TEXTS = {
   "chat.thread.delete.failed": {
     ko: "대화를 지우지 못했어요 ({status}) — 잠시 뒤 다시 눌러 주세요",
     en: "Could not delete the conversation ({status}) — try again in a moment",
+  },
+
+  // 대화 문 — 못 여는 까닭마다 다음 걸음을 말한다 (DESIGN §7 chat-panel).
+  "chat.door.noDoc": {
+    ko: "먼저 만들거나 열어야 대화할 수 있어요",
+    en: "Make or open a document first, then you can talk to it",
+  },
+  "chat.door.checking": {
+    ko: "내놓은 판을 확인하는 중이에요",
+    en: "Checking the published version",
+  },
+  "chat.door.checkFailed": {
+    ko: "내놓은 판을 확인하지 못했어요 — 눌러서 다시 확인해 볼 수 있어요",
+    en: "We could not check the published version — press to try again",
+  },
+  "chat.door.checkFailed.offline": {
+    ko: "서버에 닿지 못해 내놓은 판을 확인하지 못했어요 — 서버가 켜져 있는지 보고 눌러서 다시 확인해 주세요",
+    en: "Could not reach the server, so the published version is unchecked — check the server is up and press to try again",
+  },
+  "chat.door.checkFailed.gone": {
+    ko: "내놓은 판을 서버에서 찾지 못했어요 — 다시 게시하고 눌러서 확인해 주세요",
+    en: "The published version was not found on the server — publish again and press to check",
+  },
+  "chat.door.noMessageInput": {
+    ko: "내놓은 판에는 사람 말을 받는 자리(message)가 없어요 — 입력에 message를 더하고 다시 게시해 주세요",
+    en: "The published version has no place for what a person says (message) — add message to the input and publish again",
+  },
+  "chat.pin.version": {
+    ko: "{version}번째 판과 이야기하는 중이에요",
+    en: "You are talking to version {version}",
+  },
+  "chat.pin.unknown": {
+    ko: "내놓은 판과 이야기하는 중이에요",
+    en: "You are talking to the published version",
+  },
+  "chat.turn.rejected": {
+    ko: "확인을 거절해서 이 말은 여기서 끝났어요",
+    en: "You said no at the check, so this turn ended here",
+  },
+  "chat.turn.silent": {
+    ko: "이 말에는 답이 오지 않았어요 — 문서에 답을 만드는 단계가 있는지 보세요",
+    en: "No answer came back for this — check that the document has a step that writes one",
+  },
+  "chat.turn.stopped": {
+    ko: "이 말은 기다리기를 그만뒀어요",
+    en: "You stopped waiting for this one",
+  },
+  "chat.title": { ko: "대화", en: "Talk" },
+  "chat.empty": {
+    ko: "내놓은 판에 말을 걸어 보세요 — 한 마디마다 그 판이 한 번 돌아요",
+    en: "Say something to the published version — each turn runs it once",
+  },
+  "chat.said.label": { ko: "할 말", en: "What you want to say" },
+  "chat.said.placeholder": {
+    ko: "예: 오늘 예약을 바꾸고 싶어요",
+    en: "Example: I would like to move my appointment",
+  },
+  "chat.said.you": { ko: "내가 한 말", en: "What you said" },
+  "chat.said.answer": { ko: "받은 답", en: "The answer" },
+  "chat.said.failed": { ko: "답을 받지 못한 까닭", en: "Why no answer came" },
+  "chat.send": { ko: "보내기", en: "Send" },
+  "chat.send.hint": { ko: "이 말을 내놓은 판에 보내요", en: "Send this to the published version" },
+  "chat.send.empty": { ko: "보낼 말을 적어 주세요", en: "Write something to send first" },
+  "chat.send.waiting": {
+    ko: "답이 올 때까지 기다려 주세요",
+    en: "Wait until the answer arrives",
+  },
+  "chat.waiting": { ko: "답을 만드는 중이에요", en: "Writing an answer" },
+  "chat.stop": { ko: "그만 기다리기", en: "Stop waiting" },
+  "chat.stop.hint": {
+    ko: "이 말을 여기서 그만둬요 — 그래야 대화를 지울 수도 있어요",
+    en: "Stop this turn here — then you can also delete the conversation",
+  },
+  "chat.stop.failed": {
+    ko: "그만두지 못했어요 ({status}) — 잠시 뒤 다시 눌러 주세요",
+    en: "Could not stop it ({status}) — try again in a moment",
+  },
+  "chat.stop.offline": {
+    ko: "서버에 닿지 못해 그만두지 못했어요 — 서버가 켜져 있는지 보고 다시 눌러 주세요",
+    en: "Could not reach the server, so it did not stop — check the server is up and press it again",
+  },
+  "chat.new": { ko: "새 대화", en: "New conversation" },
+  "chat.new.hint": {
+    ko: "화면의 대화만 처음으로 돌려요 — 지난 말은 서버에 그대로 남아요",
+    en: "Clears only what is on screen — the past turns stay on the server",
+  },
+  "chat.new.none": { ko: "아직 나눈 말이 없어요", en: "You have not said anything yet" },
+  "chat.delete": { ko: "대화 지우기", en: "Delete conversation" },
+  "chat.delete.hint": {
+    ko: "이 대화에 오간 말을 서버에서 지워요",
+    en: "Delete what was said in this conversation from the server",
+  },
+  "chat.delete.none": { ko: "아직 지울 대화가 없어요", en: "There is no conversation to delete yet" },
+  "chat.delete.ask": {
+    ko: "이 대화를 정말 지울까요? 되돌릴 수 없어요",
+    en: "Really delete this conversation? This cannot be undone",
+  },
+  "chat.delete.yes": { ko: "지우기", en: "Delete" },
+  "chat.delete.back": { ko: "그대로 두기", en: "Keep it" },
+  "chat.delete.ok": { ko: "대화를 지웠어요", en: "The conversation is deleted" },
+  "chat.delete.gateFirst": {
+    ko: "확인을 기다리는 중이라 지울 수 없어요 — 먼저 승인하거나 거절해 주세요",
+    en: "It is waiting for you to check, so it cannot be deleted — approve or reject it first",
   },
   "run.answer.offline": {
     ko: "서버에 닿지 못해 답을 보내지 못했어요 — 서버가 켜져 있는지 보고 다시 눌러 주세요",

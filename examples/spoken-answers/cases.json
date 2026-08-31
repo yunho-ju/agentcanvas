@@ -1,0 +1,773 @@
+[
+  {
+    "name": "a speaking node's words are the answer",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "hello"
+        },
+        "node_id": "agent"
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "hello"
+    ]
+  },
+  {
+    "name": "each turn of speech is kept in the order it happened",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "second",
+          "type": "llm.agent",
+          "position": {
+            "x": 200,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "first"
+        },
+        "node_id": "agent"
+      },
+      {
+        "event_type": "llm.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "second"
+        },
+        "node_id": "second"
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 3,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "first",
+      "second"
+    ]
+  },
+  {
+    "name": "a decision node that really offers ways speaks an envelope, not an answer",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "triage",
+          "type": "llm.router",
+          "position": {
+            "x": 200,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "way",
+          "kind": "control",
+          "source": {
+            "node": "triage",
+            "port": "response"
+          },
+          "target": {
+            "node": "agent",
+            "port": "messages"
+          },
+          "condition": {
+            "language": "cel",
+            "expression": "route == 'clinical'"
+          }
+        }
+      ],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "{\"route\":\"clinical\"}"
+        },
+        "node_id": "triage"
+      },
+      {
+        "event_type": "llm.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "hello"
+        },
+        "node_id": "agent"
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 3,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "hello"
+    ]
+  },
+  {
+    "name": "a decision node with no way-conditioned edge is just speaking",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "triage",
+          "type": "llm.router",
+          "position": {
+            "x": 200,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "plain",
+          "kind": "control",
+          "source": {
+            "node": "triage",
+            "port": "response"
+          },
+          "target": {
+            "node": "agent",
+            "port": "messages"
+          }
+        }
+      ],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "I think so"
+        },
+        "node_id": "triage"
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "I think so"
+    ]
+  },
+  {
+    "name": "a decision node whose condition names something else is not offered ways",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "triage",
+          "type": "llm.router",
+          "position": {
+            "x": 200,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "id": "other",
+          "kind": "control",
+          "source": {
+            "node": "triage",
+            "port": "response"
+          },
+          "target": {
+            "node": "agent",
+            "port": "messages"
+          },
+          "condition": {
+            "language": "cel",
+            "expression": "answer == 'yes'"
+          }
+        }
+      ],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "maybe"
+        },
+        "node_id": "triage"
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "maybe"
+    ]
+  },
+  {
+    "name": "words with no node to own them are not the answer",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "orphan"
+        }
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": []
+  },
+  {
+    "name": "words from a node the graph does not have are not the answer",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "stranger"
+        },
+        "node_id": "gone"
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": []
+  },
+  {
+    "name": "an event with no text says nothing",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "output_tokens": 12
+        },
+        "node_id": "agent"
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 2,
+        "run_id": "run_1",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": []
+  }
+]

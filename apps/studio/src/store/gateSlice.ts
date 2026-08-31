@@ -1,8 +1,10 @@
 // 밸브 앞의 카드가 지금 무엇을 묻고 있는가 — 열려 있는가, 한 번 더 묻는 중인가.
 // 사람의 답이 실행에 이벤트로 이어지는 일은 runSlice가 한다: 여기 있는 것은 물음의 상태뿐이다.
 import type { StateCreator } from "zustand";
-import type { LocalizedText } from "../generated/agent_spec";
+import { type GateToolAsk, gateSchemaRefIn, gateToolAskIn } from "../run/gateAsk";
 import type { EditorState } from "./editor";
+
+export type { GateToolAsk } from "../run/gateAsk";
 import { awaitingGate } from "./runSlice";
 
 export interface GateSlice {
@@ -25,19 +27,11 @@ export function gateIsAsking(state: EditorState): boolean {
 
 /**
  * 기다리는 밸브가 요구한 입력 양식의 이름 — 확인을 청한 사건에 적혀 있다.
- * 무엇을 물을지도 화면의 사정이 아니라 RunEvent의 사실이다. 아무도 기다리지 않으면 빈 이름이다.
+ * 읽는 규칙은 대화 화면과 같은 자리(run/gateAsk)에 있다 — 같은 밸브가 두 화면에서 다른 말을 하지 않는다.
  */
 export function gateSchemaRef(state: EditorState): string {
   const nodeId = awaitingGate(state);
-  if (!nodeId) return "";
-  const asked = state.runEvents
-    .filter(
-      (event) =>
-        event.event_type === "human.approval_requested" && event.node_id === nodeId,
-    )
-    .at(-1);
-  const ref = asked?.payload.approval_schema_ref;
-  return typeof ref === "string" ? ref : "";
+  return nodeId ? gateSchemaRefIn(state.runEvents, nodeId) : "";
 }
 
 /** 그 물음이 "정말 거절할까요"인가 — Esc가 가장 먼저 무르는 자리다 (DESIGN §1 ①). */
@@ -45,36 +39,14 @@ export function gateIsConfirmingReject(state: EditorState): boolean {
   return gateIsAsking(state) && state.confirmingReject;
 }
 
-/** 지금 기다리는 확인이 어느 도구 호출을 위한 것인가 — 도구 승인이 아니면 없다. */
-export interface GateToolAsk {
-  toolName: string;
-  plainDescription?: LocalizedText;
-}
-
 /**
  * 도구를 부르기 전 사람 확인이라면, 무엇을 승인하는지 — 어느 도구이고 무엇을 하는지.
- * 무엇을 물을지는 화면이 아니라 RunEvent의 사실이다: 승인 요청 payload가 도구를 가리킨다.
- * 밸브(control.human_gate) 승인이면 도구가 없으므로 없음을 답한다.
+ * 무엇을 물을지는 화면이 아니라 RunEvent의 사실이다 (규칙은 run/gateAsk가 쥔다).
  */
 export function gateToolAsk(state: EditorState): GateToolAsk | null {
   const nodeId = awaitingGate(state);
   if (!nodeId) return null;
-  const asked = state.runEvents
-    .filter(
-      (event) =>
-        event.event_type === "human.approval_requested" && event.node_id === nodeId,
-    )
-    .at(-1);
-  const toolName = asked?.payload.tool_name;
-  const resourceRef = asked?.payload.resource_ref;
-  if (typeof toolName !== "string" || typeof resourceRef !== "string") return null;
-  const tool = (state.spec?.resources ?? [])
-    .find((binding) => binding.id === resourceRef)
-    ?.tools?.find((one) => one.name === toolName);
-  return {
-    toolName,
-    ...(tool?.plain_description ? { plainDescription: tool.plain_description } : {}),
-  };
+  return gateToolAskIn(state.runEvents, nodeId, state.spec?.resources ?? []);
 }
 
 export const createGateSlice: StateCreator<EditorState, [], [], GateSlice> = (set, get) => ({

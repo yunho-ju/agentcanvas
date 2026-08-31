@@ -214,6 +214,8 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
       get().abandonRuns();
       // 시험 묶음도, 돌던 배치도, 걸어 둔 폴링도 그 문서의 것이었다 (독립 리뷰 B1).
       get().abandonEval();
+      // 나누던 대화도 그 문서가 내놓은 판과 하던 것이었다 (CHAT-3b I4).
+      get().abandonChat();
       // 밸브 앞에서 묻던 물음도 그 그래프의 것이었다.
       get().setGateCardOpen(false);
       // 다 걸었다는 축하도 그 그래프에서 걸은 걸음의 것이었다 (기억은 남는다).

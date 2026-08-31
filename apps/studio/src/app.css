@@ -4910,3 +4910,114 @@ button:disabled {
   font-size: var(--text-body);
   color: var(--ink);
 }
+
+/* ── 대화 패널 (CHAT-3b chat-panel — 우측 스택, eval-panel과 같은 문법) ───────── */
+.chat-panel {
+  width: var(--panel-inspector);
+  max-height: 60vh;
+  /* 이웃 카드가 붐벼도 말풍선 몇 줄은 온전히 보인다 (eval-panel과 같은 바닥). */
+  min-height: calc(var(--space-6) * 7);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.chat-panel__header { display: flex; flex-direction: column; gap: var(--space-1); }
+.chat-panel__title {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+}
+/* 어느 판과 이야기하는지 — 저장 캡션(ink-soft)과 다른 축임을 색으로도 가른다. */
+.chat-panel__pin { margin: 0; font-size: var(--text-caption); color: var(--accent); }
+.chat-panel__said {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.chat-panel__invite { margin: 0; font-size: var(--text-caption); color: var(--ink-soft); }
+.chat-turn { display: flex; flex-direction: column; gap: var(--space-1); }
+.chat-bubble {
+  margin: 0;
+  max-width: 85%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-card);
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+/* 사람의 말은 오른쪽에, 답은 왼쪽에 — 자리와 색과 글이 함께 말한다. */
+.chat-bubble--said { align-self: flex-end; background: var(--accent-soft); color: var(--ink); }
+.chat-bubble--answer { align-self: flex-start; background: var(--surface-raised); color: var(--ink); }
+.chat-bubble--failed {
+  align-self: flex-start;
+  display: flex;
+  gap: var(--space-1);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+.chat-bubble__mark { font-weight: var(--weight-semibold); }
+.chat-panel__pending {
+  margin: 0;
+  display: flex;
+  gap: var(--space-1);
+  font-size: var(--text-caption);
+  color: var(--running-ink);
+}
+.chat-panel__notice { margin: 0; font-size: var(--text-caption); color: var(--danger-ink); }
+.chat-panel__ask { margin: 0; font-size: var(--text-caption); color: var(--ink); }
+.chat-panel__label { font-size: var(--text-label); color: var(--ink-soft); }
+.chat-panel__field { min-height: calc(var(--space-6) * 2); resize: vertical; }
+.chat-panel__actions,
+.chat-panel__thread { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.chat-panel__send,
+.chat-panel__stop,
+.chat-panel__new,
+.chat-panel__delete,
+.chat-panel__delete-yes,
+.chat-panel__delete-back {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+.chat-panel__send { background: var(--accent); color: var(--on-accent); }
+.chat-panel__send:hover:not(:disabled) { background: var(--accent-hover); }
+.chat-panel__send:active:not(:disabled) { background: var(--accent-active); transform: scale(0.98); }
+.chat-panel__send:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.chat-panel__send:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-panel__stop,
+.chat-panel__new,
+.chat-panel__delete,
+.chat-panel__delete-yes,
+.chat-panel__delete-back { background: transparent; color: var(--ink-soft); }
+.chat-panel__stop:hover:not(:disabled),
+.chat-panel__new:hover:not(:disabled),
+.chat-panel__delete:hover:not(:disabled),
+.chat-panel__delete-yes:hover:not(:disabled),
+.chat-panel__delete-back:hover:not(:disabled) { background: var(--surface-hover); color: var(--ink); }
+.chat-panel__stop:active:not(:disabled),
+.chat-panel__new:active:not(:disabled),
+.chat-panel__delete:active:not(:disabled),
+.chat-panel__delete-yes:active:not(:disabled),
+.chat-panel__delete-back:active:not(:disabled) { background: var(--surface-active); transform: scale(0.98); }
+.chat-panel__stop:focus-visible,
+.chat-panel__new:focus-visible,
+.chat-panel__delete:focus-visible,
+.chat-panel__delete-yes:focus-visible,
+.chat-panel__delete-back:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.chat-panel__stop:disabled,
+.chat-panel__new:disabled,
+.chat-panel__delete:disabled,
+.chat-panel__delete-yes:disabled,
+.chat-panel__delete-back:disabled { opacity: 0.4; cursor: not-allowed; }
+/* 지우기는 되돌릴 수 없다 — 글자만 danger로 말한다(상시 danger 배경 금지, §9). */
+.chat-panel__delete-yes { color: var(--danger-ink); }

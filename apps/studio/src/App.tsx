@@ -13,6 +13,7 @@ import { useDockPanel } from "./shell/useDockPanel";
 import {
   findShortcut,
   isCanvasFocused,
+  isChatFieldFocused,
   isEditingElement,
   isGateFieldFocused,
   isPreviewFocused,
@@ -25,6 +26,7 @@ import { EvalCompareView } from "./eval/EvalCompareView";
 import { FirstStepsCard } from "./guide/FirstStepsCard";
 import { ArchitectPanel } from "./architect/ArchitectPanel";
 import { OptimizePanel } from "./optimize/OptimizePanel";
+import { ChatPanel } from "./chat/ChatPanel";
 import { Inspector } from "./inspector/Inspector";
 import { InspectorFocusProvider } from "./inspector/inspectorFocus";
 import { CompareView } from "./run/CompareView";
@@ -33,6 +35,7 @@ import { RunHistoryStrip } from "./run/RunHistoryStrip";
 import { Timeline } from "./run/Timeline";
 import { useRunClock } from "./run/useRunClock";
 import { selectedEdge, selectedNode, useEditor } from "./store/editor";
+import { chatGateIsAsking, chatGateIsConfirmingReject } from "./store/chatSlice";
 import { gateIsAsking, gateIsConfirmingReject } from "./store/gateSlice";
 import { askingBeforeOpen, docListIsOpen, fileOpenIsAsking } from "./store/openSlice";
 import { runInputIsAsking } from "./store/runInputSlice";
@@ -94,6 +97,11 @@ export function App() {
         fileOpenAsking: fileOpenIsAsking(editor),
         toolWrapOpen: editor.toolWrapMode !== "closed",
         onToolWrapField: isToolWrapFieldFocused(event.target),
+        chatOpen: editor.chatOpen,
+        onChatField: isChatFieldFocused(event.target),
+        chatDeleteAsking: editor.chatDeleteAsking,
+        chatGateAsking: chatGateIsAsking(editor),
+        chatGateConfirming: chatGateIsConfirmingReject(editor),
       });
       if (!action) return;
       event.preventDefault();
@@ -139,6 +147,8 @@ export function App() {
           <EvalPanel />
           <ArchitectPanel />
           <OptimizePanel />
+          {/* 대화 모드일 때만 선다 — 다른 모드 패널과 자리를 나눠 쓰지 않는다 (DESIGN §1). */}
+          <ChatPanel />
           {/* 처음 온 사람의 네 걸음 — 스택의 마지막에서 안내하고, 다 걸으면 물러난다. */}
           {!architectOpen ? <FirstStepsCard /> : null}
         </div>

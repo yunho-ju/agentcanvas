@@ -568,3 +568,39 @@ describe("도구가 답을 못 가져온 자리의 표시", () => {
     expect(block).toContain("var(--warn");
   });
 })
+
+// 대화 패널 (DESIGN §7 chat-panel) — 말풍선은 색만으로 갈리지 않고, 손이 닿는 곳은 4상태다.
+describe("대화 패널의 표면", () => {
+  function block(selector: string): string {
+    const at = appRules.indexOf(`${selector} {`);
+    return at === -1 ? "" : appRules.slice(at, appRules.indexOf("}", at));
+  }
+
+  it("우측 스택의 다른 패널과 같은 폭이고, 길어지면 안에서 구른다", () => {
+    expect(block(".chat-panel")).toContain("var(--panel-inspector)");
+    expect(block(".chat-panel__said")).toContain("overflow-y: auto");
+  });
+
+  it("세 말풍선은 각각 다른 표면을 입는다 — 사람 말·답·못 간 말", () => {
+    expect(block(".chat-bubble--said")).toContain("var(--accent-soft)");
+    expect(block(".chat-bubble--answer")).toContain("var(--surface-raised)");
+    expect(block(".chat-bubble--failed")).toContain("var(--danger-soft)");
+    expect(block(".chat-bubble--failed")).toContain("var(--danger-ink)");
+  });
+
+  it("어느 판과 이야기하는지는 저장 캡션과 다른 축의 색으로 말한다", () => {
+    expect(block(".chat-panel__pin")).toContain("var(--accent)");
+  });
+
+  it.each([
+    ".chat-panel__send",
+    ".chat-panel__stop",
+    ".chat-panel__new",
+    ".chat-panel__delete",
+  ])("%s에 hover/active/focus-visible/disabled가 모두 있다", (base) => {
+    const missing = [":hover", ":active", ":focus-visible", ":disabled"].filter(
+      (state) => !app.includes(`${base}${state}`),
+    );
+    expect(missing).toEqual([]);
+  });
+});
