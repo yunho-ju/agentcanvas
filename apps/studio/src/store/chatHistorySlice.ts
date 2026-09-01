@@ -12,7 +12,7 @@ import {
 import { restoredTurns, runningElsewhere, versionOfRevision } from "../chat/threadHistory";
 import { unansweredPause } from "../run/player";
 import { type Message, msg } from "../i18n/messages";
-import { chatIsWaiting } from "./chatSlice";
+import { chatIsWaiting, chatSpecId } from "./chatSlice";
 import type { EditorState } from "./editor";
 
 /** 지난 대화들을 물어보는 길. 시험은 이 자리에 가짜를 꽂는다 (chatSlice와 같은 관례). */
@@ -82,9 +82,9 @@ export const createChatHistorySlice: StateCreator<EditorState, [], [], ChatHisto
   set,
   get,
 ) => {
-  /** 지난 대화를 물어볼 문서 — 대화는 내놓은 판에 거는 말이므로 게시가 가리키는 문서다. */
+  /** 지난 대화를 물어볼 문서 — 목록과 훑기가 같은 자리에서 문서를 고른다. */
   function specId(): string | null {
-    return get().publication?.spec_id ?? get().spec?.id ?? null;
+    return chatSpecId(get());
   }
 
   /** 새 대화 자리로 돌아가되 적던 말은 남긴다 — 그 말은 사람의 것이라 화면이 버리지 않는다. */
@@ -174,8 +174,15 @@ export const createChatHistorySlice: StateCreator<EditorState, [], [], ChatHisto
 
     showNowChat: () => set({ ...NOTHING_ASKED, chatView: "now" }),
 
-    forgetPastChats: () =>
-      set({ ...NOTHING_ASKED, chatView: "now", chatThreads: null, chatThreadsFailure: null }),
+    forgetPastChats: () => {
+      set({
+        ...NOTHING_ASKED,
+        chatView: "now",
+        chatThreads: null,
+        chatThreadsFailure: null,
+      });
+      get().forgetFixSpots();
+    },
 
     loadChatThreads: async () => {
       const id = specId();
@@ -186,6 +193,7 @@ export const createChatHistorySlice: StateCreator<EditorState, [], [], ChatHisto
       }
       // 서버가 준 순서가 그대로 화면의 순서다 (최근에 말이 오간 것부터).
       set({ chatThreads: outcome.threads, chatThreadsFailure: null });
+      void get().lookForFixSpots(outcome.threads);
     },
 
     openPastChat: async (threadId) => {
@@ -230,6 +238,8 @@ export const createChatHistorySlice: StateCreator<EditorState, [], [], ChatHisto
       }
       // 열어 두었던 대화를 지웠으면 화면의 그 대화도 함께 사라진다 (없는 대화를 그리지 않는다).
       if (get().chatThreadId === threadId) startFreshKeepingDraft();
+      // 지운 대화의 고칠 자리도 함께 사라진다 — 없는 대화를 두고 고칠 자리를 말하지 않는다 (m4).
+      get().dropFixSpotsOf(threadId);
       set({
         chatThreadDeleting: null,
         chatThreadDeleteFailure: null,

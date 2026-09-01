@@ -151,6 +151,14 @@ export function publishedChatSpec(state: EditorState): AgentSpec | null {
   return publishedBody(state.publication, state.publishedSpec);
 }
 
+/**
+ * 지난 대화를 물어볼 문서 — 대화는 내놓은 판에 거는 말이므로 게시가 가리키는 문서다.
+ * 목록도 훑기도 이 한 자리에서 문서를 고른다(두 곳이 서로 다른 문서를 보지 않게).
+ */
+export function chatSpecId(state: EditorState): string | null {
+  return state.publication?.spec_id ?? state.spec?.id ?? null;
+}
+
 /** 대화 문 앞에서 화면이 아는 사실 — 버튼도 패널도 이 한 자리를 보고 판정한다. */
 export function chatDoor(state: EditorState): ChatDoor {
   return {

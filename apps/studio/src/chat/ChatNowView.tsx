@@ -10,6 +10,7 @@ import { nothingSaid } from "./threadHistory";
 
 /** 오간 말 하나 — 사람의 말과, 그 말이 받은 것(답이든 까닭이든). */
 function ChatTurnLines({ spec, turn }: { spec: AgentSpec; turn: ChatTurnState }) {
+  const promote = useEditor((state) => state.promoteChatTurn);
   const t = useT();
   const end = chatTurnEnd(spec, turn);
 
@@ -39,6 +40,17 @@ function ChatTurnLines({ spec, turn }: { spec: AgentSpec; turn: ChatTurnState })
           </span>
           {t(chatEndWords(end))}
         </p>
+      ) : null}
+      {/* 이 말을 시험으로 옮기는 길 — 끝난 말에만 선다(기다리는 대화를 버리는 길을 만들지 않는다). */}
+      {turn.runId !== null && end !== null ? (
+        <button
+          type="button"
+          className="button-ghost chat-turn__promote"
+          onClick={() => promote(turn.id)}
+          title={t("chat.turn.promote.hint")}
+        >
+          {t("chat.turn.promote")}
+        </button>
       ) : null}
     </div>
   );

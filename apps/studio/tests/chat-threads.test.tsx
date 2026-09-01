@@ -487,14 +487,14 @@ describe("지난 대화 열기 (K1~K6)", () => {
   });
 
   it("오간 말을 못 읽으면 쉬운 말로 말하고 다시 열 길을 준다 (K5)", async () => {
-    let asks = 0;
+    // 못 읽는 동안과 읽히는 동안을 시험이 정한다 — 몇 번째 물음인지로 정하지 않는다
+    // (목록은 고칠 자리를 훑느라 같은 문을 여러 번 두드린다).
+    let readable = false;
     serving({
-      events: async () => {
-        asks += 1;
-        return asks === 1
-          ? { failure: { key: "chat.thread.read.failed", params: { status: "500" } } }
-          : { turns: ANSWERED_THREAD };
-      },
+      events: async () =>
+        readable
+          ? { turns: ANSWERED_THREAD }
+          : { failure: { key: "chat.thread.read.failed", params: { status: "500" } } },
     });
     render(<ChatPanel />);
     await goToPast();
@@ -504,6 +504,7 @@ describe("지난 대화 열기 (K1~K6)", () => {
     expect(screen.getByText(/오간 말을 불러오지 못했어요/)).toBeInTheDocument();
     expect(screen.queryByText("반가워요")).toBeNull();
 
+    readable = true;
     await userEvent.click(screen.getByRole("button", { name: "다시 열어 보기" }));
     await settle();
 
@@ -616,14 +617,14 @@ describe("여는 동안·연 뒤에 화면이 지키는 것", () => {
 
   it("열어 둔 대화를 지우는 사이에 온 대답으로 목록이 '여는 중'에 굳지 않는다", async () => {
     let release: ((outcome: ThreadEventsOutcome) => void) | null = null;
-    let asks = 0;
+    // 대답이 붙잡히는 때를 시험이 정한다 — 몇 번째 물음인지로 정하지 않는다.
+    let held = false;
     serving({
       threads: [summary(), summary({ thread_id: "run_5", first_said: "다른 말" })],
-      events: () => {
-        asks += 1;
-        if (asks === 1) return Promise.resolve({ turns: ANSWERED_THREAD });
-        return new Promise<ThreadEventsOutcome>((keep) => (release = keep));
-      },
+      events: () =>
+        held
+          ? new Promise<ThreadEventsOutcome>((keep) => (release = keep))
+          : Promise.resolve({ turns: ANSWERED_THREAD }),
     });
     render(<ChatPanel />);
     await goToPast();
@@ -631,6 +632,7 @@ describe("여는 동안·연 뒤에 화면이 지키는 것", () => {
     await goToPast();
 
     // 하나를 여는 사이에, 열어 두었던 그 대화를 지운다 — 대화 자리가 새로 열린다(세대가 바뀐다).
+    held = true;
     await userEvent.click(screen.getByRole("button", { name: /다른 말/ }));
     await act(async () => {
       store().askToDeletePastChat("run_1");

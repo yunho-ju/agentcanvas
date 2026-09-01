@@ -44,6 +44,11 @@ export function phrasesFromText(text: string): string[] {
     .filter((line) => line !== "");
 }
 
+/** 문구 하나를 상자에 더한다 — 줄마다 하나이므로 아래 줄에 붙이고, 적어 둔 말은 지우지 않는다. */
+export function withPhrase(text: string, phrase: string): string {
+  return text.trim() === "" ? phrase : `${text}\n${phrase}`;
+}
+
 /** 통과해야 할 횟수가 돌리는 횟수를 넘는가 — 계약 검증과 같은 판정을 그릴 때부터 막는다. */
 export function passesExceedRuns(
   passesNeeded: number | undefined,

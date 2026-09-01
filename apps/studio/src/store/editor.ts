@@ -6,6 +6,8 @@ import { type DetachSlice, createDetachSlice } from "./detachSlice";
 import { type ArchitectSlice, createArchitectSlice } from "./architectSlice";
 import { type ChatSlice, createChatSlice } from "./chatSlice";
 import { type ChatHistorySlice, createChatHistorySlice } from "./chatHistorySlice";
+import { type ChatCaseSlice, createChatCaseSlice } from "./chatCaseSlice";
+import { type ChatFixSpotSlice, createChatFixSpotSlice } from "./chatFixSpotSlice";
 import { type OptimizeSlice, createOptimizeSlice } from "./optimizeSlice";
 import { type EvalSlice, createEvalSlice } from "./evalSlice";
 import { type EvalSuggestSlice, createEvalSuggestSlice } from "./evalSuggestSlice";
@@ -40,6 +42,8 @@ export type EditorState = GraphSlice &
   PublishSlice &
   ChatSlice &
   ChatHistorySlice &
+  ChatCaseSlice &
+  ChatFixSpotSlice &
   OpenSlice &
   PickerSlice &
   ViewSlice &
@@ -77,6 +81,8 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createPublishSlice(...args),
   ...createChatSlice(...args),
   ...createChatHistorySlice(...args),
+  ...createChatCaseSlice(...args),
+  ...createChatFixSpotSlice(...args),
   ...createOpenSlice(...args),
   ...createPickerSlice(...args),
   ...createViewSlice(...args),

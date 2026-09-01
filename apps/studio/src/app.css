@@ -4100,6 +4100,28 @@ button:disabled {
   color: var(--ink-soft);
 }
 
+/* 대화에서 가져온 답 후보 — 보여만 주는 자리다(누르기 전에는 칸이 비어 있다, §7 eval-case-form). */
+.eval-case-form__candidate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
+}
+.eval-case-form__candidate-said {
+  margin: 0;
+  max-height: calc(var(--space-6) * 3);
+  overflow-y: auto;
+  font-size: var(--text-caption);
+  line-height: var(--leading-tight);
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .eval-case-form__form {
   display: flex;
   flex-direction: column;
@@ -5094,6 +5116,31 @@ button:disabled {
   white-space: nowrap;
 }
 .chat-threads__when { font-size: var(--text-caption); color: var(--ink-soft); }
+/* 고칠 자리 뱃지 — 결론 한 줄씩, 점수도 개수도 말하지 않는다 (DESIGN §7 chat-panel). */
+.chat-threads__spots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.chat-threads__spot {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--ink-soft);
+  font-size: var(--text-caption);
+}
+/* 어그러진 자리만 danger 색을 쓴다 — 사람이 그만둔 것과 기다리는 것은 관찰이지 고장이 아니다. */
+.chat-threads__spot--toolFailed,
+.chat-threads__spot--unfinished {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+.chat-threads__summary {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink);
+}
+.chat-threads__quiet { margin: 0; font-size: var(--text-caption); color: var(--ink-soft); }
 .chat-threads__open:disabled { opacity: 0.55; cursor: not-allowed; }
 /* 여는 중이라는 사실은 그 줄에서 말한다 — 진행률을 지어내지 않는다. */
 .chat-threads__opening { margin: 0; font-size: var(--text-caption); color: var(--running-ink); }
@@ -5138,6 +5185,12 @@ button:disabled {
 .chat-threads__delete-yes:disabled,
 .chat-threads__switch-yes:disabled { opacity: 0.55; cursor: not-allowed; }
 /* 사람이 건넨 말 없이 시작한 실행 — 말풍선이 아니라 캡션으로 사실만 말한다. */
+/* 이 말을 시험으로 옮기는 길 — 말풍선 아래 조용히 선다(대화를 가리지 않는다). */
+.chat-turn__promote {
+  align-self: flex-start;
+  font-size: var(--text-caption);
+}
+
 .chat-turn__no-said {
   margin: 0;
   align-self: flex-end;

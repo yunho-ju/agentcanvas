@@ -835,6 +835,11 @@ const TEXTS = {
     ko: "확인을 거절해서 이 말은 여기서 끝났어요",
     en: "You said no at the check, so this turn ended here",
   },
+  "chat.turn.promote": { ko: "여기서 시험 케이스로", en: "Make this a test case" },
+  "chat.turn.promote.hint": {
+    ko: "이 말을 시험 케이스 초안으로 옮겨요 — 담기 전에는 저장되지 않아요",
+    en: "Move this message into a test case draft — nothing is saved until you keep it",
+  },
   "chat.turn.silent": {
     ko: "이 말에는 답이 오지 않았어요 — 문서에 답을 만드는 단계가 있는지 보세요",
     en: "No answer came back for this — check that the document has a step that writes one",
@@ -958,6 +963,59 @@ const TEXTS = {
   },
   "chat.threads.switch.yes": { ko: "열기", en: "Open it" },
   "chat.threads.switch.back": { ko: "그대로 두기", en: "Stay here" },
+  // 고칠 자리 (CHAT-4c) — 점수가 아니라 다음에 무엇을 볼지. 개수·백분율·서버 원문은 쓰지 않는다.
+  "chat.fix.heldForCheck": { ko: "확인을 기다리다 멈췄어요", en: "Stopped, waiting for a check" },
+  "chat.fix.heldForCheck.hint": {
+    ko: "이 대화를 열면 그 자리에서 승인하거나 거절할 수 있어요",
+    en: "Open this conversation to approve or turn it down right there",
+  },
+  "chat.fix.toolFailed": {
+    ko: "{resource} 연결의 '{tool}' 도구가 답을 못 가져왔어요 — {why}",
+    en: "'{tool}' on the {resource} connection could not bring an answer back — {why}",
+  },
+  "chat.fix.toolFailed.hint": {
+    ko: "열어서 그 도구가 무엇을 하려 했는지 봐요",
+    en: "Open it to see what that tool was trying to do",
+  },
+  "chat.fix.tool.unnamed": { ko: "이름 모를 도구", en: "an unnamed tool" },
+  "chat.fix.resource.unnamed": { ko: "이름 모를", en: "unnamed" },
+  "chat.fix.unfinished": { ko: "끝내지 못한 대화예요", en: "This conversation did not finish" },
+  "chat.fix.unfinished.hint": {
+    ko: "마지막 말이 답을 받지 못했어요 — 열어서 어디서 멈췄는지 봐요",
+    en: "The last message got no answer — open it to see where it stopped",
+  },
+  "chat.fix.abandoned": { ko: "사람이 그만둔 대화예요", en: "Someone stopped this conversation" },
+  "chat.fix.abandoned.hint": {
+    ko: "고장이 아니라 누군가 기다리기를 그만뒀어요",
+    en: "Nothing broke — someone chose to stop waiting",
+  },
+  "chat.fix.askedAgain": {
+    ko: "답을 받지 못해 다시 말한 자리가 있어요",
+    en: "Someone had to say it again after getting no answer",
+  },
+  "chat.fix.askedAgain.hint": {
+    ko: "열어서 어느 말이 답을 받지 못했는지 봐요",
+    en: "Open it to see which message got no answer",
+  },
+  // 요약 줄 — 어떤 갈래의 자리가 있는지만 말한다(개수·점수 금지).
+  "chat.fix.summary": {
+    ko: "여기부터 보면 좋아요 — {spots}",
+    en: "Start here — {spots}",
+  },
+  "chat.fix.short.heldForCheck": { ko: "확인을 기다리다 멈춤", en: "waiting for a check" },
+  "chat.fix.short.toolFailed": { ko: "답을 못 가져온 도구", en: "a tool with no answer" },
+  "chat.fix.short.unfinished": { ko: "끝내지 못한 대화", en: "an unfinished conversation" },
+  "chat.fix.short.abandoned": { ko: "그만둔 대화", en: "a conversation someone stopped" },
+  "chat.fix.short.askedAgain": { ko: "다시 말해야 했던 자리", en: "a spot said again" },
+  "chat.fix.missed": {
+    ko: "일부 대화는 훑지 못했어요 — 그 대화에 고칠 자리가 있는지 아직 몰라요",
+    en: "Some conversations could not be looked through — we do not know yet what is in them",
+  },
+  "chat.fix.rescan": { ko: "다시 훑어보기", en: "Look again" },
+  "chat.fix.none": {
+    ko: "고칠 자리가 보이지 않아요",
+    en: "No spots to fix showed up",
+  },
   "run.answer.offline": {
     ko: "서버에 닿지 못해 답을 보내지 못했어요 — 서버가 켜져 있는지 보고 다시 눌러 주세요",
     en: "Could not reach the server, so your answer did not go — check the server is up and press it again",
@@ -1694,6 +1752,15 @@ const TEXTS = {
   "eval.case.delete.restore.action": { ko: "되돌리기", en: "Undo" },
   "eval.case.form.title.label": { ko: "제목", en: "Title" },
   "eval.case.form.expected.label": { ko: "들어있어야 하는 말", en: "What the answer must contain" },
+  "eval.case.form.expected.candidate": {
+    ko: "이 말이 실제로 나왔어요 — 기대 문구로 삼을지는 직접 정해요",
+    en: "This is what actually came back — you decide whether to expect it",
+  },
+  "eval.case.form.expected.candidate.take": { ko: "이 말을 넣기", en: "Use this line" },
+  "eval.case.fromChat.title": {
+    ko: "대화에서 가져온 시험",
+    en: "Taken from a conversation",
+  },
   "eval.case.form.expected.hint": {
     ko: "답에 꼭 들어있어야 하는 말을 줄마다 하나씩 적어요",
     en: "Write what the answer must contain, one per line",

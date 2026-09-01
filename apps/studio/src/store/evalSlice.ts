@@ -68,6 +68,11 @@ export interface EvalSlice {
   caseSaveNotice: EvalCaseSaveNotice | null;
   /** 펼쳐서 고치고 있는 초안 — 새 케이스면 id가 없다 */
   caseDraft: EvalCaseDraft | null;
+  /**
+   * 대화에서 가져온 초안에 곁들이는 답 후보 — 그 말이 실제로 받은 답이다 (CHAT-4c).
+   * 보여만 준다: 기대 문구는 사람이 눌러 넣고, 누르기 전에는 칸이 비어 있다.
+   */
+  casePhraseHint: string | null;
   lastDeletedCase: DeletedCase | null;
   batchId: string | null;
   batchStatus: EvalBatchStatus;
@@ -103,6 +108,8 @@ export interface EvalSlice {
   /** 이 케이스를 펼쳐 고친다 — 이미 펼쳐 둔 것을 다시 누르면 접는다 */
   expandCase: (id: string) => void;
   collapseCase: () => void;
+  /** 대화에서 가져온 답을 기대 문구 후보로 내민다 — 없던 답은 내밀지 않는다(null) */
+  offerPhraseFromChat: (answer: string | null) => void;
   setCaseDraft: (patch: Partial<EvalCaseDraft>) => void;
   saveCaseDraft: () => Promise<void>;
   deleteCase: (id: string) => Promise<void>;
@@ -181,6 +188,7 @@ const RESET_EVAL_STATE = {
   evalDatasetRenaming: false,
   caseSaveNotice: null,
   caseDraft: null,
+  casePhraseHint: null,
   lastDeletedCase: null,
   batchId: null,
   batchStatus: "idle" as const,
@@ -245,7 +253,7 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
     leaveEvalMode: () => {
       // 패널을 떠나면 아직 도는 배치를 배경에서 계속 묻지 않는다 — 다시 열면 새로 알아본다.
       poller.stop();
-      set({ evalPanelOpen: false, caseDraft: null, lastDeletedCase: null, evalDatasetSwitching: false, evalDatasetRenaming: false, evalUseJudge: false });
+      set({ evalPanelOpen: false, caseDraft: null, casePhraseHint: null, lastDeletedCase: null, evalDatasetSwitching: false, evalDatasetRenaming: false, evalUseJudge: false });
       // 담지 않은 제안은 남지 않는다 — 승인 없이 묶음에 들어가는 길은 어디에도 없다.
       get().discardSuggestions();
       get().resetEvalBatchHistory();
@@ -261,7 +269,11 @@ export const createEvalSlice: StateCreator<EditorState, [], [], EvalSlice> = (se
 
     setEvalUseJudge: (use) => set({ evalUseJudge: use }),
 
-    startNewCase: (seed) => set({ caseDraft: { ...emptyCaseDraft(), ...seed } }),
+    // 새 초안에는 지난 후보가 따라오지 않는다 — 후보는 그것을 가져온 그 말의 것이다.
+    startNewCase: (seed) =>
+      set({ caseDraft: { ...emptyCaseDraft(), ...seed }, casePhraseHint: null }),
+
+    offerPhraseFromChat: (answer) => set({ casePhraseHint: answer }),
 
     expandCase: (id) => {
       if (get().caseDraft?.id === id) {

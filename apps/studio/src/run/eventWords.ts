@@ -71,6 +71,22 @@ function numberIn(event: RunEvent, key: string): number | undefined {
   return typeof value === "number" ? value : undefined;
 }
 
+/**
+ * 이번 호출이 어그러진 갈래 — 우리가 아는 갈래가 아니면 없다(지어내지 않는다).
+ * 갈래를 좁히는 자리는 이 하나다: 실행 줄도 대화의 고칠 자리도 여기를 거친다.
+ */
+export function toolTroubleIn(event: RunEvent): ToolTrouble | null {
+  const reason = textIn(event.payload.error, "reason");
+  return TOOL_TROUBLES.find((candidate) => candidate === reason) ?? null;
+}
+
+/** 그 갈래를 쉬운 말로 — 모르는 갈래는 일반 문구다(사전은 이 한 벌뿐이다). */
+export function toolTroubleWords(trouble: ToolTrouble | null): Message {
+  return msg(
+    trouble === null ? "event.tool.trouble" : (`event.tool.trouble.${trouble}` as MessageKey),
+  );
+}
+
 /** 그 도구의 이름 — 적혀 있지 않은 옛 사건은 이름 없이 말한다. */
 function toolName(event: RunEvent): Message | string {
   return textIn(event.payload, "tool_name") ?? msg("event.tool.unnamed");
@@ -98,14 +114,10 @@ function toolCompleted(event: RunEvent): Message {
       loaded: numberIn(event, "loaded_chars") ?? 0,
     });
   }
-  const reason = textIn(event.payload.error, "reason");
-  const known = TOOL_TROUBLES.find((candidate) => candidate === reason);
   return msg("event.tool.failed", {
     node: nodeName(event),
     tool: toolName(event),
-    why: msg(
-      known ? (`event.tool.trouble.${known}` as MessageKey) : "event.tool.trouble",
-    ),
+    why: toolTroubleWords(toolTroubleIn(event)),
   });
 }
 

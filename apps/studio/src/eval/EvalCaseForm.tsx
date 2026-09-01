@@ -1,6 +1,12 @@
 // 펼친 케이스의 편집 필드 — 전부 기존 .control 재사용, 새 시각 발명 금지 (DESIGN §7 eval-case-form).
 import { useMemo } from "react";
-import { countsAreAtLeastOne, draftIsSavable, draftMatchesCase, passesExceedRuns } from "./caseForm";
+import {
+  countsAreAtLeastOne,
+  draftIsSavable,
+  draftMatchesCase,
+  passesExceedRuns,
+  withPhrase,
+} from "./caseForm";
 import { EXPECTED_PHRASES_EVALUATOR, evaluatorCatalog } from "./evaluatorCatalog";
 import { localized } from "../i18n/locale";
 import type { MessageKey } from "../i18n/messages";
@@ -18,6 +24,7 @@ function saveCaptionKey(saving: boolean, synced: boolean): MessageKey {
 
 export function EvalCaseForm() {
   const draft = useEditor((state) => state.caseDraft);
+  const phraseHint = useEditor((state) => state.casePhraseHint);
   const saving = useEditor((state) => state.caseSaving);
   const datasetSynced = useEditor((state) => state.datasetSynced);
   const setCaseDraft = useEditor((state) => state.setCaseDraft);
@@ -82,6 +89,20 @@ export function EvalCaseForm() {
         </label>
         {evaluatorDescription ? (
           <p className="eval-case-form__hint">{evaluatorDescription}</p>
+        ) : null}
+        {/* 대화에서 가져온 초안에만 — 실제로 나왔던 답을 보여만 준다(넣는 것은 사람이 누를 때다). */}
+        {phraseHint !== null && draft.id === null ? (
+          <div className="eval-case-form__candidate">
+            <p className="eval-case-form__hint">{t("eval.case.form.expected.candidate")}</p>
+            <p className="eval-case-form__candidate-said">{phraseHint}</p>
+            <button
+              type="button"
+              className="button-ghost eval-case-form__candidate-take"
+              onClick={() => setCaseDraft({ expectedText: withPhrase(draft.expectedText, phraseHint) })}
+            >
+              {t("eval.case.form.expected.candidate.take")}
+            </button>
+          </div>
         ) : null}
         <textarea
           id="eval-case-expected"
