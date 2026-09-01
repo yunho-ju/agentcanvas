@@ -126,6 +126,7 @@ from .sqlite_job_store import SqliteJobStore
 from .sqlite_run_store import SqliteRunStore
 from .sqlite_store import SqliteSpecStore
 from .store import SpecRevision, SpecStore, StoredSpec
+from .thread_views import ThreadSummary, ThreadTurn
 from .tool_wrapper_service import ToolWrapperService
 
 _logger = logging.getLogger(__name__)
@@ -1074,6 +1075,22 @@ def create_app(
             raise HTTPException(
                 status_code=409, detail="idempotency key conflicts with another request"
             ) from conflict
+
+    @app.get("/specs/{spec_id}/threads", response_model=list[ThreadSummary])
+    def read_spec_threads(spec_id: str) -> list[ThreadSummary]:
+        """한 그래프에서 오간 지난 대화들 — 최근에 말이 오간 것부터, 요약을 곁들여.
+
+        아무도 말을 건 적 없는 그래프는 없다고 하지 않고 비어 있다(대화는 파생 개념이다).
+        """
+        return runs.threads_of_spec(spec_id)
+
+    @app.get("/threads/{thread_id}/events", response_model=list[ThreadTurn])
+    def read_thread_events(thread_id: str) -> list[ThreadTurn]:
+        """한 대화에 쌓인 이벤트 — 실행별로 묶어 한 번에 준다.
+
+        흐르는 동안 듣는 길은 SSE(`/runs/{run_id}/events`)이고, 되돌아보는 길은 여기다.
+        """
+        return runs.thread_turns(thread_id)
 
     @app.get("/threads/{thread_id}/runs", response_model=list[Run])
     def read_thread(thread_id: str) -> list[Run]:

@@ -335,3 +335,52 @@ def test_deleting_a_thread_nobody_started_is_no_trouble(store: RunStore):
     store.delete_thread("nobody-here")
 
     assert store.runs_in_thread("nobody-here") == []
+
+
+def a_turn(run_id: str, thread_id: str, minute: int, spec_id: str) -> Run:
+    return Run(
+        id=run_id,
+        spec_id=spec_id,
+        spec_revision=REVISION,
+        created_at=at(minute),
+        thread_id=thread_id,
+    )
+
+
+def test_the_conversations_of_a_graph_come_back_with_the_latest_one_first(
+    store: RunStore,
+):
+    """지난 대화 목록은 최근에 말이 오간 대화부터 — 안에서는 말한 순서대로 묶인다."""
+    store.start(a_turn("run_1", "chat_old", 10, "clinical-assistant"))
+    store.start(a_turn("run_2", "chat_new", 20, "clinical-assistant"))
+    store.start(a_turn("run_3", "chat_old", 30, "clinical-assistant"))
+
+    threads = store.threads_of_spec("clinical-assistant")
+
+    assert [[run.id for run in thread] for thread in threads] == [
+        ["run_1", "run_3"],
+        ["run_2"],
+    ]
+
+
+def test_a_run_that_named_no_thread_is_a_conversation_of_its_own(store: RunStore):
+    """홀로 선 실행도 숨기지 않는다 — 그 자체로 하나의 대화다."""
+    store.start(a_run(run_id="alone"))
+
+    threads = store.threads_of_spec("clinical-assistant")
+
+    assert [[run.id for run in thread] for thread in threads] == [["alone"]]
+
+
+def test_the_conversations_of_one_graph_do_not_mix_with_anothers(store: RunStore):
+    store.start(a_turn("mine", "chat_1", 10, "clinical-assistant"))
+    store.start(a_turn("theirs", "chat_2", 20, "triage-bot"))
+
+    assert [
+        [run.id for run in thread]
+        for thread in store.threads_of_spec("clinical-assistant")
+    ] == [["mine"]]
+
+
+def test_a_graph_nobody_has_run_has_no_conversations(store: RunStore):
+    assert store.threads_of_spec("nobody-here") == []

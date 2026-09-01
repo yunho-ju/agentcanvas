@@ -52,7 +52,7 @@ def test_v5_adds_the_publications_table_and_backfills_nothing(tmp_path: Path):
     result = prepare_database(database, backup_dir=tmp_path / "backups")
 
     assert result.previous_version == 4
-    assert result.current_version == 5
+    assert result.current_version == CURRENT_SCHEMA_VERSION
     assert result.migrated is True
     assert result.backup_path is not None
     with sqlite3.connect(database) as connection:
@@ -83,7 +83,7 @@ def test_a_fresh_database_arrives_at_v5_with_the_publications_table(tmp_path: Pa
 
     result = prepare_database(database, backup_dir=tmp_path / "backups")
 
-    assert result.current_version == 5
+    assert result.current_version == CURRENT_SCHEMA_VERSION
     with sqlite3.connect(database) as connection:
         assert "spec_publications" in _tables(connection)
-        assert verify_database_schema(connection) == 5
+        assert verify_database_schema(connection) == CURRENT_SCHEMA_VERSION

@@ -8,7 +8,7 @@ from threading import Lock
 from agentcanvas_contracts.run import Run
 from agentcanvas_contracts.run_events import RunEvent
 
-from .run_store import SeqAlreadyStored
+from .run_store import SeqAlreadyStored, ThreadRuns, threads_from
 
 
 class InMemoryRunStore:
@@ -30,6 +30,12 @@ class InMemoryRunStore:
         return sorted(
             (run for run in self._runs.values() if run.thread_id == thread_id),
             key=lambda run: (run.created_at, run.id),
+        )
+
+    def threads_of_spec(self, spec_id: str) -> list[ThreadRuns]:
+        """한 그래프에서 오간 대화들 — 최근에 말이 오간 대화부터."""
+        return threads_from(
+            [run for run in self._runs.values() if run.spec_id == spec_id]
         )
 
     def delete_thread(self, thread_id: str) -> None:

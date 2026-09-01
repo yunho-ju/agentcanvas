@@ -16,7 +16,7 @@ from pathlib import Path
 from agentcanvas_contracts.run import Run
 from agentcanvas_contracts.run_events import RunEvent
 
-from .run_store import SeqAlreadyStored
+from .run_store import SeqAlreadyStored, ThreadRuns, threads_from
 from .sqlite_database import BUSY_WAIT_SECONDS, PreparedDatabase
 
 #: 실행 하나를 읽어 오는 데 필요한 칸들 — 저장한 그대로 되돌린다.
@@ -88,6 +88,16 @@ class SqliteRunStore:
                 (thread_id,),
             ).fetchall()
         return [_run_from_row(row) for row in rows]
+
+    def threads_of_spec(self, spec_id: str) -> list[ThreadRuns]:
+        """한 그래프에서 오간 대화들 — 최근에 말이 오간 대화부터, 안에서는 말한 순서대로."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT {_RUN_COLUMNS} FROM runs"
+                " WHERE spec_id = ? ORDER BY created_at, run_id",
+                (spec_id,),
+            ).fetchall()
+        return threads_from([_run_from_row(row) for row in rows])
 
     def delete_thread(self, thread_id: str) -> None:
         """한 대화에 묶인 실행들과 그 이벤트를 통째로 거둔다 — 둘은 함께 사라진다."""

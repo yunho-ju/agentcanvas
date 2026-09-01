@@ -7,14 +7,34 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from itertools import groupby
 from typing import Protocol
 
 from agentcanvas_contracts.run import Run
 from agentcanvas_contracts.run_events import RunEvent
 
+#: 한 대화에 묶인 실행들 — 말한 순서대로 선다. 스레드는 이 끈일 뿐 따로 저장하지 않는다.
+ThreadRuns = list[Run]
+
 
 class SeqAlreadyStored(Exception):
     """이미 적힌 순번을 다시 적으려 했다 — 일어난 일은 고쳐 쓰지 않는다."""
+
+
+def threads_from(runs: Sequence[Run]) -> list[ThreadRuns]:
+    """실행들을 대화별로 묶는다 — 최근에 말이 오간 대화가 앞에 선다.
+
+    두 저장소가 같은 답을 내도록 묶는 규칙은 여기 한 곳에만 둔다. 대화는 파생 개념이라
+    묶는 일도 읽을 때마다 다시 한다 (묶어 둔 것을 적어 두지 않는다).
+    """
+    in_order = sorted(runs, key=lambda run: (run.thread_id, run.created_at, run.id))
+    threads = [
+        list(turns) for _, turns in groupby(in_order, key=lambda run: run.thread_id)
+    ]
+    threads.sort(
+        key=lambda thread: (thread[-1].created_at, thread[-1].id), reverse=True
+    )
+    return threads
 
 
 class RunStore(Protocol):
@@ -30,6 +50,13 @@ class RunStore(Protocol):
 
     def runs_in_thread(self, thread_id: str) -> list[Run]:
         """한 스레드에 묶인 실행들 — 시작한 순서(created_at)대로. 빈 스레드는 빈 목록."""
+        ...
+
+    def threads_of_spec(self, spec_id: str) -> list[ThreadRuns]:
+        """한 그래프에서 오간 대화들 — 최근에 말이 오간 대화부터, 안에서는 말한 순서대로.
+
+        아무도 돌린 적 없는 그래프는 빈 목록이다 (대화는 만들어 두는 것이 아니다).
+        """
         ...
 
     def delete_thread(self, thread_id: str) -> None:
@@ -55,4 +82,4 @@ class RunStore(Protocol):
         ...
 
 
-__all__ = ["RunStore", "SeqAlreadyStored"]
+__all__ = ["RunStore", "SeqAlreadyStored", "ThreadRuns", "threads_from"]

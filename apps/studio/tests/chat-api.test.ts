@@ -4,7 +4,12 @@
 import { describe, expect, it } from "vitest";
 import type { HttpResponse } from "../src/api/http";
 import { cancelRunOnServer, startChatTurnOnServer } from "../src/api/runs";
-import { deleteThreadOnServer, fetchThreadRuns } from "../src/api/threads";
+import {
+  deleteThreadOnServer,
+  fetchSpecThreads,
+  fetchThreadEvents,
+  fetchThreadRuns,
+} from "../src/api/threads";
 import { translate } from "../src/i18n/messages";
 
 const REVISION = `sha256:${"a".repeat(64)}`;
@@ -119,6 +124,84 @@ describe("한 대화에 오간 말을 되읽는 일", () => {
     });
 
     expect(outcome.runs).toBeUndefined();
+    expect(translate("ko", outcome.failure!).length).toBeGreaterThan(0);
+  });
+});
+
+describe("한 그래프의 지난 대화들을 되읽는 일", () => {
+  const thread = {
+    thread_id: "thread_1",
+    first_said: "무엇을 볼까",
+    started_at: "2026-08-01T12:30:00Z",
+    last_at: "2026-08-01T12:40:00Z",
+    turns: 2,
+    last_status: "completed",
+    spec_revision: REVISION,
+  };
+
+  it("요약을 곁들여 한 번에 온다 — 대화마다 되묻지 않는다", async () => {
+    const { calls, fetch } = server({ status: 200, body: [thread] });
+
+    const outcome = await fetchSpecThreads(SPEC_ID, {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(calls[0].url).toBe("http://here/specs/clinical-assistant/threads");
+    expect(calls[0].method).toBe("GET");
+    expect(outcome.threads).toEqual([thread]);
+  });
+
+  it("서버가 답하지 못하면 던지지 않고 까닭을 돌려준다", async () => {
+    const { fetch } = server({ status: 500, body: {} });
+
+    const outcome = await fetchSpecThreads(SPEC_ID, {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(outcome.threads).toBeUndefined();
+    expect(translate("ko", outcome.failure!).length).toBeGreaterThan(0);
+  });
+});
+
+describe("한 대화에 쌓인 이벤트를 되읽는 일", () => {
+  const turn = {
+    run,
+    events: [
+      {
+        seq: 0,
+        run_id: run.id,
+        event_type: "run.started",
+        timestamp: "2026-08-01T12:30:00Z",
+        spec_revision: REVISION,
+        payload: { spec_id: SPEC_ID },
+      },
+    ],
+  };
+
+  it("실행별로 묶여, 말한 순서대로 온다", async () => {
+    const { calls, fetch } = server({ status: 200, body: [turn] });
+
+    const outcome = await fetchThreadEvents("thread_1", {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(calls[0].url).toBe("http://here/threads/thread_1/events");
+    expect(calls[0].method).toBe("GET");
+    expect(outcome.turns).toEqual([turn]);
+  });
+
+  it("서버가 답하지 못하면 던지지 않고 까닭을 돌려준다", async () => {
+    const { fetch } = server({ status: 500, body: {} });
+
+    const outcome = await fetchThreadEvents("thread_1", {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(outcome.turns).toBeUndefined();
     expect(translate("ko", outcome.failure!).length).toBeGreaterThan(0);
   });
 });

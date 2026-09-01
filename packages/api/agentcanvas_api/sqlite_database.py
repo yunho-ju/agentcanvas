@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from agentcanvas_contracts.agent_spec import AgentSpec
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 BACKUP_DIR_ENV = "AGENTCANVAS_BACKUP_DIR"
 BACKUP_RETENTION_ENV = "AGENTCANVAS_BACKUP_RETENTION"
 DEFAULT_BACKUP_RETENTION = 10
@@ -113,12 +113,14 @@ _SCHEMA_V5_CONTRACT = {
         ("published_at", "TEXT", 1, 0),
     ),
 }
+# v6은 표의 모양을 바꾸지 않는다 — 늘어난 것은 한 문서의 실행들을 읽는 길뿐이다.
 _SCHEMA_CONTRACTS = {
     1: _SCHEMA_V1_CONTRACT,
     2: _SCHEMA_V2_CONTRACT,
     3: _SCHEMA_V2_CONTRACT,
     4: _SCHEMA_V4_CONTRACT,
     5: _SCHEMA_V5_CONTRACT,
+    6: _SCHEMA_V5_CONTRACT,
 }
 _INDEX_CONTRACTS: Mapping[int, Mapping[str, tuple[int, tuple[str, ...]]]] = {
     1: {},
@@ -139,6 +141,11 @@ _INDEX_CONTRACTS = {
 }
 # v5는 새 인덱스를 더하지 않는다 — 게시 조회는 문서당 한 줄이라 PRIMARY KEY로 충분하다.
 _INDEX_CONTRACTS = {**_INDEX_CONTRACTS, 5: _INDEX_CONTRACTS[4]}
+# v6은 한 문서에서 오간 대화들을 최근 것부터 읽는 길을 낸다 (spec_id, created_at).
+_INDEX_CONTRACTS = {
+    **_INDEX_CONTRACTS,
+    6: {**_INDEX_CONTRACTS[5], "runs_spec_idx": (0, ("spec_id", "created_at"))},
+}
 
 _SCHEMA_V1 = (
     """
@@ -339,11 +346,13 @@ def _migration_to_v3(connection: sqlite3.Connection, applied_at: str) -> None:
 
 
 _RUNS_THREAD_INDEX_SQL = "CREATE INDEX runs_thread_idx ON runs (thread_id, created_at)"
+_RUNS_SPEC_INDEX_SQL = "CREATE INDEX runs_spec_idx ON runs (spec_id, created_at)"
 
 #: 인덱스마다 정확한 SQL — 이름만 같고 모양이 다른 인덱스를 걸러낸다.
 _CANONICAL_INDEX_SQL = {
     **_SCHEMA_V2_INDEX_SQL,
     "runs_thread_idx": _RUNS_THREAD_INDEX_SQL,
+    "runs_spec_idx": _RUNS_SPEC_INDEX_SQL,
 }
 
 
@@ -383,12 +392,25 @@ def _migration_to_v5(connection: sqlite3.Connection, applied_at: str) -> None:
     )
 
 
+def _migration_to_v6(connection: sqlite3.Connection, applied_at: str) -> None:
+    """한 문서에서 오간 대화들을 읽는 길을 낸다 — 칸도 표도 늘지 않는다.
+
+    지난 대화 목록은 이미 쌓인 실행에서 파생된다: 요약을 적어 둘 자리는 짓지 않는다.
+    """
+    connection.execute(_RUNS_SPEC_INDEX_SQL)
+    connection.execute(
+        "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+        (6, applied_at),
+    )
+
+
 _MIGRATIONS: Mapping[int, Migration] = {
     1: _migration_to_v1,
     2: _migration_to_v2,
     3: _migration_to_v3,
     4: _migration_to_v4,
     5: _migration_to_v5,
+    6: _migration_to_v6,
 }
 
 

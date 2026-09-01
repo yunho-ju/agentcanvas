@@ -43,6 +43,7 @@ from .job_store import (
 from .run_store import RunStore, SeqAlreadyStored
 from .service import Clock, utc_now
 from .store import SpecStore, StoredSpec
+from .thread_views import ThreadSummary, ThreadTurn, summarize_thread
 
 #: 실행의 이름을 발급하는 것 — 시험은 언제나 같은 이름을 내주는 것을 넣는다.
 RunIdMaker = Callable[[], str]
@@ -387,6 +388,32 @@ class RunService:
     def runs_in_thread(self, thread_id: str) -> list[Run]:
         """한 스레드에 묶인 실행들 — 시작한 순서대로 (말들이 차례로 묶인다)."""
         return self._runs.runs_in_thread(thread_id)
+
+    def threads_of_spec(self, spec_id: str) -> list[ThreadSummary]:
+        """한 그래프에서 오간 대화들 — 요약을 곁들여 한 번에 준다.
+
+        요약은 저장된 적이 없다: 화면이 대화마다 되묻지 않도록 여기서 파생해 곁들인다.
+        페이지 없이 전량을 준다 — 안쪽 사람 규모 전제이며, 대화가 늘면 응답도
+        선형으로 커진다(스레드마다 첫 실행의 이벤트를 읽는다).
+        """
+        return [
+            summarize_thread(
+                turns,
+                self._runs.events(turns[0].id),
+                self._runs.last_event(turns[-1].id),
+            )
+            for turns in self._runs.threads_of_spec(spec_id)
+        ]
+
+    def thread_turns(self, thread_id: str) -> list[ThreadTurn]:
+        """한 대화에 쌓인 이벤트 — 말한 순서대로, 실행별로 묶어서.
+
+        흐르는 중에 물어도 답이 온다: 지금까지 쌓인 데까지의 스냅샷이다.
+        """
+        return [
+            ThreadTurn(run=run, events=self._runs.events(run.id))
+            for run in self._runs.runs_in_thread(thread_id)
+        ]
 
     def delete_thread(self, thread_id: str) -> ThreadDeletion:
         """대화 하나를 통째로 거둔다 — 지울 수 있어야 사람들이 마음 놓고 말을 건다.
