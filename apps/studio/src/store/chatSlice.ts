@@ -50,11 +50,16 @@ export interface ChatSlice {
   chatPin: ChatPin | null;
   /** 붙잡은 그 판의 몸통 — 대화 도중 다른 판이 게시돼도 하던 대화는 이 판과 이어진다 */
   chatSpec: AgentSpec | null;
-  /** 오간 말들 — 세션 동안만 남는다 (새로고침 뒤 복원은 CHAT-4) */
+  /** 오간 말들 — 새로고침 뒤에는 '지난 대화' 목록에서 다시 열어 되짓는다 (CHAT-4b) */
   chatTurns: ChatTurnState[];
   chatDraft: string;
   /** 대화 안에서 말해야 할 까닭 한 줄 — 조용히 실패하지 않는다 */
   chatNotice: Message | null;
+  /**
+   * 이 대화가 다른 곳에서 도는 중인가 — 그렇다면 화면은 그 실행을 듣고 있지 않다 (CHAT-4b).
+   * 안내 문구는 다른 까닭에 덮일 수 있으므로 이 사실은 문구가 아니라 상태로 든다.
+   */
+  chatElsewhere: boolean;
   /** 지우겠다는 뜻을 한 번 더 묻는 중인가 — 되돌릴 수 없는 일이라 다시 묻는다 */
   chatDeleteAsking: boolean;
   /** 밸브에 보낸 답의 대답을 기다리는 중인가 — 이 사이에 다시 눌러도 답은 한 번만 간다 */
@@ -102,6 +107,12 @@ export interface ChatSlice {
   deleteChatThread: () => Promise<void>;
   /** 문서를 놓는다 — 듣던 스트림을 끊고 대화를 잊는다 (I4) */
   abandonChat: () => void;
+  /** 멈춰 선 실행을 다시 듣는다 — 복원한 대화가 답을 보낸 뒤 이어지는 사건을 받을 길이다 */
+  followChatRun: (runId: string) => Promise<void>;
+  /** 지금 이 대화가 몇 번째 자리인가 — 오가는 사이에 자리를 뜨면 늦은 대답을 가린다 */
+  chatGeneration: () => number;
+  /** 그 부탁이 지금 자리의 것이 아닌가 */
+  chatStale: (askedFor: number) => boolean;
 }
 
 /** 대화를 갓 시작한 자리 — 새 대화도 문서를 놓는 일도 이 자리로 돌아간다. */
@@ -113,6 +124,7 @@ const NEW_THREAD: Pick<
   | "chatTurns"
   | "chatDraft"
   | "chatNotice"
+  | "chatElsewhere"
   | "chatDeleteAsking"
   | "chatAnswering"
   | "chatGateCardOpen"
@@ -124,6 +136,7 @@ const NEW_THREAD: Pick<
   chatTurns: [],
   chatDraft: "",
   chatNotice: null,
+  chatElsewhere: false,
   chatDeleteAsking: false,
   chatAnswering: false,
   chatGateCardOpen: true,
@@ -156,6 +169,14 @@ export function chatSpecOf(state: EditorState): AgentSpec | null {
   return state.chatSpec ?? publishedChatSpec(state);
 }
 
+/**
+ * 이 대화가 다른 곳에서 도는 중이라 여기서는 아무것도 듣고 있지 않은가.
+ * 그렇다면 기다리는 척(대기 줄)도 하지 않고, 자리를 뜰 때 무엇을 놓칠지 되묻지도 않는다.
+ */
+export function chatIsElsewhere(state: EditorState): boolean {
+  return state.chatElsewhere;
+}
+
 /** 답을 기다리는 중인가 — 이 동안에는 다음 말을 받지 않는다 (G3). */
 export function chatIsWaiting(state: EditorState): boolean {
   const last = state.chatTurns.at(-1);
@@ -164,9 +185,14 @@ export function chatIsWaiting(state: EditorState): boolean {
   return chatTurnEnd(spec, last) === null;
 }
 
-/** 확인 카드가 사람에게 묻고 있는가 — 열려 있고, 기다리는 밸브가 있을 때다 (DESIGN §1 ②). */
+/**
+ * 확인 카드가 사람에게 묻고 있는가 — 열려 있고, 기다리는 밸브가 있을 때다 (DESIGN §1 ②).
+ * 지난 대화 목록을 보는 동안에는 그 카드가 화면에 없다: 보이지 않는 것에 Esc를 쓰지 않는다.
+ */
 export function chatGateIsAsking(state: EditorState): boolean {
-  return state.chatGateCardOpen && chatAwaitingGate(state) !== null;
+  return (
+    state.chatView === "now" && state.chatGateCardOpen && chatAwaitingGate(state) !== null
+  );
 }
 
 /** 그 물음이 "정말 거절할까요"인가 — Esc가 가장 먼저 무르는 자리다 (DESIGN §1 ①). */
@@ -261,11 +287,15 @@ export const createChatSlice: StateCreator<EditorState, [], [], ChatSlice> = (
     enterChatMode: () => {
       set({ chatOpen: true });
       void get().loadPublishedSpec();
+      // 아직 아무 말도 없으면 빈 화면 대신 이어 갈 지난 대화를 먼저 보여 준다 (CHAT-4b 결정 1).
+      if (get().chatTurns.length === 0) get().showPastChats();
     },
 
-    // 모드를 떠나면 듣던 스트림을 놓는다 — 세션 안의 대화도 여기서 끝난다 (복원은 CHAT-4).
+    // 모드를 떠나면 듣던 스트림을 놓는다 — 화면의 대화도 목록도 여기서 놓는다
+    // (다시 들어오면 서버에 쌓인 것에서 다시 읽는다).
     leaveChatMode: () => {
       stream.abandon();
+      get().forgetPastChats();
       set({ ...NEW_THREAD, chatOpen: false });
     },
 
@@ -382,8 +412,13 @@ export const createChatSlice: StateCreator<EditorState, [], [], ChatSlice> = (
       });
     },
 
+    followChatRun: (runId) => stream.follow(runId),
+    chatGeneration: () => stream.currentGeneration(),
+    chatStale: (askedFor) => stream.stale(askedFor),
+
     abandonChat: () => {
       stream.abandon();
+      get().forgetPastChats();
       lastRead = null;
       set({
         ...NEW_THREAD,

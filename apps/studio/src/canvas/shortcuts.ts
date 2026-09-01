@@ -169,6 +169,8 @@ export interface ShortcutContext {
   onChatField: boolean;
   /** 대화를 정말 지울지 되묻는 중인가 */
   chatDeleteAsking: boolean;
+  /** 기다리는 말이 있는데 지난 대화를 열지 되묻는 중인가 */
+  chatSwitchAsking: boolean;
   /** 대화 안의 확인 카드가 사람에게 묻고 있는가 */
   chatGateAsking: boolean;
   /** 그 물음이 "정말 거절할까요"인가 */
@@ -190,6 +192,10 @@ const ESCAPE_CHAIN: RetreatStep[] = [
   { when: (it) => it.previewing, step: ({ editor }) => editor.cancelDetach() },
   { when: (it) => it.gateConfirming, step: ({ editor }) => editor.cancelReject() },
   { when: (it) => it.chatDeleteAsking, step: ({ editor }) => editor.cancelDeleteChat() },
+  {
+    when: (it) => it.chatSwitchAsking,
+    step: ({ editor }) => editor.cancelSwitchPastChat(),
+  },
   {
     when: (it) => it.chatGateConfirming,
     step: ({ editor }) => editor.cancelChatRejectGate(),

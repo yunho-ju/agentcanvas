@@ -100,6 +100,7 @@ export function App() {
         chatOpen: editor.chatOpen,
         onChatField: isChatFieldFocused(event.target),
         chatDeleteAsking: editor.chatDeleteAsking,
+        chatSwitchAsking: editor.chatSwitchAsking !== null,
         chatGateAsking: chatGateIsAsking(editor),
         chatGateConfirming: chatGateIsConfirmingReject(editor),
       });

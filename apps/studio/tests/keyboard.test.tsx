@@ -399,6 +399,7 @@ describe("saving when saving is not possible", () => {
     chatDeleteAsking: true,
     chatGateAsking: true,
     chatGateConfirming: true,
+    chatSwitchAsking: true,
   };
 
   it("저장할 수 없는 자리에서도 그 키는 앱이 받는다 — 브라우저가 가져가지 않는다", () => {
@@ -461,6 +462,7 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
     chatDeleteAsking: false,
     chatGateAsking: false,
     chatGateConfirming: false,
+    chatSwitchAsking: false,
   };
 
   /** Esc 한 번이 무엇을 물렸는지 — 걸음은 하나뿐이어야 한다. */
@@ -480,6 +482,7 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
       cancelChatRejectGate: () => done.push("chat.gate.reject"),
       setChatGateCardOpen: () => done.push("chat.gate.card"),
       leaveChatMode: () => done.push("chat"),
+      cancelSwitchPastChat: () => done.push("chat.switch.ask"),
       clearCompare: () => done.push("compare"),
       stopRun: () => done.push("run"),
       clearSelection: () => done.push("selection"),
@@ -597,8 +600,16 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
     ]);
   });
 
+  // L2 — 지난 대화 목록 뷰에는 적던 말도 확인 카드도 없으므로 Esc는 이 걸음에 곧장 닿는다.
   it("카드를 닫은 다음의 Esc가 대화를 닫는다 — 한 걸음씩이다", () => {
     expect(whatEscapeDid({ chatOpen: true })).toEqual(["chat"]);
+  });
+
+  // 지난 대화 목록 뷰의 Esc (CHAT-4b L2) — 목록만 따로 닫는 걸음을 만들지 않는다.
+  it("전환을 되묻는 물음이 대화 패널보다 먼저 물러난다", () => {
+    expect(whatEscapeDid({ chatSwitchAsking: true, chatOpen: true })).toEqual([
+      "chat.switch.ask",
+    ]);
   });
 
   it("대화 패널은 문서 목록 다음, 독 패널보다 먼저 물러난다", () => {

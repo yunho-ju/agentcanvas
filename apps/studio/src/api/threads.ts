@@ -31,9 +31,15 @@ export interface ThreadSummary {
   last_at: string;
   /** 오간 횟수 — 실행 하나가 말 한 번이다 */
   turns: number;
-  last_status: string;
+  last_status: ThreadStatus;
   spec_revision: string;
 }
+
+/**
+ * 대화의 마지막 말이 지금 어떤가 — 서버 계약(RunStatus)의 네 갈래 그대로다.
+ * 넓은 문자열로 두면 이 값을 읽는 자리가 망라 검사를 받지 못한다(갈래가 늘 때 조용히 빠진다).
+ */
+export type ThreadStatus = "running" | "paused" | "completed" | "failed";
 
 /** 말 한 번 — 그 실행과, 그 실행이 남긴 이벤트들(SSE로 받던 것과 같은 것). */
 export interface ThreadTurn {
@@ -73,10 +79,26 @@ export async function fetchThreadRuns(
 ): Promise<ThreadRunsOutcome> {
   const base = options.baseUrl ?? apiBaseUrl();
   const send = options.fetch ?? (globalThis.fetch as SendRequest);
-  const answered = await fetchList(`${pathFor(base, threadId)}/runs`, send);
+  const answered = await fetchList(`${pathFor(base, threadId)}/runs`, send, ONE_THREAD);
   if (answered.read === undefined) return { failure: answered.failure };
   return { runs: answered.read as Run[] };
 }
+
+/** 못 읽었을 때 할 말 — 한 대화를 못 읽은 것과 대화 목록을 못 읽은 것은 다른 말이다. */
+interface ReadTrouble {
+  failed: "chat.thread.read.failed" | "chat.threads.read.failed";
+  offline: "chat.thread.read.offline" | "chat.threads.read.offline";
+}
+
+const ONE_THREAD: ReadTrouble = {
+  failed: "chat.thread.read.failed",
+  offline: "chat.thread.read.offline",
+};
+
+const THREAD_LIST: ReadTrouble = {
+  failed: "chat.threads.read.failed",
+  offline: "chat.threads.read.offline",
+};
 
 /**
  * 서버에서 목록 하나를 받아 온다 — 던지지 않고, 못 읽었으면 까닭을 돌려준다.
@@ -85,18 +107,17 @@ export async function fetchThreadRuns(
 async function fetchList(
   url: string,
   send: SendRequest,
+  trouble: ReadTrouble,
 ): Promise<{ read: unknown[]; failure?: undefined } | { read?: undefined; failure: Message }> {
   try {
     const response = await send(url, { method: "GET", headers: {} });
     const body = await bodyOf(response);
     if (response.status !== OK || body === UNREADABLE || !Array.isArray(body)) {
-      return {
-        failure: msg("chat.thread.read.failed", { status: String(response.status) }),
-      };
+      return { failure: msg(trouble.failed, { status: String(response.status) }) };
     }
     return { read: body };
   } catch {
-    return { failure: msg("chat.thread.read.offline") };
+    return { failure: msg(trouble.offline) };
   }
 }
 
@@ -110,6 +131,7 @@ export async function fetchSpecThreads(
   const answered = await fetchList(
     `${base}/specs/${encodeURIComponent(specId)}/threads`,
     send,
+    THREAD_LIST,
   );
   if (answered.read === undefined) return { failure: answered.failure };
   return { threads: answered.read as ThreadSummary[] };
@@ -122,7 +144,7 @@ export async function fetchThreadEvents(
 ): Promise<ThreadEventsOutcome> {
   const base = options.baseUrl ?? apiBaseUrl();
   const send = options.fetch ?? (globalThis.fetch as SendRequest);
-  const answered = await fetchList(`${pathFor(base, threadId)}/events`, send);
+  const answered = await fetchList(`${pathFor(base, threadId)}/events`, send, ONE_THREAD);
   if (answered.read === undefined) return { failure: answered.failure };
   return { turns: answered.read as ThreadTurn[] };
 }

@@ -5021,3 +5021,126 @@ button:disabled {
 .chat-panel__delete-back:disabled { opacity: 0.4; cursor: not-allowed; }
 /* 지우기는 되돌릴 수 없다 — 글자만 danger로 말한다(상시 danger 배경 금지, §9). */
 .chat-panel__delete-yes { color: var(--danger-ink); }
+
+/* ── 지난 대화 (CHAT-4b — 대화 패널 안의 두 번째 뷰) ─────────────────────────── */
+.chat-panel__header { position: relative; }
+/* 뷰를 바꾸는 손잡이는 제목 줄 오른쪽 끝에 — 목록으로 가는 길이 한눈에 보인다. */
+.chat-panel__past {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+.chat-panel__past:hover { background: var(--surface-hover); color: var(--ink); }
+.chat-panel__past:active { background: var(--surface-active); transform: scale(0.98); }
+.chat-panel__past:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.chat-threads {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.chat-threads__invite { margin: 0; font-size: var(--text-caption); color: var(--ink-soft); }
+.chat-threads__trouble { margin: 0; font-size: var(--text-caption); color: var(--danger-ink); }
+.chat-threads__ask { margin: 0; font-size: var(--text-caption); color: var(--ink); }
+.chat-threads__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.chat-threads__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+/* 열기는 줄 전체가 받는다 — 어디를 눌러야 할지 헤매지 않는다. */
+.chat-threads__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+.chat-threads__open:hover:not(:disabled) { background: var(--surface-hover); }
+.chat-threads__open:active:not(:disabled) { background: var(--surface-active); transform: scale(0.99); }
+.chat-threads__open:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.chat-threads__said {
+  font-size: var(--text-body);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-threads__when { font-size: var(--text-caption); color: var(--ink-soft); }
+.chat-threads__open:disabled { opacity: 0.55; cursor: not-allowed; }
+/* 여는 중이라는 사실은 그 줄에서 말한다 — 진행률을 지어내지 않는다. */
+.chat-threads__opening { margin: 0; font-size: var(--text-caption); color: var(--running-ink); }
+.chat-threads__retry,
+.chat-threads__delete,
+.chat-threads__delete-yes,
+.chat-threads__delete-back,
+.chat-threads__switch-yes,
+.chat-threads__switch-back {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-spring);
+}
+.chat-threads__retry { align-self: flex-start; color: var(--accent); }
+.chat-threads__retry:hover:not(:disabled),
+.chat-threads__delete:hover:not(:disabled),
+.chat-threads__delete-yes:hover:not(:disabled),
+.chat-threads__delete-back:hover:not(:disabled),
+.chat-threads__switch-yes:hover:not(:disabled),
+.chat-threads__switch-back:hover:not(:disabled) { background: var(--surface-hover); color: var(--ink); }
+.chat-threads__retry:active:not(:disabled),
+.chat-threads__delete:active:not(:disabled),
+.chat-threads__delete-yes:active:not(:disabled),
+.chat-threads__delete-back:active:not(:disabled),
+.chat-threads__switch-yes:active:not(:disabled),
+.chat-threads__switch-back:active:not(:disabled) { background: var(--surface-active); transform: scale(0.98); }
+.chat-threads__retry:focus-visible,
+.chat-threads__delete:focus-visible,
+.chat-threads__delete-yes:focus-visible,
+.chat-threads__delete-back:focus-visible,
+.chat-threads__switch-yes:focus-visible,
+.chat-threads__switch-back:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.chat-threads__delete-yes { color: var(--danger-ink); }
+.chat-threads__delete:disabled,
+.chat-threads__delete-yes:disabled,
+.chat-threads__switch-yes:disabled { opacity: 0.55; cursor: not-allowed; }
+/* 사람이 건넨 말 없이 시작한 실행 — 말풍선이 아니라 캡션으로 사실만 말한다. */
+.chat-turn__no-said {
+  margin: 0;
+  align-self: flex-end;
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}

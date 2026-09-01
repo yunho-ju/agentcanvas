@@ -776,6 +776,15 @@ const TEXTS = {
     ko: "오간 말을 불러오지 못했어요 ({status}) — 잠시 뒤 다시 열어 주세요",
     en: "Could not load the conversation ({status}) — try opening it again in a moment",
   },
+  // 지난 대화 목록 — 한 대화를 못 읽은 것과 목록을 못 읽은 것은 다른 일이라 다른 말을 한다.
+  "chat.threads.read.offline": {
+    ko: "서버에 닿지 못해 지난 대화 목록을 불러오지 못했어요 — 서버가 켜져 있는지 보고 다시 불러와 주세요",
+    en: "Could not reach the server, so past conversations did not load — check the server is up and load them again",
+  },
+  "chat.threads.read.failed": {
+    ko: "지난 대화 목록을 불러오지 못했어요 ({status}) — 잠시 뒤 다시 불러와 주세요",
+    en: "Could not load past conversations ({status}) — try loading them again in a moment",
+  },
   "chat.thread.delete.offline": {
     ko: "서버에 닿지 못해 대화를 지우지 못했어요 — 서버가 켜져 있는지 보고 다시 눌러 주세요",
     en: "Could not reach the server, so nothing was deleted — check the server is up and press it again",
@@ -891,6 +900,64 @@ const TEXTS = {
     ko: "확인을 기다리는 중이라 지울 수 없어요 — 먼저 승인하거나 거절해 주세요",
     en: "It is waiting for you to check, so it cannot be deleted — approve or reject it first",
   },
+  // 지난 대화 — Talk 안의 두 번째 뷰. 목록은 서버에 쌓인 실행에서 매번 파생한다 (CHAT-4b).
+  "chat.threads": { ko: "지난 대화", en: "Past conversations" },
+  "chat.threads.hint": {
+    ko: "이 문서에서 오갔던 대화를 골라 다시 열어요",
+    en: "Pick a conversation from this document and open it again",
+  },
+  "chat.threads.now": { ko: "지금 대화", en: "This conversation" },
+  "chat.threads.now.hint": {
+    ko: "하던 대화로 돌아가요",
+    en: "Go back to the conversation you were having",
+  },
+  "chat.threads.empty": {
+    ko: "아직 지난 대화가 없어요 — 말을 걸면 여기에 쌓여요",
+    en: "No past conversations yet — say something and they will show up here",
+  },
+  "chat.threads.noSaid": {
+    ko: "말 없이 시작한 실행",
+    en: "Started without anything said",
+  },
+  "chat.threads.turns.one": { ko: "1번 오감", en: "1 turn" },
+  "chat.threads.turns.many": { ko: "{count}번 오감", en: "{count} turns" },
+  "chat.threads.status.running": { ko: "답을 기다리는 중", en: "Waiting for an answer" },
+  "chat.threads.status.paused": { ko: "확인을 기다리는 중", en: "Waiting for your check" },
+  "chat.threads.status.completed": { ko: "끝난 대화", en: "Finished" },
+  "chat.threads.status.failed": { ko: "도중에 멈춘 대화", en: "Stopped partway" },
+  "chat.threads.open.hint": {
+    ko: "이 대화를 다시 열어요",
+    en: "Open this conversation again",
+  },
+  "chat.threads.retry": { ko: "다시 불러오기", en: "Load again" },
+  "chat.threads.opening": { ko: "여는 중이에요", en: "Opening it" },
+  "chat.threads.opening.hint": {
+    ko: "고른 대화를 여는 중이에요 — 잠시만요",
+    en: "Opening the conversation you picked — one moment",
+  },
+  "chat.threads.delete.hint": {
+    ko: "이 대화에 오간 말을 서버에서 지워요",
+    en: "Delete what was said in this conversation from the server",
+  },
+  "chat.thread.retry": { ko: "다시 열어 보기", en: "Try opening it again" },
+  "chat.thread.empty": {
+    ko: "이 대화에는 오간 말이 없어요 — 목록을 다시 불러와 주세요",
+    en: "Nothing was said in this conversation — load the list again",
+  },
+  "chat.thread.elsewhere": {
+    ko: "이 대화는 다른 곳에서 진행 중이에요 — 여기서는 다음 말이 이어지지 않아요",
+    en: "This conversation is running somewhere else — what comes next will not arrive here",
+  },
+  "chat.thread.noSaid": {
+    ko: "사람이 건넨 말 없이 시작한 실행이에요",
+    en: "This turn started without anything a person said",
+  },
+  "chat.threads.switch.ask": {
+    ko: "지금 기다리는 말이 있어요 — 그래도 지난 대화를 열까요?",
+    en: "A turn is still waiting — open the past conversation anyway?",
+  },
+  "chat.threads.switch.yes": { ko: "열기", en: "Open it" },
+  "chat.threads.switch.back": { ko: "그대로 두기", en: "Stay here" },
   "run.answer.offline": {
     ko: "서버에 닿지 못해 답을 보내지 못했어요 — 서버가 켜져 있는지 보고 다시 눌러 주세요",
     en: "Could not reach the server, so your answer did not go — check the server is up and press it again",
