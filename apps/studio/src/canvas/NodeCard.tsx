@@ -76,11 +76,14 @@ export function NodeCard({ id, data }: NodeCardProps) {
       : null,
   );
 
-  // 카드가 (다시) 붙으면 제 포트 자리를 캔버스에 다시 알린다 — 되돌리기로 돌아온 노드도
-  // 걸린 연결선이 끝점을 찾을 수 있어야 한다 (jsdom은 자리를 재지 못한다 — 실브라우저 실증 몫).
+  // 카드가 (다시) 붙거나 포트가 달라지면 제 포트 자리를 캔버스에 다시 알린다 — 되돌리기로
+  // 돌아온 노드의 연결선이 끝점을 찾아야 하고, 입력 노드에 행을 적어 새로 생긴 포트에서 끈
+  // 연결도 받아들여져야 한다. 포트 이름이 한 글자 바뀌어도 자리는 낡는다 (크기는 그대로라
+  // 캔버스가 스스로 다시 재지 않는다). jsdom은 자리를 재지 못한다 — 실브라우저 실증 몫.
+  const portIds = [...Object.keys(ports.inputs), ...Object.keys(ports.outputs)].join("\u0000");
   useEffect(() => {
     updateNodeInternals(id);
-  }, [id, updateNodeInternals]);
+  }, [id, portIds, updateNodeInternals]);
 
   const status = runStatus ? STATUS_WORDS[runStatus] : undefined;
   // 실행을 보는 동안에는 상태가 카드의 말이다 — 설정 이야기는 편집으로 돌아왔을 때 한다.
