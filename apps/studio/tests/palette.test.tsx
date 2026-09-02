@@ -5,6 +5,7 @@ import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { Palette } from "../src/canvas/Palette";
 import type { AgentSpec } from "../src/generated/agent_spec";
 import type { NodeType } from "../src/generated/node_type";
+import { NODE_SIZE } from "../src/graph/placement";
 import { localized } from "../src/i18n/locale";
 import { getLocale } from "../src/i18n/localeStore";
 import { nodeTypes } from "../src/registry/registry";
@@ -77,6 +78,54 @@ describe("Palette", () => {
   });
 });
 
+// 놓인 카드가 서로를 가리면 첫 화면이 무엇인지 알 수 없다 (UXQ-5 / F8, DESIGN §7 palette 배치).
+describe("팔레트가 놓는 자리", () => {
+  function boxes() {
+    return useEditor.getState().nodes.map((node) => ({
+      left: node.position.x,
+      right: node.position.x + NODE_SIZE.width,
+      top: node.position.y,
+      bottom: node.position.y + NODE_SIZE.height,
+    }));
+  }
+
+  function overlap(one: ReturnType<typeof boxes>[number], other: typeof one): number {
+    const wide = Math.min(one.right, other.right) - Math.max(one.left, other.left);
+    const tall = Math.min(one.bottom, other.bottom) - Math.max(one.top, other.top);
+    return Math.max(0, wide) * Math.max(0, tall);
+  }
+
+  it("세 번 눌러도 어떤 두 카드도 서로를 가리지 않는다", async () => {
+    useEditor.getState().loadSpec({ ...example, nodes: [], edges: [] });
+    render(<Palette />);
+
+    await userEvent.click(paletteButton(nodeTypes["core.input"]));
+    await userEvent.click(paletteButton(nodeTypes["llm.agent"]));
+    await userEvent.click(paletteButton(nodeTypes["core.output"]));
+
+    const placed = boxes();
+    expect(placed).toHaveLength(3);
+    for (const [index, one] of placed.entries()) {
+      for (const other of placed.slice(index + 1)) {
+        expect(overlap(one, other)).toBe(0);
+      }
+    }
+  });
+
+  it("고른 카드가 있으면 그 오른쪽 같은 줄에 놓는다", async () => {
+    useEditor.getState().loadSpec(example);
+    useEditor.getState().select("node", "output");
+    const chosen = useEditor.getState().nodes.find((node) => node.id === "output");
+    render(<Palette />);
+
+    await userEvent.click(paletteButton(nodeTypes["llm.agent"]));
+
+    const placed = useEditor.getState().nodes.at(-1);
+    expect(placed?.position.y).toBe(chosen?.position.y);
+    expect(placed?.position.x).toBeGreaterThan(chosen?.position.x ?? 0);
+  });
+});
+
 // 만든 도구는 팔레트에서 한 번에 끌어 쓴다 — 연결·도구를 두 번 고르게 하지 않는다 (P2c).
 describe("이 문서의 도구", () => {
   function store() {
@@ -114,6 +163,17 @@ describe("이 문서의 도구", () => {
     expect(placed?.data.ports.outputs.result.schema).toMatchObject({
       properties: { body: { type: "string", title: "Text of the article" } },
     });
+  });
+
+  it("칩을 잇달아 눌러도 도구 카드가 서로를 가리지 않는다", async () => {
+    store().loadSpec({ ...example, nodes: [], edges: [] });
+    render(<Palette />);
+
+    await userEvent.click(toolChip("search_article"));
+    await userEvent.click(toolChip("get_article"));
+
+    const [first, second] = store().nodes.map((node) => node.position);
+    expect(second.x - first.x).toBeGreaterThanOrEqual(NODE_SIZE.width);
   });
 
   it("칩 추가 1회 = 되돌리기 한 걸음", async () => {

@@ -16,7 +16,8 @@ function toolsOf(bindings: ResourceBinding[]): { binding: string; tool: ToolDef 
   );
 }
 
-export function DocTools({ at }: { at: (index: number) => { x: number; y: number } }) {
+// 놓이는 자리는 누르는 순간의 캔버스가 정한다 — 칩의 순서와 상관없다 (DESIGN §7 palette 배치).
+export function DocTools({ at }: { at: () => { x: number; y: number } }) {
   const { bindings } = useDocResources();
   const addNode = useEditor((state) => state.addNode);
   const running = useEditor(isRunning);
@@ -32,7 +33,7 @@ export function DocTools({ at }: { at: (index: number) => { x: number; y: number
     <>
       <h3 className="palette__section">{t("palette.docTools")}</h3>
       <ul className="palette__list">
-        {tools.map(({ binding, tool }, index) => (
+        {tools.map(({ binding, tool }) => (
           <li key={`${binding}/${tool.name}`}>
             <button
               type="button"
@@ -42,7 +43,7 @@ export function DocTools({ at }: { at: (index: number) => { x: number; y: number
                 running ? t(LOCKED_HINT) : localized(tool.plain_description, locale)
               }
               onClick={() =>
-                addNode(host.type, at(index), {
+                addNode(host.type, at(), {
                   [host.bindingField]: binding,
                   [host.toolNameField]: tool.name,
                 })

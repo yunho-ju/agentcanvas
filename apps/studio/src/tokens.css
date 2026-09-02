@@ -131,6 +131,8 @@
   /* 피커는 캔버스를 다 가리지 않는다 — 넘치는 목록은 안에서 구른다. */
   --picker-height: 320px;
   --node-width: 208px;
+  /* 카드 기본 높이 — 내용이 적어도 이보다 낮아지지 않는다. 새 카드를 놓을 자리도 이 값으로 센다. */
+  --node-height: 48px;
   --rail-width: 3px;
   --chip-size: 22px;
   --icon-size: 14px;

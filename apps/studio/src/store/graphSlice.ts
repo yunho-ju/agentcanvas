@@ -248,6 +248,8 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
       // 팔레트로 놓은 사람에게도 다음 걸음을 건넨다 — 입구가 달라도 초대는 같다 (DESIGN §7).
       // 이 입구에는 손이 있던 화면의 점이 없다: 자리는 가리킨 포트를 화면이 찾아 정한다.
       get().inviteFirstLink(node, CANVAS_ORIGIN);
+      // 놓았는데 화면 밖이면 놓은 줄도 모른다 — 보이게 해 달라고 남긴다 (DESIGN §7 palette 배치).
+      get().revealNode(node.id);
     },
 
     dropConnection: (id) => {
@@ -406,6 +408,8 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
       });
       // 이미 정리된 캔버스를 다시 정리하는 것은 편집이 아니다.
       if (moves.length > 0) get().runCommand(moveNodes(moves));
+      // 정리한 결과는 그 자리에서 보여야 한다 — 화면이 전부를 담도록 부탁한다 (DESIGN §7 arrange).
+      get().fitAll();
     },
 
     renameSpec: (name) => {

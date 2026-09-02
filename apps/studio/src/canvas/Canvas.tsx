@@ -7,26 +7,48 @@ import {
   ViewportPortal,
   useConnection,
   useReactFlow,
+  useViewport,
 } from "@xyflow/react";
 // 캔버스 라이브러리의 기본 스타일은 app.css가 맨 앞에서 한 번만 들여온다 (덮어쓰기 순서).
-import { type CSSProperties, type MouseEvent, useEffect, useMemo, useRef } from "react";
+import {
+  type CSSProperties,
+  type MouseEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { FlowEdge, FlowNode } from "../graph/serialize";
 import { edgeFlowStates, nodeRunFacts } from "../run/player";
 import { markedForRun } from "../run/runMarks";
 import { useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
+import type { ViewRequest } from "../store/viewSlice";
 import { currentSeq, isRunning } from "../store/runSlice";
 import { ConnectionHint } from "./ConnectionHint";
-import { motionDurationMs } from "./motion";
+import { motionDurationMs, tokenLengthPx } from "./motion";
 import { NodeCard } from "./NodeCard";
 import { NodePicker } from "./NodePicker";
 import { onEmptyCanvas, pointerPosition, releasedPort } from "./pickerGestures";
 import { flowEdgeTypes } from "./PipeEdge";
 import { markedForPreview } from "./previewMarks";
+import { type ScreenBox, revealMove } from "./reveal";
 import { surfacePoint } from "./surfacePoint";
 import { heldPortOf, useLandingHint } from "./useLandingHint";
 
 const flowNodeTypes = { agentNode: NodeCard };
+
+/** 캔버스가 카드를 재기까지 기다려 주는 프레임 수(≈0.15초) — 그 안에 못 재면 화면을 흔들지 않는다. */
+const MEASURE_TRIES = 10;
+
+/** 캔버스가 그린 그 카드의 화면 자리 — 아직 그리거나 재지 못했으면 없다.
+ *  이름은 문서에서 온 글자라 선택자에 그대로 넣지 않는다 — 그려진 카드들을 훑어 이름을 견준다. */
+function cardRect(surface: HTMLDivElement | null, id: string): ScreenBox | null {
+  const cards = surface?.querySelectorAll<HTMLElement>(".react-flow__node") ?? [];
+  const card = Array.from(cards).find((drawn) => drawn.dataset.id === id);
+  const rect = card?.getBoundingClientRect();
+  return rect && rect.width > 0 ? rect : null;
+}
 
 /** 줄이 맞는 순간에만 서는 안내선 — 캔버스 좌표 위에 그린다 (브리프 A3). */
 function AlignmentGuides() {
@@ -70,10 +92,33 @@ function CanvasSurface() {
   const connect = useEditor((state) => state.connect);
   const openPicker = useEditor((state) => state.openPicker);
   const viewRequest = useEditor((state) => state.viewRequest);
+  const viewRequestDone = useEditor((state) => state.viewRequestDone);
+  // 기다린 프레임 수는 그 부탁의 것이다 — 부탁이 바뀌면 처음부터 다시 센다.
+  const measuring = useRef<{ request: ViewRequest | null; waited: number }>({
+    request: null,
+    waited: 0,
+  });
+  const [lookAgain, setLookAgain] = useState(0);
   const surface = useRef<HTMLDivElement>(null);
   const pointer = useRef({ x: 0, y: 0 });
-  const { fitView, screenToFlowPosition, flowToScreenPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition, flowToScreenPosition, getViewport, setViewport } =
+    useReactFlow();
+  // 화면을 끌거나 확대하면 한가운데가 가리키는 캔버스 좌표도 달라진다.
+  const viewport = useViewport();
+  const noteViewportCenter = useEditor((state) => state.noteViewportCenter);
   const t = useT();
+
+  // 보고 있는 화면의 한가운데는 캔버스만 안다 — 새 카드를 놓는 자리로 쓰라고 알려 둔다 (DESIGN §7 palette).
+  useEffect(() => {
+    const rect = surface.current?.getBoundingClientRect();
+    if (!rect) return;
+    noteViewportCenter(
+      screenToFlowPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      }),
+    );
+  }, [viewport, screenToFlowPosition, noteViewportCenter]);
 
   // 지금 쥐고 있는 포트 — 받아 줄 자리가 하나도 없으면 그 곁에서 말을 건다 (C5).
   useLandingHint(
@@ -81,9 +126,42 @@ function CanvasSurface() {
     (at) => placeAt(flowToScreenPosition(at)).screen,
   );
 
+  // 새로 놓은 카드가 화면 밖이면 그만큼만 데리러 간다 — 줌은 그대로 둔다 (DESIGN §7 palette 배치).
+  // 자리는 그 카드의 DOM이 말한다: 줌도 측정도 이미 그 안에 들어 있다.
+  useEffect(() => {
+    if (viewRequest?.kind !== "reveal") return;
+    // 새 부탁이면 기다린 횟수도 새로 센다 — 지난 부탁을 포기한 일이 다음 부탁을 버리지 않는다.
+    if (measuring.current.request !== viewRequest) {
+      measuring.current = { request: viewRequest, waited: 0 };
+    }
+    const seen = surface.current?.getBoundingClientRect();
+    const card = cardRect(surface.current, viewRequest.nodes[0]);
+    if (!seen) return;
+    // 아직 그리지도 재지도 못한 카드는 어디 있는지 모른다 — 모르는 채로 화면을 흔들지 않고
+    // 다음 프레임에 다시 본다. 끝내 재지 못하면 부탁을 놓는다(매 프레임 다시 묻지 않는다).
+    if (!card) {
+      if (measuring.current.waited >= MEASURE_TRIES) {
+        viewRequestDone();
+        return;
+      }
+      measuring.current.waited += 1;
+      const frame = requestAnimationFrame(() => setLookAgain((tick) => tick + 1));
+      return () => cancelAnimationFrame(frame);
+    }
+    const move = revealMove(seen, card, tokenLengthPx("--space-4"));
+    if (move) {
+      const now = getViewport();
+      setViewport(
+        { x: now.x + move.dx, y: now.y + move.dy, zoom: now.zoom },
+        { duration: motionDurationMs("--dur-enter") },
+      );
+    }
+    viewRequestDone();
+  }, [viewRequest, lookAgain, getViewport, setViewport, viewRequestDone]);
+
   // 화면을 데려가 달라는 부탁이 오면 그때 움직인다 (브리프 B7).
   useEffect(() => {
-    if (!viewRequest) return;
+    if (!viewRequest || viewRequest.kind === "reveal") return;
     fitView({
       ...(viewRequest.nodes.length > 0
         ? { nodes: viewRequest.nodes.map((id) => ({ id })) }

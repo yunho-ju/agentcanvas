@@ -76,6 +76,28 @@ describe("tidying the canvas left to right", () => {
     ).toBeDefined();
   });
 
+  // 아무와도 이어지지 않은 노드는 흐름의 첫 단계가 아니다 — 세로로 쌓지 않는다 (UXQ-5 / F7).
+  it("lays nodes that are linked to nothing in one row, not in a stack", () => {
+    const graph = toFlow(example);
+    const loose = [0, 1, 2].map((index) => ({ ...graph.nodes[index], id: `loose-${index}` }));
+    const at = placedAt({ nodes: loose, edges: [] });
+
+    expect(at["loose-1"].x).toBeGreaterThan(at["loose-0"].x);
+    expect(at["loose-2"].x).toBeGreaterThan(at["loose-1"].x);
+    expect(at["loose-1"].y).toBe(at["loose-0"].y);
+    expect(at["loose-2"].y).toBe(at["loose-0"].y);
+  });
+
+  it("puts them after the last step of the graph they share the canvas with", () => {
+    const graph = toFlow(example);
+    const alone = { ...graph.nodes[2], id: "alone" };
+    const at = placedAt({ ...graph, nodes: [...graph.nodes, alone] });
+    const linked = graph.nodes.map((node) => at[node.id].x);
+
+    expect(at.alone.x).toBeGreaterThan(Math.max(...linked));
+    expect(at.alone.y).toBe(at.input.y);
+  });
+
   it("has nothing to place on an empty canvas", () => {
     expect(arrangedPositions({ nodes: [], edges: [] })).toEqual([]);
   });
