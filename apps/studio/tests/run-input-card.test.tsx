@@ -131,13 +131,26 @@ describe("물을 것이 있을 때의 실행 버튼", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("카드가 열려 있을 때 실행 버튼을 다시 누르면 카드를 접는다", async () => {
+  // 폼을 여는 버튼은 멱등하다 — 연타가 사람이 시킨 적 없는 취소가 되지 않는다 (DESIGN §7 run-input-card).
+  it("카드가 열려 있을 때 실행 버튼을 다시 누르면 닫지 않고 첫 칸에 손을 얹는다", async () => {
     store().loadSpec(ONE_FIELD);
     serveRuns(trial);
     render(<RunControls />);
 
     await pressRun();
     await pressRun();
+
+    expect(screen.getByRole("dialog", { name: "실행에 넣을 값" })).toBeInTheDocument();
+    expect(container.querySelector(".run-input-card__form input")).toHaveFocus();
+  });
+
+  it("닫는 손잡이는 '그만두기'다 — 재클릭이 아니라 이 버튼이 카드를 접는다", async () => {
+    store().loadSpec(ONE_FIELD);
+    serveRuns(trial);
+    render(<RunControls />);
+
+    await pressRun();
+    await userEvent.click(screen.getByRole("button", { name: "그만두기" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

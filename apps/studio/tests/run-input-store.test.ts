@@ -98,13 +98,25 @@ describe("실행에 넣을 값을 묻는 카드", () => {
     expect(server.starts).toBe(1);
   });
 
-  it("열려 있을 때 실행을 다시 누르면 카드를 접는다", async () => {
+  // 폼을 여는 버튼은 멱등하다 — 연타는 카드를 닫지 않고 카드에 손을 얹으라고 부탁한다.
+  it("열려 있을 때 실행을 다시 누르면 카드는 그대로 서고 초점만 부탁한다", async () => {
     serveRuns(trial);
 
     await store().requestRun();
+    const asked = store().runInputFocusTick;
     await store().requestRun();
 
-    expect(store().runInputOpen).toBe(false);
+    expect(store().runInputOpen).toBe(true);
+    expect(store().runInputFocusTick).toBe(asked + 1);
+  });
+
+  it("카드를 처음 열 때는 초점을 따로 부탁하지 않는다 — 방금 선 카드다", async () => {
+    serveRuns(trial);
+    const before = store().runInputFocusTick;
+
+    await store().requestRun();
+
+    expect(store().runInputFocusTick).toBe(before);
   });
 
   it("적어 넣은 값만 서버로 간다 — 빈 칸은 값이 아니다", async () => {

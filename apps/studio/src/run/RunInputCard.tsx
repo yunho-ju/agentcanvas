@@ -1,6 +1,6 @@
 // 실행이 물을 것이 있을 때 실행 버튼 아래에 서는 카드 (DESIGN §7 run-input-card).
 // 무엇을 물을지는 화면이 정하지 않는다: 그래프의 입력 노드가 받는 값에서 나온 사실이다.
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useT } from "../i18n/useT";
 import { SchemaFields } from "../inspector/SchemaFields";
 import { missingRequired } from "../inspector/schemaForm";
@@ -23,7 +23,15 @@ export function RunInputCard() {
   const setRunInputValue = useEditor((state) => state.setRunInputValue);
   const runWithInput = useEditor((state) => state.runWithInput);
   const closeRunInput = useEditor((state) => state.closeRunInput);
+  // 실행 버튼을 다시 누른 사람은 이 카드를 찾고 있다 — 부탁이 올 때마다 첫 칸으로 손을 데려간다.
+  const focusTick = useEditor((state) => state.runInputFocusTick);
+  const card = useRef<HTMLDivElement>(null);
   const t = useT();
+
+  useEffect(() => {
+    if (focusTick === 0) return;
+    card.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+  }, [focusTick]);
 
   // 물을 것이 없으면 카드도 없다 — 빈 카드를 띄우지 않는다.
   if (!open || fields.length === 0) return null;
@@ -31,7 +39,12 @@ export function RunInputCard() {
   const unanswered = missingRequired(fields, values);
 
   return (
-    <div className="run-input-card layer" role="dialog" aria-label={t("runInput.label")}>
+    <div
+      className="run-input-card layer"
+      role="dialog"
+      aria-label={t("runInput.label")}
+      ref={card}
+    >
       <p className="run-input-card__title">{t("runInput.title")}</p>
       <SchemaFields
         fields={fields}

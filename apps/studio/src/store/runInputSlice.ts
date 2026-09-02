@@ -10,7 +10,15 @@ export interface RunInputSlice {
   runInputOpen: boolean;
   /** 이 문서에서 마지막으로 적어 넣은 값 — 다시 실행할 때 그대로 채워져 있다 */
   runInputValues: Record<string, unknown>;
-  /** 실행 버튼을 눌렀다 — 물을 것이 있으면 카드를 열고(다시 누르면 접고), 없으면 곧장 실행한다 */
+  /**
+   * 카드에 손을 얹어 달라는 부탁이 몇 번 있었는가 — 카드는 이 수가 늘어날 때 첫 칸에 초점을 준다.
+   * (같은 부탁을 두 번 해도 값이 달라지도록 세는 수다 — 초점은 상태가 아니라 그때의 부탁이다.)
+   */
+  runInputFocusTick: number;
+  /**
+   * 실행 버튼을 눌렀다 — 물을 것이 있으면 카드를 열고, 없으면 곧장 실행한다.
+   * 이미 열려 있으면 닫지 않고 초점만 부탁한다 (DESIGN §7 run-input-card).
+   */
   requestRun: () => Promise<void>;
   /** 적어 넣은 값으로 실행한다 — 저장부터 하는 기존 절차를 그대로 탄다 */
   runWithInput: () => Promise<void>;
@@ -36,11 +44,14 @@ export const createRunInputSlice: StateCreator<EditorState, [], [], RunInputSlic
 ) => ({
   runInputOpen: false,
   runInputValues: {},
+  runInputFocusTick: 0,
 
   requestRun: async () => {
     // 물을 것이 없으면 빈 카드를 띄우지 않는다 — 누른 뜻 그대로 실행한다.
     if (runInputAsks(get()).length === 0) return get().saveThenRun();
-    set({ runInputOpen: !get().runInputOpen });
+    // 이미 묻고 있는 카드는 다시 눌러도 닫히지 않는다 — 대신 그 카드로 손을 데려간다.
+    if (get().runInputOpen) return set({ runInputFocusTick: get().runInputFocusTick + 1 });
+    set({ runInputOpen: true });
   },
 
   runWithInput: async () => {
