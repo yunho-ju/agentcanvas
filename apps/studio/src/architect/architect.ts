@@ -1,6 +1,8 @@
 import type { AgentSpec } from "../generated/agent_spec";
 import { fakeRun } from "../run/fakeRun";
+import { nodeSetupIssues } from "../graph/nodeSetupIssues";
 import { validateSpec } from "../graph/validateSpec";
+import { nodeTypes } from "../registry/registry";
 
 export const ARCHITECT_REVIEW_TIME = new Date("2026-01-01T00:00:00.000Z");
 
@@ -14,6 +16,18 @@ export interface ArchitectReview {
   schema: ArchitectReviewCheck;
   graph: ArchitectReviewCheck;
   dryRun: ArchitectReviewCheck;
+  /** 초안이 적용된 뒤에도 사람이 채워야 하는 설정 칸 수 — 적용을 막지는 않는다. */
+  toFill: number;
+}
+
+/** 초안의 노드들이 아직 기다리는 설정 칸 수 — 캔버스의 "설정 필요" 판정과 같은 규칙.
+ *
+ * 한 칸이 여러 이유로 어긋나도 채울 자리는 하나다 — 노드+필드 짝으로 센다. */
+function fieldsToFill(spec: AgentSpec): number {
+  const fields = spec.nodes.flatMap((node) =>
+    nodeSetupIssues(node, nodeTypes[node.type]).map((issue) => `${node.id}/${issue.field}`),
+  );
+  return new Set(fields).size;
 }
 
 function graphProblems(spec: AgentSpec): number {
@@ -90,6 +104,7 @@ export function reviewArchitectSpec(spec: AgentSpec): ArchitectReview {
     schema: { passed: schemaErrors.length === 0, count: schemaErrors.length },
     graph: { passed: graphErrorCount === 0, count: graphErrorCount },
     dryRun: { passed: dryRunPassed, count: dryRunPassed ? 1 : 0 },
+    toFill: fieldsToFill(spec),
   } satisfies Omit<ArchitectReview, "passed">;
   return { ...result, passed: result.schema.passed && result.graph.passed && result.dryRun.passed };
 }

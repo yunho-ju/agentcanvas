@@ -15,10 +15,16 @@ from agentcanvas_adapters.architect import (
     architect_from,
 )
 from agentcanvas_contracts.agent_spec import AgentSpec, Node, Position
-from agentcanvas_contracts.architect_patch import AgentSpecPatch
+from agentcanvas_contracts.architect_patch import (
+    AddNodeOperation,
+    AgentSpecPatch,
+    ReplaceNodeConfigOperation,
+)
 from agentcanvas_engine.architect_patch import PatchApplyError, apply_patch
 from agentcanvas_engine.model_call import ModelCall, ModelEvidence
 from agentcanvas_engine.validator import Severity, ValidationIssue, validate_graph
+
+from .model_ref_backfill import with_model_ref_filled
 
 type ArchitectRefusal = Literal[
     "invalid_base_revision",
@@ -110,18 +116,35 @@ def blank_architect_seed(draft_id: str) -> AgentSpec:
 UNFINISHED_CONFIG_CODE = "node.invalid_config"
 
 
+def _nodes_the_patch_made(patch: AgentSpecPatch) -> set[str]:
+    """이 제안이 새로 만들거나 설정을 갈아 끼운 노드 id — 서버가 채워도 되는 자리의 전부다."""
+    return {
+        operation.node.id
+        if isinstance(operation, AddNodeOperation)
+        else operation.node_id
+        for operation in patch.operations
+        if isinstance(operation, AddNodeOperation | ReplaceNodeConfigOperation)
+    }
+
+
 def _blocks_a_preview(issue: ValidationIssue) -> bool:
     """미리보기를 막는 것은 그림 자체가 깨진 경우뿐 — 덜 채운 설정은 보여 주고 알려 준다."""
     return issue.severity == Severity.ERROR and issue.code != UNFINISHED_CONFIG_CODE
 
 
 def preview_of(
-    base_spec: AgentSpec, result: ArchitectSaid | ArchitectBalked
+    base_spec: AgentSpec,
+    result: ArchitectSaid | ArchitectBalked,
+    *,
+    model_ref: str | None = None,
 ) -> ArchitectPreviewOutcome:
     """모델이 말한 patch를 미리보기로 옮기는 하나뿐인 문 — 저장하지 않고 게이트만 지킨다.
 
     patch를 물어본 서비스가 무엇이든(그림을 그리는 Architect든, 연결을 만드는 래퍼든)
-    통과 규칙은 여기 하나다: 계약 → base revision → 그림 검사.
+    통과 규칙은 여기 하나다: 계약 → base revision → 모델 이름 채우기 → 그림 검사.
+
+    `model_ref`를 건넨 서비스는 방금 그 모델에게 물어본 서비스다 — 모델 이름이 빈 채로 온
+    노드는 그 이름으로 채워져 검사와 화면에 함께 간다.
     """
 
     if isinstance(result, ArchitectBalked):
@@ -145,6 +168,11 @@ def preview_of(
         else:
             reason = "patch_conflict"
         return ArchitectPreviewRefused(reason=reason, message=str(error))
+
+    if model_ref is not None:
+        candidate = with_model_ref_filled(
+            candidate, model_ref, only=_nodes_the_patch_made(result.patch)
+        )
 
     issues = validate_graph(candidate)
     if any(_blocks_a_preview(issue) for issue in issues):
@@ -176,7 +204,7 @@ class ArchitectService:
             request=request,
             model_ref=model_ref,
         )
-        return preview_of(base_spec, self._architect(asked))
+        return preview_of(base_spec, self._architect(asked), model_ref=model_ref)
 
     def preview_new(
         self, draft_id: str, request: str, model_ref: str

@@ -25,7 +25,7 @@ from agentcanvas_engine.model_call import (
 from pydantic import ValidationError
 
 ARCHITECT_PATCH_SCHEMA_NAME = "agent_spec_patch"
-ARCHITECT_PROMPT_REF = "prompt://architect@2"
+ARCHITECT_PROMPT_REF = "prompt://architect@3"
 INVALID_PATCH_MESSAGE = "the model returned a patch that does not match agent.patch/v1"
 OPERATION_NOT_ALLOWED_MESSAGE = (
     "the model returned an operation this service is not allowed to make"
@@ -131,6 +131,11 @@ def _architect_prompt(asked: ArchitectRequest) -> str:
             "A node with attached edges must have those edges removed first.",
             "For a blank draft, keep the existing core-input and core-output nodes; add and connect the processing nodes instead of duplicating them.",
             "Every node you add must use a type from the list below, and every edge must name a port that exists on its node. Do not invent type names or port names.",
+            (
+                "When a node you add takes a model_ref setting: "
+                f'Unless the request names a different model, set "model_ref" to '
+                f'"{asked.model_ref}" — the model this request is being made with.'
+            ),
             'An edge is only allowed when its two ports carry the same value type; a port whose value is "any" fits every type. Route a value through a port that takes "any" when the types would not match.',
             "Node types you may use (JSON):",
             _node_type_catalog(),

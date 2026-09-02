@@ -25,3 +25,21 @@ export async function providerDraftFixture(
   } satisfies AgentSpecPatch;
   return { draft, patch, issues: [] };
 }
+
+/** 아직 못 채운 칸이 있는 초안 — 서버가 채우지 못한 값은 사람이 채워야 한다. */
+export async function draftWithAnEmptySettingFixture(
+  request: string,
+  draftId: string,
+): Promise<ArchitectDraftOutcome> {
+  const outcome = await providerDraftFixture(request, draftId);
+  if (!outcome.draft) return outcome;
+  return {
+    ...outcome,
+    draft: {
+      ...outcome.draft,
+      nodes: outcome.draft.nodes.map((node) =>
+        node.id === "llm-agent" ? { ...node, config: { ...node.config, model_ref: "" } } : node,
+      ),
+    },
+  };
+}

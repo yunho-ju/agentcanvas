@@ -19,6 +19,7 @@ export function ArchitectPanel() {
 
   if (mode === "closed" || spec !== null || nodes.length !== 0 || (mode === "review" && !draft)) return null;
   const canApply = Boolean(review?.passed);
+  const toFill = review?.toFill ?? 0;
   return (
     <section className="architect-panel layer" aria-label={t("architect.title")} aria-busy={loading}>
       {mode === "guided" ? (
@@ -45,6 +46,11 @@ export function ArchitectPanel() {
             })}
           </div>
           <p className="architect-panel__summary">{t("architect.summary", { nodes: draft?.nodes.length ?? 0, edges: draft?.edges.length ?? 0 })}</p>
+          <p className="architect-panel__to-fill" data-tone={toFill > 0 ? "warn" : "ok"}>
+            <span aria-hidden="true">{toFill > 0 ? "!" : "✓"}</span>{" "}
+            <span>{t("architect.toFill", { count: toFill })}</span>
+            {toFill > 0 ? <span className="architect-panel__to-fill-hint">{t("architect.toFill.hint")}</span> : null}
+          </p>
           <div className="architect-panel__actions">
             <button type="button" className="button-primary" onClick={apply} disabled={!canApply} title={!canApply ? t("architect.apply.disabled") : t("architect.apply.hint")}>{t("architect.apply")}</button>
             <button type="button" className="button-ghost" onClick={reset} title={t("architect.back.hint")}>{t("architect.back")}</button>

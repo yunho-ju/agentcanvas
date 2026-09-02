@@ -18,7 +18,20 @@ describe("local Architect preview", () => {
       schema: { passed: true, count: 0 },
       graph: { passed: true, count: 0 },
       dryRun: { passed: true, count: 1 },
+      toFill: 0,
     });
+  });
+
+  it("counts one setting once even when it is wrong in more than one way", () => {
+    const spec = makeArchitectSpec("request", "draft-fixed");
+    const broken = {
+      ...spec,
+      nodes: spec.nodes.map((node) =>
+        node.id === "core-input" ? { ...node, config: { bindings: { first: 1, second: 2 } } } : node,
+      ),
+    };
+
+    expect(reviewArchitectSpec(broken).toFill).toBe(1);
   });
 
   it.each([

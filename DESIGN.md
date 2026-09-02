@@ -219,6 +219,7 @@ guided-architect-card (빈 캔버스의 Guided 첫 화면 — Phase 2.5 ARCH-1)
 - 정직성: ARCH-1의 결정론적 local preview는 순수 fixture/test 경계로 남긴다. 기본 Guided 첫 실행은 ARCH-3 provider-backed preview이며, 서버 candidate와 기존 local review가 모두 통과한 뒤에만 적용한다. provider 실패를 local 성공으로 둔갑시키지 않고, 실제 provider 품질·자연어 의미 분석은 별도 실증 전까지 주장하지 않는다
 - review 구조: 같은 카드 안에서 [요구 문장] → [✓ 계약 확인 / ✓ 흐름 확인 / ✓ 가짜 실행] check row → [후보 노드 N개 · 연결 M개] summary → [캔버스에 적용 primary] [다시 적기 ghost]. 통과 여부는 기호+쉬운 말+색 3층으로 말한다
 - 검증 순서: committed AgentSpec schema → 도달성·고아 edge·cycle 정적 검사 → 기존 fake runtime의 고정 dry-run. 하나라도 실패하면 적용을 막고, 일반 화면에는 내부 AJV/raw JSON을 노출하지 않는다
+- 채워야 할 칸: 초안의 llm 노드 `model_ref`는 서버가 실제로 부를 수 있는 모델로 채워져서 온다(모델이 비워 보내도 서버가 채운다 — 검사 3개를 통과했는데 실행이 거절되는 거짓 통과 금지). 검토 카드는 summary 줄 아래 한 줄로 남은 빈 칸 수를 세어 보인다('채워야 할 칸: N개'). N=0이면 기본 톤, N>0이면 warn 3층(기호+쉬운 말+색)으로 말하되 적용은 막지 않는다 — 빈 칸은 적용한 뒤 노드를 눌러 채우는 것이므로 다음 걸음을 함께 말한다
 - 적용: `spec === null && nodes.length === 0`인 빈 캔버스에서 승인할 때만 기존 `loadSpec`으로 draft를 올린다. 승인 전에는 그래프를 바꾸지 않는다. 승인 결과는 `status: draft`이며 저장·publish가 아니다. 현재 그래프를 덮는 증분 patch는 별도 범위
 - 안전: 실행·저장 왕복 중인 현재 그래프를 Architect가 덮어쓰는 경로 없음. 문서 열기·승인 후 표면은 닫히고, 기존 canvas/inspector/run/first-steps를 그대로 사용한다
 - 표면: 기존 glass + hairline + radius-card + shadow-float + `var(--panel-inspector)` 재사용. 새 색·radius·font·motion token 금지. 내부 목록은 패널 안에서만 스크롤

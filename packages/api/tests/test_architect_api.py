@@ -10,7 +10,7 @@ from agentcanvas_api.architect_service import (
 )
 from agentcanvas_api.memory_run_store import InMemoryRunStore
 from agentcanvas_api.memory_store import InMemorySpecStore
-from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.agent_spec import AgentSpec, Node, Position
 from agentcanvas_engine.model_call import ModelBalked, ModelEvidence, ModelSaid
 from fastapi.testclient import TestClient
 
@@ -248,7 +248,7 @@ def test_graph_validation_error_is_not_returned_as_a_candidate():
 
 
 def unfinished_config_answer(base_revision: str) -> str:
-    """모델은 설정 칸을 모른 채 노드를 제안한다 — 사람 확인은 통째로, 에이전트는 모델 이름이 빈 채로."""
+    """모델은 설정 칸을 모른 채 노드를 제안한다 — 사람 확인 노드는 통째로 빈 채로."""
     return json.dumps(
         {
             "schema_version": "agent.patch/v1",
@@ -299,7 +299,8 @@ def test_a_patch_whose_settings_are_not_filled_in_yet_is_still_previewed():
     unfinished = [
         issue for issue in body["issues"] if issue["code"] == "node.invalid_config"
     ]
-    assert {issue["node_id"] for issue in unfinished} == {"second-gate", "second-agent"}
+    # 모델 이름은 서버가 채우므로(model_ref backfill) 남는 빈 칸은 사람 확인 노드뿐이다.
+    assert {issue["node_id"] for issue in unfinished} == {"second-gate"}
 
 
 def test_blank_architect_seed_is_canonical_and_not_saved():
@@ -447,6 +448,148 @@ def test_architect_draft_does_not_turn_the_server_fallback_into_a_candidate():
     assert response.status_code == 503
     assert response.json()["detail"] == "architect provider is not configured"
     assert client.get("/specs/draft-no-provider").status_code == 404
+
+
+def draft_patch_answer_without_a_model(base_revision: str) -> str:
+    """모델이 model_ref 칸을 잊거나 비워 보낸 초안 — 실제로 관찰된 provider 답의 모양."""
+    patch = json.loads(draft_patch_answer(base_revision))
+    blanks = {"llm-router": None, "llm-agent": ""}
+    for operation in patch["operations"]:
+        if operation["op"] != "add_node":
+            continue
+        blank = blanks[operation["node"]["id"]]
+        if blank is None:
+            operation["node"]["config"].pop("model_ref")
+        else:
+            operation["node"]["config"]["model_ref"] = blank
+    return json.dumps(patch)
+
+
+def test_a_draft_llm_node_without_a_model_gets_the_one_the_architect_used():
+    """검사를 통과한 초안은 곧바로 실행할 수 있어야 한다 — 빈 모델 칸을 서버가 채운다."""
+    seed = blank_architect_seed("draft-fills-model")
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=draft_patch_answer_without_a_model(seed.revision),
+        )
+    )
+
+    response = client.post(
+        "/architect/draft", json=draft_request_body(draft_id="draft-fills-model")
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    candidate = AgentSpec.model_validate(body["candidate"])
+    assert {
+        node.id: node.config.get("model_ref")
+        for node in candidate.nodes
+        if node.type.startswith("llm.")
+    } == {"llm-router": GUIDED_MODEL_REF, "llm-agent": GUIDED_MODEL_REF}
+    assert candidate.revision == candidate.computed_revision()
+    assert [
+        issue for issue in body["issues"] if issue["code"] == "node.invalid_config"
+    ] == []
+
+
+def test_a_model_the_draft_itself_chose_is_left_alone():
+    """짝: 모델이 고른 이름은 서버가 덮어쓰지 않는다."""
+    seed = blank_architect_seed("draft-keeps-model")
+    client = a_client(
+        ModelSaid(
+            input_tokens=1, output_tokens=1, text=draft_patch_answer(seed.revision)
+        )
+    )
+
+    response = client.post(
+        "/architect/draft", json=draft_request_body(draft_id="draft-keeps-model")
+    )
+
+    assert response.status_code == 200
+    candidate = AgentSpec.model_validate(response.json()["candidate"])
+    assert {
+        node.config.get("model_ref")
+        for node in candidate.nodes
+        if node.type.startswith("llm.")
+    } == {"model://default"}
+
+
+def test_a_node_that_does_not_call_a_model_gets_no_model_name():
+    """모델 칸을 요구하지 않는 노드(입력·출력)에는 아무것도 더하지 않는다."""
+    seed = blank_architect_seed("draft-other-nodes")
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=draft_patch_answer_without_a_model(seed.revision),
+        )
+    )
+
+    response = client.post(
+        "/architect/draft", json=draft_request_body(draft_id="draft-other-nodes")
+    )
+
+    assert response.status_code == 200
+    candidate = AgentSpec.model_validate(response.json()["candidate"])
+    assert [node.config for node in candidate.nodes if node.id == "core-output"] == [
+        {"binding": "state.answer"}
+    ]
+    assert [node.config for node in candidate.nodes if node.id == "core-input"] == [
+        {"bindings": {"request": "input.request"}}
+    ]
+
+
+def a_base_with_an_empty_model(node_id: str) -> AgentSpec:
+    """사람이 모델 이름을 아직 비워 둔 채 저장해 둔 그래프 — patch가 손대지 않는 노드다."""
+    base = AgentSpec.model_validate(spec_payload())
+    mine = Node(
+        id=node_id,
+        type="llm.agent",
+        position=Position(x=0, y=600),
+        config={"model_ref": ""},
+    )
+    grown = base.model_copy(update={"nodes": [*base.nodes, mine]})
+    return grown.model_copy(update={"revision": grown.computed_revision()})
+
+
+def test_a_node_the_patch_never_touched_keeps_the_model_name_its_owner_left():
+    """서버가 채우는 것은 이 제안이 만든 노드뿐 — 사람이 비워 둔 기존 노드는 그대로 둔다."""
+    base = a_base_with_an_empty_model("mine")
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=patch_answer(
+                base.revision,
+                {
+                    "op": "add_node",
+                    "node": {
+                        "id": "added-agent",
+                        "type": "llm.agent",
+                        "position": {"x": 400, "y": 600},
+                        "config": {"instruction": "summarise the answer"},
+                    },
+                },
+            ),
+        )
+    )
+
+    response = client.post(
+        "/architect/patch",
+        json=request_body(base.model_dump(mode="json")),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    candidate = AgentSpec.model_validate(body["candidate"])
+    assert {
+        node.id: node.config.get("model_ref")
+        for node in candidate.nodes
+        if node.id in {"mine", "added-agent"}
+    } == {"mine": "", "added-agent": "model://default"}
+    assert candidate.revision == candidate.computed_revision()
 
 
 def test_pulling_out_a_connection_a_node_still_uses_is_not_previewed():

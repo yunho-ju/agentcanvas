@@ -313,6 +313,9 @@ button:disabled {
 .architect-panel__actions .button-ghost:hover:not(:disabled) { background: var(--surface-hover); color: var(--ink); }
 .architect-panel__actions button:focus-visible { outline: none; box-shadow: var(--ring-focus); }
 .architect-panel__actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.architect-panel__to-fill { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); font-size: var(--text-caption); color: var(--ink-soft); }
+.architect-panel__to-fill[data-tone="warn"] { padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: var(--warn-soft); color: var(--warn-ink); }
+.architect-panel__to-fill-hint { color: inherit; }
 .architect-panel__checks { display: flex; flex-direction: column; gap: var(--space-1); }
 .architect-panel__check { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--danger-ink); }
 .architect-panel__check[data-passed="true"] { color: var(--success-ink); }

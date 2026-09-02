@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
 import { useEditor } from "../src/store/editor";
-import { providerDraftFixture } from "./architect-fixtures";
+import { draftWithAnEmptySettingFixture, providerDraftFixture } from "./architect-fixtures";
 
 beforeEach(() => useEditor.setState({ spec: null, nodes: [], edges: [], architectMode: "guided", architectRequest: "", architectDraft: null, architectReview: null, architectError: null, architectLoading: false, requestArchitectDraft: providerDraftFixture, firstStepsDismissed: false }));
 
@@ -26,6 +26,30 @@ describe("ArchitectPanel", () => {
     expect(useEditor.getState().nodes).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "다시 적기" }));
     expect(screen.getByRole("heading", { name: "AI 설계 도우미" })).toBeInTheDocument();
+  });
+
+  it("says nothing is left to fill when the draft arrives with every setting filled", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByRole("textbox", { name: "무엇을 만들까요" }), "make an answer");
+    await user.click(screen.getByRole("button", { name: "초안 만들기" }));
+
+    expect(await screen.findByText("채워야 할 칸: 0개")).toBeInTheDocument();
+    expect(screen.queryByText("적용한 뒤 노드를 눌러 채우면 돼요")).not.toBeInTheDocument();
+    expect(screen.getByText("채워야 할 칸: 0개").closest("[data-tone]")).toHaveAttribute("data-tone", "ok");
+  });
+
+  it("counts the settings still empty and says they can be filled after applying", async () => {
+    useEditor.setState({ requestArchitectDraft: draftWithAnEmptySettingFixture });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByRole("textbox", { name: "무엇을 만들까요" }), "make an answer");
+    await user.click(screen.getByRole("button", { name: "초안 만들기" }));
+
+    expect(await screen.findByText("채워야 할 칸: 1개")).toBeInTheDocument();
+    expect(screen.getByText("적용한 뒤 노드를 눌러 채우면 돼요")).toBeInTheDocument();
+    expect(screen.getByText("채워야 할 칸: 1개").closest("[data-tone]")).toHaveAttribute("data-tone", "warn");
+    expect(screen.getByRole("button", { name: "캔버스에 적용" })).toBeEnabled();
   });
 
   it("closes the architect surface only after approval", async () => {

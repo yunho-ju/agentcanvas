@@ -41,7 +41,7 @@ describe("ArchitectSlice", () => {
 
   it("refuses to overwrite an existing canvas", () => {
     const store = useEditor.getState();
-    useEditor.setState({ architectDraft: makeArchitectSpec("request", "draft-fixed"), architectReview: { passed: true, schema: { passed: true, count: 0 }, graph: { passed: true, count: 0 }, dryRun: { passed: true, count: 1 } }, nodes: [{ id: "existing" }] as never[] });
+    useEditor.setState({ architectDraft: makeArchitectSpec("request", "draft-fixed"), architectReview: { passed: true, schema: { passed: true, count: 0 }, graph: { passed: true, count: 0 }, dryRun: { passed: true, count: 1 }, toFill: 0 }, nodes: [{ id: "existing" }] as never[] });
     expect(store.applyArchitectDraft()).toBe(false);
     expect(useEditor.getState().nodes).toHaveLength(1);
   });

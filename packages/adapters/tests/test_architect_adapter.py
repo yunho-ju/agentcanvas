@@ -87,8 +87,8 @@ def answer_for(base: AgentSpec | None = None) -> str:
     )
 
 
-def prompt_for(asked: ArchitectRequest) -> str:
-    """모델이 실제로 읽는 지시문 한 벌을 꺼낸다."""
+def ask_for(asked: ArchitectRequest) -> ModelAsk:
+    """모델에게 실제로 간 물음 한 벌을 꺼낸다."""
     seen: list[ModelAsk] = []
 
     def model(ask: ModelAsk) -> ModelSaid:
@@ -101,7 +101,12 @@ def prompt_for(asked: ArchitectRequest) -> str:
         )
 
     architect_from(model)(asked)
-    return seen[0].instruction
+    return seen[0]
+
+
+def prompt_for(asked: ArchitectRequest) -> str:
+    """모델이 실제로 읽는 지시문 한 벌을 꺼낸다."""
+    return ask_for(asked).instruction
 
 
 def json_block_after(prompt: str, label: str) -> dict | list:
@@ -245,6 +250,22 @@ def test_the_prompt_says_connected_ports_must_agree_on_the_value_type():
 
     assert "same value type" in prompt
     assert '"any" fits every type' in prompt
+
+
+def test_the_ask_carries_the_version_of_the_prompt_this_adapter_sends():
+    """지시문 본문이 바뀌면 이름표의 판(@n)도 오른다 — 증거의 지문이 이 이름을 센다."""
+    assert ask_for(a_request()).prompt_ref == "prompt://architect@3"
+
+
+def test_the_prompt_names_the_model_the_nodes_it_adds_should_call():
+    """비워 오지 않게 이름을 준다 — 다만 요구문이 다른 모델을 말하면 그쪽이 이긴다."""
+    asked = a_request()
+    prompt = prompt_for(asked)
+
+    assert (
+        f'Unless the request names a different model, set "model_ref" to '
+        f'"{asked.model_ref}"' in prompt
+    )
 
 
 def a_model(ref: str, provider: str, base_url: str | None = LOCAL_URL) -> ModelDef:
