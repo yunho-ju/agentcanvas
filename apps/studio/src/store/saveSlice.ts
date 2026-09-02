@@ -16,8 +16,11 @@ import { isRunning } from "./runSlice";
  */
 export type SaveTurn = "saved" | "failed" | "blocked";
 
-/** 그래프를 서버로 보내는 길. 시험은 이 자리에 가짜를 꽂는다. */
-export type SendSpec = (spec: AgentSpec) => Promise<SaveOutcome>;
+/**
+ * 그래프를 서버로 보내는 길. 시험은 이 자리에 가짜를 꽂는다.
+ * `knownOnServer`는 화면이 이미 아는 사실이다 — 서버에 있는 문서는 만들기부터 두드리지 않는다.
+ */
+export type SendSpec = (spec: AgentSpec, knownOnServer: boolean) => Promise<SaveOutcome>;
 
 export interface SaveSlice {
   /** 서버가 마지막으로 돌려준 그래프 — 지금 캔버스와 견주어 무엇이 안 저장됐는지 안다 */
@@ -31,6 +34,14 @@ export interface SaveSlice {
    * 실행 기록에 적히는 판은 서버가 매긴 판이다.
    */
   saveThenRun: (input?: Record<string, unknown>) => Promise<void>;
+}
+
+/**
+ * 이 문서가 서버에 있는 줄 아는가 — 서버 목록에서 열었거나 이 자리에서 한 번 맡겨 봤으면 안다.
+ * 다른 그래프를 열면 그 앎도 앞 문서의 것이었다(loadSpec이 서버가 준 그래프를 지운다).
+ */
+export function knownOnServer(state: EditorState): boolean {
+  return state.savedSpec !== null;
 }
 
 /** 서버가 매긴 판 번호 — 저장한 적이 없으면 없다. */
@@ -98,7 +109,7 @@ export const createSaveSlice: StateCreator<EditorState, [], [], SaveSlice> = (
 ) => ({
   savedSpec: null,
   saving: false,
-  sendSpec: (spec) => sendSpecToServer(spec),
+  sendSpec: (spec, known) => sendSpecToServer(spec, { knownOnServer: known }),
 
   saveSpec: async () => {
     // 빈 그래프로 남의 문서를 덮지 않고, 두 번 저장하지 않고, 실행을 보는 동안에는 맡기지 않는다.
@@ -110,7 +121,7 @@ export const createSaveSlice: StateCreator<EditorState, [], [], SaveSlice> = (
 
     set({ saving: true });
     const sent = get().exportSpec();
-    const outcome = await get().sendSpec(sent);
+    const outcome = await get().sendSpec(sent, knownOnServer(get()));
     // 오가는 사이에 캔버스가 달라졌다면, 서버가 매긴 판은 지금 그래프의 판이 아니다.
     // 그때는 기준을 갈아 끼우지 않는다 — 캡션이 '저장 안 된 변경'이라 말해 준다.
     const stillTheSame = sameGraph(get().exportSpec(), sent);

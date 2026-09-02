@@ -211,34 +211,59 @@ function isSpecRevision(value: unknown): value is SpecRevision {
   );
 }
 
+/** 저장 문에 건네는 것 — 서버 자리에 더해, 이 문서가 이미 서버에 있는 줄 아는지. */
+export interface SaveSpecOptions extends SpecApiOptions {
+  /**
+   * 화면이 이미 아는 사실: 이 문서는 서버에 있다(열어 왔거나 맡겨 봤다).
+   * 그러면 만들기(POST)부터 두드리지 않고 곧장 고친다 — 아는 것을 모르는 척하지 않는다.
+   */
+  knownOnServer?: boolean;
+}
+
 /**
  * 그래프를 서버에 맡긴다. 처음이면 새로 만들고, 이미 있는 그래프라고 하면 고치는 길로 이어 간다 —
  * 사용자는 "저장" 한 가지만 안다.
  */
 export async function sendSpecToServer(
   spec: AgentSpec,
-  options: SpecApiOptions = {},
+  options: SaveSpecOptions = {},
 ): Promise<SaveOutcome> {
   const base = options.baseUrl ?? apiBaseUrl();
   const send = options.fetch ?? (globalThis.fetch as SendRequest);
   const body = JSON.stringify(spec);
   const headers = { "content-type": "application/json" };
 
-  try {
-    const created = await send(`${base}/specs`, { method: "POST", headers, body });
-    if (created.status === CREATED) return answerOf(created, await bodyOf(created));
-    if (created.status !== ALREADY_SAVED) return failureOf(created, await bodyOf(created));
+  /** 서버에 새로 만든다. */
+  async function create(): Promise<HttpResponse> {
+    return send(`${base}/specs`, { method: "POST", headers, body });
+  }
 
-    const path = `${base}/specs/${encodeURIComponent(spec.id)}`;
-    const changed = await send(path, {
+  /** 서버에 이미 있는 그 문서를 고친다 — 손에 든 판이 서버의 지금 판일 때만 받아 준다. */
+  async function replace(): Promise<HttpResponse> {
+    return send(`${base}/specs/${encodeURIComponent(spec.id)}`, {
       method: "PUT",
       headers: { ...headers, "If-Match": spec.revision },
       body,
     });
-    const answer = await bodyOf(changed);
-    return changed.status === OK
-      ? answerOf(changed, answer)
-      : failureOf(changed, answer);
+  }
+
+  async function read(response: HttpResponse, ok: number): Promise<SaveOutcome> {
+    const answer = await bodyOf(response);
+    return response.status === ok ? answerOf(response, answer) : failureOf(response, answer);
+  }
+
+  try {
+    if (options.knownOnServer) {
+      const changed = await replace();
+      // 서버가 "그런 문서 없다"고 하면 서버가 옳다 — 화면의 기억을 접고 새로 만든다.
+      if (changed.status !== NOT_THERE) return await read(changed, OK);
+      return await read(await create(), CREATED);
+    }
+
+    const created = await create();
+    // 서버가 "이미 있다"고 하면 서버가 옳다 — 화면이 몰랐어도 고치는 길로 이어 간다.
+    if (created.status !== ALREADY_SAVED) return await read(created, CREATED);
+    return await read(await replace(), OK);
   } catch {
     // 서버가 꺼져 있거나 길이 막혔다 — 편집한 것은 화면에 그대로 있다.
     return { failure: msg("save.offline") };

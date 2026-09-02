@@ -87,6 +87,55 @@ describe("그래프를 서버에 맡기는 일", () => {
     expect(outcome.saved).toEqual(saved);
   });
 
+  // 서버에 있는 줄 아는 문서를 만들기부터 두드리면 서버는 늘 409로 답한다 — 아는 것을 모르는 척하지 않는다.
+  it("서버에 있는 줄 아는 문서는 곧장 고치는 길로 간다", async () => {
+    const { calls, fetch } = server({ status: 200, body: envelope(saved) });
+
+    const outcome = await sendSpecToServer(example, {
+      baseUrl: "http://here",
+      fetch,
+      knownOnServer: true,
+    });
+
+    expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual([
+      `PUT http://here/specs/${example.id}`,
+    ]);
+    expect(calls[0]?.headers).toEqual({
+      "content-type": "application/json",
+      "If-Match": example.revision,
+    });
+    expect(outcome.saved).toEqual(saved);
+  });
+
+  // 서버에 없다고 하면 서버가 옳다 — 화면의 기억보다 서버의 사실이 먼저다.
+  it("있는 줄 알았는데 서버에 없으면 새로 만드는 길로 되돌아간다", async () => {
+    const { calls, fetch } = server(
+      { status: 404, body: { detail: "no such spec" } },
+      { status: 201, body: envelope(saved) },
+    );
+
+    const outcome = await sendSpecToServer(example, {
+      baseUrl: "http://here",
+      fetch,
+      knownOnServer: true,
+    });
+
+    expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual([
+      `PUT http://here/specs/${example.id}`,
+      "POST http://here/specs",
+    ]);
+    expect(outcome.saved).toEqual(saved);
+  });
+
+  it("서버에 있는 줄 아는 문서도 다른 변경이 먼저 저장됐으면 충돌로 말한다", async () => {
+    const { calls, fetch } = server({ status: 409, body: { detail: "stale revision" } });
+
+    const outcome = await sendSpecToServer(example, { fetch, knownOnServer: true });
+
+    expect(outcome.failure?.key).toBe("save.conflict");
+    expect(calls).toHaveLength(1);
+  });
+
   it("다른 변경이 먼저 저장되면 충돌로 말하고 다시 덮어쓰지 않는다", async () => {
     const { calls, fetch } = server(
       { status: 409, body: { detail: "already saved" } },

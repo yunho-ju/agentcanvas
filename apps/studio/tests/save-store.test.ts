@@ -59,6 +59,52 @@ describe("아직 아무것도 저장하지 않았을 때", () => {
   });
 });
 
+// 서버로 나가는 문에 "이 문서는 이미 서버에 있다"는 사실을 함께 건넨다 (UXQ-8c).
+describe("이 문서가 서버에 있는 줄 아는가", () => {
+  /** 저장 문이 무엇을 알고 나갔는지 받아 적는 자리. */
+  function watchingServer() {
+    const knew: boolean[] = [];
+    const server = acceptingServer(1);
+    return {
+      knew,
+      send: (spec: AgentSpec, knownOnServer: boolean) => {
+        knew.push(knownOnServer);
+        return server.send(spec);
+      },
+    };
+  }
+
+  it("한 번도 맡기지 않은 초안은 아직 서버의 것이 아니다", async () => {
+    const server = watchingServer();
+    useEditor.setState({ sendSpec: server.send });
+
+    await store().saveSpec();
+
+    expect(server.knew).toEqual([false]);
+  });
+
+  it("한 번 맡긴 뒤로는 서버에 있는 문서다", async () => {
+    const server = watchingServer();
+    useEditor.setState({ sendSpec: server.send });
+
+    await store().saveSpec();
+    await store().saveSpec();
+
+    expect(server.knew).toEqual([false, true]);
+  });
+
+  it("다른 그래프를 열면 그 기억도 앞 문서의 것이었다", async () => {
+    const server = watchingServer();
+    useEditor.setState({ sendSpec: server.send });
+    await store().saveSpec();
+
+    store().loadSpec(example);
+    await store().saveSpec();
+
+    expect(server.knew).toEqual([false, false]);
+  });
+});
+
 describe("저장하는 순간", () => {
   it("서버가 매긴 판 번호를 화면이 그대로 말한다", async () => {
     useEditor.setState({ sendSpec: acceptingServer(1).send });
