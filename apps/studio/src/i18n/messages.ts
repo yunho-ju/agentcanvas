@@ -1424,6 +1424,24 @@ const TEXTS = {
     ko: "이 문서에는 아직 연결이 없어요 — 왼쪽 연결 패널에서 만들 수 있어요",
     en: "This document has no connections yet — the connections panel on the left makes one",
   },
+  // 부를 수 없는 모델도 목록에 남는다 — 잠긴 자리는 언제나 까닭을 말한다 (DESIGN §7 preset-select).
+  "control.modelRef.noKey": {
+    ko: "이 서버에는 이 모델을 부를 열쇠가 없어요",
+    en: "This server has no key for this model",
+  },
+  "control.modelRef.cannotCall": {
+    ko: "이 서버에서는 지금 이 모델을 부를 수 없어요",
+    en: "This server cannot call this model right now",
+  },
+  // 열쇠가 하나도 없는 서버는 연습용 답으로 돈다 — 고르기는 되지만 진짜 모델의 답은 아니다.
+  "control.modelRef.standIn": {
+    ko: "지금은 연습용 답으로 돌아요 — 실제 모델을 부르려면 서버에 열쇠를 넣어 주세요",
+    en: "Right now this server answers with stand-in text — add a key on the server to call a real model",
+  },
+  "control.modelRef.noneCallable": {
+    ko: "이 서버에 부를 수 있는 모델이 아직 없어요 — 서버 설정에서 열쇠를 넣어 주세요",
+    en: "This server cannot call any model yet — add a key in the server's settings",
+  },
   "control.toolSelect.needsBinding": {
     ko: "먼저 연결을 고르세요",
     en: "Pick a connection first",

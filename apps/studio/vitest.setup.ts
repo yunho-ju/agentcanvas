@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { beforeEach } from "vitest";
 import { setLocale } from "./src/i18n/localeStore";
+import { useEditor } from "./src/store/editor";
 
 // jsdom에는 ResizeObserver가 없다 — xyflow가 캔버스 크기를 재려고 찾는다.
 if (!("ResizeObserver" in globalThis)) {
@@ -34,9 +35,13 @@ if (!("localStorage" in globalThis) || globalThis.localStorage === undefined) {
 }
 
 // 화면 문구를 한국어로 고정한다 — 언어를 바꾸는 테스트는 스스로 setLocale을 부른다.
+// 모델 피커는 서면서 서버에게 묻는다: 시험이 진짜 그물을 타지 않도록 여기서 "못 물었다"를
+// 기본으로 꽂아 둔다(파이썬 conftest의 no_real_model과 같은 뜻). 서버 답을 보고 싶은 시험은
+// 스스로 제 대역을 꽂는다.
 beforeEach(() => {
   localStorage.clear();
   setLocale("ko");
+  useEditor.setState({ serverModels: null, fetchServerModels: async () => null });
 });
 
 // jsdom 25에는 Blob.text()가 없다 — 브라우저에는 있는 API라 테스트 환경만 채워 준다.

@@ -87,6 +87,7 @@ from .eval_suggestion_service import (
 )
 from .job_store import DurableJobStore, IdempotencyConflict
 from .job_worker import DurableJobWorker
+from .model_catalog_service import RunMode, ServerModels, models_standing
 from .optimizer_service import OptimizerService
 from .run_service import (
     RevisionSource,
@@ -565,6 +566,26 @@ def _a_judge_for(
     return llm_judge_entailment(asks_a_model, judge_model_ref)
 
 
+def _models_on_offer(
+    asks_a_model: ModelCall, env: Mapping[str, str] | None
+) -> ServerModels:
+    """화면에 말할 모델 사정 — 조립 때 한 번 정하고 그대로 닫아 둔다.
+
+    모델을 건네받았다면 무엇이 답하는지는 건넨 쪽의 것이라 아무 판정도 말하지 않는다
+    (심판 자리와 같은 규칙 — 카탈로그도 열쇠도 그 자리의 사정이 아니다).
+
+    도는 자리(live/stand_in)는 실행이 고른 그 갈림을 그대로 읽는다: 열쇠도 내 컴퓨터의
+    모델도 없는 서버는 연습용 답으로 **모든 이름에** 답하므로, 열쇠 없음만 보고 화면을
+    전부 잠그면 화면이 실행과 다른 말을 하게 된다.
+    """
+    if env is None:
+        return ServerModels(mode="live", models=[])
+    mode: RunMode = "stand_in" if asks_a_model is says_the_first_way else "live"
+    return ServerModels(
+        mode=mode, models=models_standing(catalog_in(env), env_vault(env))
+    )
+
+
 def _judge_model_ref_in(env: Mapping[str, str]) -> str:
     """심판이 부를 이름 — 서버를 띄운 자리가 고르고, 고르지 않았으면 기본 이름이다."""
     return env.get(JUDGE_MODEL_ENV, "").strip() or JUDGE_MODEL_REF
@@ -662,6 +683,12 @@ def create_app(
     guided_provider_is_live = model is None
     asks_a_model = model if model is not None else _default_model_call()
     calls_a_tool = tool if tool is not None else _default_tool_call()
+    # 화면에 말할 모델 사정은 **실행이 실제로 들고 있는 그것**이다: 실행기는 조립 때의 카탈로그를
+    # 닫아 들고 돌기 때문에, 뒤에 바뀐 환경을 여기서 다시 읽으면 화면과 실행이 어긋난다.
+    # 서버가 스스로 고른 배선에서만 env가 판단의 근거다(주입된 모델은 주입한 쪽의 것 — 심판 선례).
+    models_on_offer = _models_on_offer(
+        asks_a_model, os.environ if model is None else None
+    )
     architect = ArchitectService(asks_a_model)
     tool_wrapper = ToolWrapperService(asks_a_model)
     case_suggestions = EvalCaseSuggestionService(asks_a_model)
@@ -1182,6 +1209,12 @@ def create_app(
         return EvalCaseSuggestionResponse(
             asked_for=outcome.asked_for, cases=outcome.cases
         )
+
+    # 화면이 이 서버가 부를 수 있는 모델을 아는 유일한 길 — 답은 조립 때 닫아 둔 그 사정
+    # 하나에서 나온다(실행이 든 카탈로그와 같은 것). 열쇠는 그 투영에 자리가 없다.
+    @app.get("/models", response_model=ServerModels)
+    def list_models() -> ServerModels:
+        return models_on_offer
 
     # 화면이 이 서버의 판정 층을 아는 유일한 길 — 답은 조립 때 세운 사다리 하나에서 나온다.
     @app.get("/eval/evaluators", response_model=list[EvaluatorStanding])

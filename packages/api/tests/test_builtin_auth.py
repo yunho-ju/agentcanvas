@@ -305,6 +305,22 @@ class TestWhichLayersStandIsBehindTheSameDoor:
         assert client.get("/eval/evaluators").status_code == 200
 
 
+class TestWhichModelsThisServerCanCallIsBehindTheSameDoor:
+    """UXQ-3 — 서버 카탈로그를 묻는 길도 기본 차단 그대로다(PUBLIC_REQUESTS에 넣지 않는다)."""
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        return a_server()
+
+    def test_a_stranger_cannot_ask_which_models_this_server_can_call(self, client):
+        assert client.get("/models").status_code == 401
+
+    def test_the_admin_who_logged_in_can_ask(self, client: TestClient):
+        logged_in(client)
+
+        assert client.get("/models").status_code == 200
+
+
 class TestUnsafeRequestsMustCarryTheNonce:
     @pytest.fixture
     def client(self) -> TestClient:

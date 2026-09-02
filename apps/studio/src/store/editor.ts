@@ -20,6 +20,7 @@ import { type GateSlice, createGateSlice } from "./gateSlice";
 import { type GraphSlice, createGraphSlice } from "./graphSlice";
 import { type HintSlice, createHintSlice } from "./hintSlice";
 import { type HistorySlice, createHistorySlice } from "./historySlice";
+import { type ModelsSlice, createModelsSlice } from "./modelsSlice";
 import { type RunInputSlice, createRunInputSlice } from "./runInputSlice";
 import { type OpenSlice, createOpenSlice } from "./openSlice";
 import { type PickerSlice, createPickerSlice } from "./pickerSlice";
@@ -48,6 +49,7 @@ export type EditorState = GraphSlice &
   PickerSlice &
   ViewSlice &
   HintSlice &
+  ModelsSlice &
   FirstStepsSlice &
   EvalSlice &
   EvalSuggestSlice &
@@ -87,6 +89,7 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createPickerSlice(...args),
   ...createViewSlice(...args),
   ...createHintSlice(...args),
+  ...createModelsSlice(...args),
   ...createFirstStepsSlice(...args),
   ...createEvalSlice(...args),
   ...createEvalSuggestSlice(...args),

@@ -2,15 +2,16 @@
 // 새 편집기를 더할 때 이 표에 한 줄을 더한다 — 폼을 그리는 쪽은 그대로다 (설계 §4.2).
 import { forwardRef, useRef, useState } from "react";
 import { localized } from "../../i18n/locale";
-import { useLocale, useT } from "../../i18n/useT";
+import type { MessageKey } from "../../i18n/messages";
+import { type Translate, useLocale, useT } from "../../i18n/useT";
 import {
   INSTRUCTION_CATALOG,
   resolveInstructionPreset,
 } from "../../registry/instructionCatalog";
-import { MODEL_CATALOG } from "../../registry/modelCatalog";
 import { SCHEMA_CATALOG, resolveSchema } from "../../registry/schemaCatalog";
 import type { ControlKind } from "../schemaForm";
 import { useDocResources } from "../useDocResources";
+import { useServerModelOptions } from "../useServerModelOptions";
 import { useTextDraft } from "../useTextDraft";
 import {
   asJsonText,
@@ -98,6 +99,8 @@ interface Choice {
   label: string;
   /** 이름만으로는 모를 때 덧붙이는 쉬운 설명 */
   hint?: string;
+  /** 지금은 고를 수 없는 자리 — 목록에서 지우지 않고 잠근다(까닭은 hint가 말한다) */
+  disabled?: boolean;
 }
 
 function ChoiceControl(props: ControlProps & { choices: Choice[] }) {
@@ -190,7 +193,12 @@ function PresetRefControl(
           </option>
         ) : null}
         {props.choices.map((choice) => (
-          <option key={choice.value} value={choice.value} title={choice.hint}>
+          <option
+            key={choice.value}
+            value={choice.value}
+            title={choice.hint}
+            disabled={choice.disabled}
+          >
             {choice.label}
           </option>
         ))}
@@ -216,18 +224,53 @@ function PresetRefControl(
   );
 }
 
-/** 어떤 모델에게 맡길지는 카탈로그에서 고른다 — 목록은 계약이 내보낸 한 벌이다. */
+/** 부를 수 없는 까닭 → 사람이 읽을 한 줄. 서버가 지금 대는 까닭은 '열쇠가 없다' 하나다. */
+const MODEL_REASON_WORDS: Record<string, MessageKey> = {
+  missing_secret: "control.modelRef.noKey",
+};
+
+/** 셀렉트 위에 말할 한 줄 — 무엇을 말할지는 규칙(modelPicking)이 정하고 여기는 옮긴다. */
+const MODEL_NOTE_WORDS: Record<string, MessageKey> = {
+  stand_in: "control.modelRef.standIn",
+  none_callable: "control.modelRef.noneCallable",
+};
+
+/**
+ * 어떤 모델에게 맡길지는 **이 서버가 아는 모델** 중에서 고른다 (DESIGN §7 preset-select 모델).
+ * 부를 수 있는 것이 먼저 서고, 부를 수 없는 것은 지우지 않고 까닭을 들고 잠긴 채 남는다.
+ * 서버에 물어보지 못했으면 번들 카탈로그를 예전 그대로 보여 준다 — 모르는 것으로 막지 않는다.
+ */
 function ModelRefControl(props: ControlProps) {
   const locale = useLocale();
+  const t = useT();
+  const { options, note } = useServerModelOptions();
+  const reasonId = `${props.id}-reason`;
   return (
-    <PresetRefControl
-      {...props}
-      choices={Object.values(MODEL_CATALOG).map((definition) => ({
-        value: definition.ref,
-        label: localized(definition.title, locale),
-      }))}
-    />
+    <span className="control__from-doc">
+      {/* 고르기 전에 알아야 할 사정을 셀렉트 앞에 먼저 말한다 — 빈 목록을 던지지 않는다. */}
+      {note ? (
+        <span className="control__hint" id={reasonId}>
+          {t(MODEL_NOTE_WORDS[note])}
+        </span>
+      ) : null}
+      <PresetRefControl
+        {...props}
+        describedBy={describedBy(props, note ? reasonId : undefined)}
+        choices={options.map((option) => ({
+          value: option.ref,
+          label: localized(option.title, locale),
+          disabled: !option.callable,
+          hint: option.callable ? undefined : reasonWords(option.reason, t),
+        }))}
+      />
+    </span>
   );
+}
+
+/** 못 부르는 까닭을 아는 말로만 옮긴다 — 모르는 까닭을 아는 척해 지어내지 않는다. */
+function reasonWords(reason: string | null, t: Translate): string {
+  const known = reason === null ? undefined : MODEL_REASON_WORDS[reason];
+  return t(known ?? "control.modelRef.cannotCall");
 }
 
 /**
