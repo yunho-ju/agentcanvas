@@ -304,6 +304,39 @@ describe("대화 문을 열고 닫을 때 (결정 1)", () => {
     expect(screen.getByText("지난 말")).toBeInTheDocument();
   });
 
+  // 이어 갈 대화가 0개면 목록은 막다른 골목이다 — 처음 온 사람은 곧장 말을 걸 수 있어야 한다.
+  it("이어 갈 지난 대화가 없으면 적는 자리로 열고 입력줄에 손을 얹는다", async () => {
+    serving({ threads: [] });
+    render(<ChatPanel />);
+
+    await act(async () => store().enterChatMode());
+    await settle();
+
+    expect(screen.getByLabelText("할 말")).toBeInTheDocument();
+    expect(screen.getByLabelText("할 말")).toHaveFocus();
+  });
+
+  // 적던 말은 사람의 것이다 (DESIGN §1 Esc 체인 ③′와 같은 규칙).
+  it("목록이 오기 전에 적기 시작했으면 목록으로 데려가지 않는다", async () => {
+    let handOver: (threads: ThreadSummary[]) => void = () => {};
+    const later = new Promise<ThreadSummary[]>((keep) => {
+      handOver = keep;
+    });
+    serving();
+    useEditor.setState({ askSpecThreads: async () => ({ threads: await later }) });
+    render(<ChatPanel />);
+
+    await act(async () => store().enterChatMode());
+    await userEvent.type(screen.getByLabelText("할 말"), "안녕");
+    await act(async () => {
+      handOver([summary({ first_said: "지난 말" })]);
+    });
+    await settle();
+
+    expect(screen.getByLabelText("할 말")).toHaveValue("안녕");
+    expect(screen.queryByText("지난 말")).not.toBeInTheDocument();
+  });
+
   it("하던 말이 있으면 하던 대화로 든다 — 목록이 대화를 가리지 않는다", async () => {
     serving();
     render(<ChatPanel />);

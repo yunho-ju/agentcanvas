@@ -1,5 +1,6 @@
 // 지금 대화 — 오간 말들과, 다음 말을 적는 자리 (DESIGN §7 chat-panel).
 // 말의 뜻(답·실패·거절)은 chat/의 순수 함수가 읽는다 — 여기서는 그리기만 한다.
+import { useEffect, useRef } from "react";
 import type { AgentSpec } from "../generated/agent_spec";
 import { useT } from "../i18n/useT";
 import { chatAwaitingGate, chatIsElsewhere, chatIsWaiting } from "../store/chatSlice";
@@ -77,6 +78,12 @@ export function ChatNowView({ spec }: { spec: AgentSpec }) {
 
   const draftIsEmpty = draft.trim() === "";
   const going = turns.at(-1);
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  // 이 자리에 서면 곧장 말을 걸 수 있다 — 적는 자리로 왔다는 것은 적으러 왔다는 뜻이다.
+  useEffect(() => {
+    if (!field.current?.disabled) field.current?.focus();
+  }, []);
 
   return (
     <>
@@ -109,6 +116,7 @@ export function ChatNowView({ spec }: { spec: AgentSpec }) {
         {t("chat.said.label")}
       </label>
       <textarea
+        ref={field}
         id="chat-said"
         className="control chat-panel__field"
         value={draft}

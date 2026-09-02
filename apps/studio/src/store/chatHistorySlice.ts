@@ -45,6 +45,11 @@ export interface ChatHistorySlice {
   askSpecThreads: AskSpecThreads;
   askThreadEvents: AskThreadEvents;
   showPastChats: () => void;
+  /**
+   * 이어 갈 지난 대화가 있으면 목록을 먼저 보여 준다 — 없으면 적는 자리 그대로 둔다.
+   * 목록을 기다리는 사이에 적기 시작했으면 옮기지 않는다 (DESIGN §7 chat-panel).
+   */
+  offerPastChats: () => Promise<void>;
   /** 지난 대화를 잊는다 — 문서를 놓거나 모드를 떠나면 이 목록은 이 문서의 것이 아니다 */
   forgetPastChats: () => void;
   showNowChat: () => void;
@@ -170,6 +175,16 @@ export const createChatHistorySlice: StateCreator<EditorState, [], [], ChatHisto
     showPastChats: () => {
       set({ ...NOTHING_ASKED, chatView: "past" });
       void get().loadChatThreads();
+    },
+
+    offerPastChats: async () => {
+      await get().loadChatThreads();
+      // 이어 갈 대화가 없으면 빈 목록으로 데려가지 않는다 — 적는 자리가 막다른 골목보다 낫다.
+      if ((get().chatThreads ?? []).length === 0) return;
+      // 목록을 기다리는 사이에 자리를 뜨거나 적기 시작했으면 그 손을 떼게 하지 않는다.
+      if (!get().chatOpen || get().chatView !== "now") return;
+      if (get().chatDraft !== "" || get().chatTurns.length > 0) return;
+      set({ ...NOTHING_ASKED, chatView: "past" });
     },
 
     showNowChat: () => set({ ...NOTHING_ASKED, chatView: "now" }),

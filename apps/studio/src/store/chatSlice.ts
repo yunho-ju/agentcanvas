@@ -295,8 +295,9 @@ export const createChatSlice: StateCreator<EditorState, [], [], ChatSlice> = (
     enterChatMode: () => {
       set({ chatOpen: true });
       void get().loadPublishedSpec();
-      // 아직 아무 말도 없으면 빈 화면 대신 이어 갈 지난 대화를 먼저 보여 준다 (CHAT-4b 결정 1).
-      if (get().chatTurns.length === 0) get().showPastChats();
+      // 아직 아무 말도 없으면 이어 갈 지난 대화를 먼저 보여 준다 — 이어 갈 것이 없으면
+      // 적는 자리 그대로 연다(빈 목록은 막다른 골목이다, DESIGN §7 chat-panel).
+      if (get().chatTurns.length === 0) void get().offerPastChats();
     },
 
     // 모드를 떠나면 듣던 스트림을 놓는다 — 화면의 대화도 목록도 여기서 놓는다
