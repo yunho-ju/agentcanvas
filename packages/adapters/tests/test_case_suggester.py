@@ -12,13 +12,21 @@ from agentcanvas_adapters.case_suggester import (
     case_suggester_from,
 )
 from agentcanvas_adapters.scripted import ScriptedLLM, ScriptedReply
-from agentcanvas_contracts.agent_spec import AgentSpec, AgentStatus, Node, Position
+from agentcanvas_contracts.agent_spec import (
+    AgentSpec,
+    AgentStatus,
+    Node,
+    Position,
+    ResourceBinding,
+)
 from agentcanvas_contracts.model_catalog import ModelDef
 from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
 
 INSTRUCTION_LABEL = "The instructions being tested (JSON):"
 INPUT_LABEL = "The values a run is given (JSON):"
 TITLE_LABEL = "Titles already written (JSON):"
+TOOL_LABEL = "The tools a run can call (JSON):"
+COVERAGE_HINT = "every tool listed"
 EDGE_DEMAND = "push the edges"
 
 
@@ -294,3 +302,130 @@ def test_asking_for_hard_cases_reaches_the_provider():
 
 def test_turning_hard_cases_off_takes_the_demand_out_of_what_the_provider_reads():
     assert EDGE_DEMAND not in what_the_provider_was_asked(False)
+
+
+SEARCH_TOOL = {
+    "name": "search_article",
+    "plain_description": {"ko": "글을 찾는다.", "en": "Finds an article."},
+    "input_schema": {
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+    },
+    "output_schema": {"type": "object"},
+    "timeout_ms": 8000,
+    "call": {
+        "transport": "http",
+        "method": "GET",
+        "url_template": "https://api.example.com/search",
+    },
+}
+
+
+def a_tool(name: str) -> dict:
+    return {**SEARCH_TOOL, "name": name}
+
+
+def a_connection(id: str, *tools: dict, allowed_tools: list[str] | None = None):
+    return ResourceBinding.model_validate(
+        {
+            "id": id,
+            "kind": "http.api",
+            "server_ref": f"api://{id}",
+            "allowed_tools": allowed_tools or [],
+            "approval_policy": "read_only_auto",
+            "tools": list(tools),
+        }
+    )
+
+
+def spec_with_connections(
+    *connections: ResourceBinding, used: tuple[str, ...]
+) -> AgentSpec:
+    """writer 단계가 `used`에 적힌 연결만 쓰기로 한 그래프."""
+    draft = a_spec()
+    writer = next(node for node in draft.nodes if node.id == "writer")
+    writer.config["toolset_refs"] = list(used)
+    return draft.model_copy(update={"resources": list(connections)})
+
+
+def request_for(spec: AgentSpec) -> CaseSuggestionRequest:
+    return CaseSuggestionRequest(
+        spec=spec,
+        how_many=3,
+        include_edge_cases=True,
+        existing_titles=(),
+        model_ref="model://suggester",
+    )
+
+
+def test_the_prompt_carries_the_tools_a_run_can_call():
+    spec = spec_with_connections(
+        a_connection("articles", a_tool("search_article")), used=("articles",)
+    )
+    prompt = prompt_for(request_for(spec))
+
+    tools = json_block_after(prompt, TOOL_LABEL)
+
+    assert tools == [
+        {
+            "connection": "articles",
+            "name": "search_article",
+            "description": {"ko": "글을 찾는다.", "en": "Finds an article."},
+            "parameters": SEARCH_TOOL["input_schema"],
+        }
+    ]
+    assert COVERAGE_HINT in prompt
+
+
+def test_a_graph_with_no_tools_has_no_tool_section_at_all():
+    prompt = prompt_for(a_request())
+
+    assert TOOL_LABEL not in prompt
+    assert COVERAGE_HINT not in prompt
+
+
+def test_a_connection_no_step_points_at_stays_out_of_the_prompt():
+    spec = spec_with_connections(
+        a_connection("articles", a_tool("search_article")),
+        a_connection("weather", a_tool("forecast")),
+        used=("articles",),
+    )
+
+    tools = json_block_after(prompt_for(request_for(spec)), TOOL_LABEL)
+
+    assert [tool["name"] for tool in tools] == ["search_article"]
+
+
+def test_a_tool_the_connection_does_not_allow_stays_out_of_the_prompt():
+    spec = spec_with_connections(
+        a_connection(
+            "articles",
+            a_tool("search_article"),
+            a_tool("delete_article"),
+            allowed_tools=["search_article"],
+        ),
+        used=("articles",),
+    )
+
+    tools = json_block_after(prompt_for(request_for(spec)), TOOL_LABEL)
+
+    assert [tool["name"] for tool in tools] == ["search_article"]
+
+
+def test_a_tool_two_steps_point_at_is_listed_once():
+    spec = spec_with_connections(
+        a_connection("articles", a_tool("search_article")), used=("articles",)
+    )
+    spec.nodes.append(
+        Node(
+            id="lookup",
+            type="tool.mcp",
+            position=Position(x=320, y=0),
+            config={"resource_ref": "articles", "tool_name": "search_article"},
+        )
+    )
+
+    tools = json_block_after(prompt_for(request_for(spec)), TOOL_LABEL)
+
+    assert [tool["name"] for tool in tools] == ["search_article"]

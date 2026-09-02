@@ -11,13 +11,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from agentcanvas_contracts.agent_spec import AgentSpec, Node, Position
+from agentcanvas_contracts.agent_spec import AgentSpec, Node, Position, ResourceBinding
 from agentcanvas_contracts.eval_case import EvalCase
 from agentcanvas_contracts.node_registry import (
     DEFAULT_NODE_TYPES,
     INPUT_NODE_TYPE,
     NodeType,
+    binding_refs,
 )
+from agentcanvas_contracts.tool_def import ToolDef
 from agentcanvas_engine.model_call import (
     ModelAsk,
     ModelBalked,
@@ -25,6 +27,7 @@ from agentcanvas_engine.model_call import (
     ModelEvidence,
     ModelSaid,
 )
+from agentcanvas_engine.tool_work import is_allowed
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 CASE_SUGGESTION_SCHEMA_NAME = "eval_case_suggestions"
@@ -145,6 +148,56 @@ def _values_a_run_is_given(spec: AgentSpec) -> dict[str, object]:
     return values
 
 
+def _connections_a_step_points_at(spec: AgentSpec) -> set[str]:
+    """어느 단계든 쓰기로 적어 둔 연결의 이름들 — registry 마커가 가리키는 자리만 읽는다."""
+    pointed: set[str] = set()
+    for node in spec.nodes:
+        node_type = DEFAULT_NODE_TYPES.get(node.type)
+        if node_type is not None:
+            pointed.update(binding_refs(node, node_type))
+    return pointed
+
+
+def _tool_as_read(binding: ResourceBinding, tool: ToolDef) -> dict[str, object]:
+    return {
+        "connection": binding.id,
+        "name": tool.name,
+        "description": tool.plain_description.model_dump(),
+        "parameters": tool.input_schema,
+    }
+
+
+def _tools_a_run_can_call(spec: AgentSpec) -> list[dict[str, object]]:
+    """실행이 부를 수 있는 도구들 — 어느 단계가 가리키고, 그 연결이 허락한 것만 (실행기와 같은 판정).
+
+    같은 도구를 두 단계가 가리켜도 한 번만 싣는다. 이름·설명·받는 값의 형식이 모델이 읽는 전부다.
+    """
+    pointed = _connections_a_step_points_at(spec)
+    return [
+        _tool_as_read(binding, tool)
+        for binding in spec.resources
+        if binding.id in pointed
+        for tool in binding.tools
+        if is_allowed(binding, tool)
+    ]
+
+
+def _tool_lines(spec: AgentSpec) -> list[str]:
+    """도구 절 — 부를 도구가 없는 그래프에는 절 자체를 두지 않는다(빈 절은 소음이다)."""
+    tools = _tools_a_run_can_call(spec)
+    if not tools:
+        return []
+    return [
+        (
+            "Cover every tool listed below: each one should appear in at least one "
+            "case whose input would make the agent call it, with values that fit "
+            "its parameters."
+        ),
+        "The tools a run can call (JSON):",
+        _as_json(tools),
+    ]
+
+
 def _suggestion_prompt(asked: CaseSuggestionRequest) -> str:
     """모델에게 보내는 입력 — 그래프가 무엇을 하기로 했는지 읽고 시험을 짓게 한다."""
     lines = [
@@ -178,6 +231,7 @@ def _suggestion_prompt(asked: CaseSuggestionRequest) -> str:
             _as_json(_instructions_under_test(asked.spec)),
             "The values a run is given (JSON):",
             _as_json(_values_a_run_is_given(asked.spec)),
+            *_tool_lines(asked.spec),
             "Titles already written (JSON):",
             _as_json(list(asked.existing_titles)),
         ]
