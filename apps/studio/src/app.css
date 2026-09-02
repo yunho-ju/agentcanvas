@@ -279,6 +279,27 @@ button:disabled {
 .architect-panel {
   width: var(--panel-inspector);
   max-height: calc(100vh - var(--space-6) * 2);
+/* 손이 닿는 안쪽 기둥 — 담긴 것이 자리보다 길면 여기가 스스로 스크롤한다 (DESIGN §1).
+   스크롤 상자는 넘치는 것을 자르므로, 카드의 그림자와 초점 링이 들어올 만큼 padding을 두고
+   오른쪽은 그만큼 당겨 카드가 있던 자리에 그대로 서게 한다. */
+.layer-right__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-3);
+  margin-right: calc(var(--space-3) * -1);
+  pointer-events: auto;
+}
+
+/* 모드 패널은 안내 옆에서도 읽을 만큼은 선다 — 그 아래로는 눌리지 않는다 (DESIGN §1). */
+.layer-right__stack > [data-mode-panel] {
+  min-height: calc(var(--space-6) * 8);
+}
+
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -3148,6 +3169,45 @@ button:disabled {
 .first-steps__hide {
   align-self: flex-start;
   padding: var(--space-1) var(--space-2);
+  /* 안내는 제 높이만 쓴다 — 모드 패널의 자리를 눌러 차지하지 않는다 (DESIGN §1). */
+  flex: 0 0 auto;
+}
+
+/* 모드 패널이 서 있는 동안의 한 줄 — 제목과 걸은 걸음 수를 함께 이고 여닫는다. */
+.first-steps__collapsed {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.first-steps__collapsed:hover {
+  background: var(--surface-hover);
+}
+
+.first-steps__collapsed:active {
+  transform: scale(0.98);
+  background: var(--surface-active);
+}
+
+.first-steps__collapsed:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.first-steps__walked {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-control);
   background: none;

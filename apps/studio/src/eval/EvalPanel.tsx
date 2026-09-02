@@ -63,7 +63,12 @@ export function EvalPanel() {
   const newCaseOpen = draft !== null && draft.id === null;
 
   return (
-    <section className="eval-panel layer" aria-label={t("eval.panel.label")}>
+    // 우측 기둥의 자리 규칙은 data-mode-panel 표식 하나로 받는다 (DESIGN §1 우측 레이어의 자리 나눔).
+    <section
+      className="eval-panel layer"
+      data-mode-panel="eval"
+      aria-label={t("eval.panel.label")}
+    >
       <div className="eval-panel__heading">
         <p className="eval-panel__title">{t("eval.panel.title")}</p>
         <button type="button" className="eval-panel__advanced" aria-pressed={advanced} onClick={() => {

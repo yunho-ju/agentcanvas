@@ -21,7 +21,8 @@ export function ChatPanel() {
   if (!open || spec === null) return null;
 
   return (
-    <section className="chat-panel layer" aria-label={t("chat.title")}>
+    // 우측 기둥의 자리 규칙은 data-mode-panel 표식 하나로 받는다 (DESIGN §1 우측 레이어의 자리 나눔).
+    <section className="chat-panel layer" data-mode-panel="chat" aria-label={t("chat.title")}>
       <header className="chat-panel__header">
         <h2 className="chat-panel__title">{t("chat.title")}</h2>
         {/* 어느 판과 이야기하는지는 대화가 붙잡은 그 판이 말한다 — 캔버스가 바뀌어도 그대로다.

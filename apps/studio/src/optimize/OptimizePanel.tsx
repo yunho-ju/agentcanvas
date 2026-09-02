@@ -27,6 +27,8 @@ export function OptimizePanel() {
   return (
     <section
       className="optimize-panel layer"
+      // 우측 기둥의 자리 규칙은 이 표식 하나로 받는다 (DESIGN §1 우측 레이어의 자리 나눔).
+      data-mode-panel="optimize"
       aria-label={t("optimize.title")}
       aria-busy={loading}
     >

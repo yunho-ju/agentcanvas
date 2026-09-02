@@ -151,9 +151,25 @@ export function awaitingGate(state: EditorState): string | null {
   return currentSeq(state) >= held.seq ? (held.node_id ?? null) : null;
 }
 
-/** 지금 보고 있는 실행이 끝까지 갔는가 — 첫 걸음 안내의 마지막 걸음이 이것을 본다. */
+/** 지금 보고 있는 실행이 끝까지 갔는가. */
 export function runReachedEnd(state: EditorState): boolean {
   return runFinished(state.runEvents, currentSeq(state));
+}
+
+/**
+ * 이 자리에서 끝까지 간 실행을 한 번이라도 봤는가 — 첫 걸음 안내의 마지막 걸음이 이것을 본다.
+ * 사실은 실행 이력에 남는다: 실행 보기를 닫아도(만들기로 돌아가도) 걸은 걸음은 지워지지 않는다.
+ */
+export function sawRunToTheEnd(state: EditorState): boolean {
+  if (runReachedEnd(state)) return true;
+  // 실행 보기가 열려 있는 동안 화면에서 재생 중인 그 실행만 재생 머리가 답한다(위 한 줄) —
+  // 도착만 한 이벤트를 본 것으로 세지 않기 위해서다. 실행 보기를 닫으면 이력이 답한다.
+  const onScreen = isRunning(state) ? state.activeRunId : null;
+  return state.runHistory.some(
+    (record) =>
+      record.id !== onScreen &&
+      runFinished(record.events, record.events.at(-1)?.seq ?? 0),
+  );
 }
 
 /** 지금 이 순간 각 노드가 무엇을 하고 있는가. */

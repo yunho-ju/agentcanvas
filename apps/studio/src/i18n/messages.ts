@@ -1082,6 +1082,15 @@ const TEXTS = {
   "runInput.confirm": { ko: "이 값으로 실행", en: "Run with these" },
   "runInput.cancel": { ko: "그만두기", en: "Never mind" },
   "runInput.blocked": {
+  // 모드 패널이 열려 있으면 안내는 한 줄로 접힌다 — 접힌 줄을 여닫는 말
+  "guide.expand.hint": {
+    ko: "눌러서 네 걸음을 다시 펼쳐 봐요",
+    en: "Press to open the four steps again",
+  },
+  "guide.collapse.hint": {
+    ko: "눌러서 다시 한 줄로 접어요",
+    en: "Press to fold it back into one line",
+  },
     ko: "필수 입력을 채우면 실행할 수 있어요",
     en: "Fill in what is required and you can run it",
   },
