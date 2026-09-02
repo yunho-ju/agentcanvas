@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { makeArchitectSpec } from "../src/architect/architect";
+import { makeArchitectSpec } from "./architect-fixtures";
 import { useEditor } from "../src/store/editor";
 import { providerDraftFixture } from "./architect-fixtures";
 

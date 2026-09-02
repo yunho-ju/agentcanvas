@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from .agent_spec import AgentSpec
 from .architect_patch import AgentSpecPatch
+from .chat import CHAT_SAID_BINDING
 from .eval_case import EvalCase, EvalDataset
 from .eval_result import EvalBatch
 from .evaluator_catalog import DEFAULT_EVALUATOR_CATALOG, EvaluatorDef
@@ -60,6 +61,10 @@ INSTRUCTION_CATALOG_NAME = "instruction_catalog"
 
 # 마찬가지로 데이터 — 답이 맞았는지 무엇으로 확인할지 고르는 판정기 목록이다.
 EVALUATOR_CATALOG_NAME = "evaluator_catalog"
+
+# 마찬가지로 데이터 — 대화가 사람 말을 찾는 입력 이름 하나. 화면도 이 파일을 읽어
+# 서버와 같은 철자를 쓴다 (Python↔TS 미러).
+CHAT_CONTRACT_NAME = "chat_contract"
 
 
 def render_schema(model: type[BaseModel]) -> str:
@@ -144,9 +149,29 @@ def write_evaluator_catalog(directory: Path = JSON_SCHEMA_DIR) -> Path:
     return write_data(EVALUATOR_CATALOG_NAME, DEFAULT_EVALUATOR_CATALOG, directory)
 
 
+def render_chat_contract() -> str:
+    return (
+        json.dumps(
+            {"said_binding": CHAT_SAID_BINDING},
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+
+def write_chat_contract(directory: Path = JSON_SCHEMA_DIR) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{CHAT_CONTRACT_NAME}.json"
+    path.write_text(render_chat_contract(), encoding="utf-8")
+    return path
+
+
 if __name__ == "__main__":  # pragma: no cover
     for path in [
         *write_schemas(),
+        write_chat_contract(),
         write_node_registry(),
         write_schema_catalog(),
         write_model_catalog(),

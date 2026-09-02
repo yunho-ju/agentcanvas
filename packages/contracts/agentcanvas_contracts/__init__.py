@@ -30,6 +30,7 @@ from .architect_patch import (
     ReplaceNodeConfigOperation,
     ReplaceResourceOperation,
 )
+from .chat import CHAT_SAID_BINDING
 from .eval_case import EvalCase, EvalDataset
 from .eval_result import EvalAttempt, EvalBatch, EvalCaseResult
 from .evaluator_catalog import (
@@ -76,6 +77,7 @@ from .tool_def import (
 )
 
 __all__ = [
+    "CHAT_SAID_BINDING",
     "DEFAULT_EVALUATOR_CATALOG",
     "DEFAULT_INSTRUCTION_CATALOG",
     "DEFAULT_MODEL_CATALOG",

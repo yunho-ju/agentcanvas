@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 
+from agentcanvas_contracts.chat import CHAT_SAID_BINDING
 from agentcanvas_contracts.run import Run, RunStatus, run_status
 from agentcanvas_contracts.run_events import EventType, RunEvent
 from pydantic import BaseModel
@@ -46,8 +47,8 @@ def what_was_first_said(opening: Sequence[RunEvent]) -> str | None:
         if event.event_type is not EventType.RUN_STARTED:
             continue
         said = event.payload.get("input")
-        if isinstance(said, dict) and isinstance(said.get("message"), str):
-            return said["message"]
+        if isinstance(said, dict) and isinstance(said.get(CHAT_SAID_BINDING), str):
+            return said[CHAT_SAID_BINDING]
     return None
 
 

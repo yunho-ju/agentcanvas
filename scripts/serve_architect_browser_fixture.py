@@ -96,7 +96,7 @@ def fixture_patch_for(ask: ModelAsk) -> AgentSpecPatch:
                     "edge": {
                         "id": "fixture-input-router",
                         "kind": "data",
-                        "source": {"node": "core-input", "port": "request"},
+                        "source": {"node": "core-input", "port": "message"},
                         "target": {"node": "fixture-router", "port": "input"},
                     },
                 },

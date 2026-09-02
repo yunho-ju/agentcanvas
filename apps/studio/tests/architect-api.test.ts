@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeArchitectSpec } from "../src/architect/architect";
+import { makeArchitectSpec } from "./architect-fixtures";
 import { createArchitectDraftOnServer } from "../src/api/architect";
 import type { HttpResponse } from "../src/api/http";
 import { translate } from "../src/i18n/messages";

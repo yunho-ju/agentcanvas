@@ -11,6 +11,7 @@ from agentcanvas_api.architect_service import (
 from agentcanvas_api.memory_run_store import InMemoryRunStore
 from agentcanvas_api.memory_store import InMemorySpecStore
 from agentcanvas_contracts.agent_spec import AgentSpec, Node, Position
+from agentcanvas_contracts.chat import CHAT_SAID_BINDING
 from agentcanvas_engine.model_call import ModelBalked, ModelEvidence, ModelSaid
 from fastapi.testclient import TestClient
 
@@ -98,7 +99,7 @@ def draft_patch_answer(
                     "edge": {
                         "id": "edge-input-agent",
                         "kind": "data",
-                        "source": {"node": "core-input", "port": "request"},
+                        "source": {"node": "core-input", "port": "message"},
                         "target": {"node": "llm-router", "port": "input"},
                     },
                 },
@@ -309,8 +310,22 @@ def test_blank_architect_seed_is_canonical_and_not_saved():
     assert seed.revision == seed.computed_revision()
     assert seed.version == 1
     assert [node.id for node in seed.nodes] == ["core-input", "core-output"]
-    assert seed.input_schema["required"] == ["request"]
+    # 사람이 하는 말이 들어오는 자리 이름은 계약이 정한 그 이름이다 — 대화(Talk)가 그것을 찾는다.
+    assert seed.input_schema["required"] == [CHAT_SAID_BINDING]
+    assert [node.config for node in seed.nodes if node.id == "core-input"] == [
+        {"bindings": {CHAT_SAID_BINDING: f"input.{CHAT_SAID_BINDING}"}}
+    ]
     assert seed.state_schema["properties"]["answer"] == {"type": "string"}
+
+
+def test_the_seed_says_what_that_input_is_for_in_both_languages():
+    """실행 입력 카드는 이 제목을 라벨로 쓴다 — 사람이 `message` 원문을 읽게 두지 않는다."""
+    said = blank_architect_seed("draft-seed").input_schema["properties"][
+        CHAT_SAID_BINDING
+    ]
+
+    assert said["title"] == "What you say"
+    assert said["x-i18n"]["ko"]["title"] == "사람이 하는 말"
 
 
 def test_architect_draft_returns_a_provider_candidate_without_saving_it():
@@ -537,7 +552,7 @@ def test_a_node_that_does_not_call_a_model_gets_no_model_name():
         {"binding": "state.answer"}
     ]
     assert [node.config for node in candidate.nodes if node.id == "core-input"] == [
-        {"bindings": {"request": "input.request"}}
+        {"bindings": {"message": "input.message"}}
     ]
 
 

@@ -1,13 +1,17 @@
 // 대화 문을 열 수 있는가 — 그리고 못 열면 왜인가 (순수 함수, DESIGN §7 chat-panel).
 // 판정의 근거는 캔버스의 지금 그래프가 아니라 **게시된 판**이다: 사람들이 말을 거는 상대는
 // 만드는 사람이 고치는 중인 그래프가 아니라 내놓은 그 판이기 때문이다 (CHAT-3b 결정 3).
+import chatContract from "../../../../packages/contracts/json_schema/chat_contract.json";
 import type { AgentSpec } from "../generated/agent_spec";
 import type { SpecPublication } from "../generated/spec_publication";
 import { type Message, type MessageKey, msg } from "../i18n/messages";
 import { inputBindingNames } from "../run/runInput";
 
-/** 사람의 말이 실리는 입력 이름 — 계약을 늘리지 않고 이름 관례로 정한다 (결정 1). */
-export const CHAT_SAID_BINDING = "message";
+/** 사람의 말이 실리는 입력 이름 — 철자는 계약(json_schema/chat_contract.json)의 것 하나다.
+ *
+ * 서버의 `agentcanvas_contracts.chat`이 원본이고 화면은 그것을 읽는다: 두 벌로 적으면
+ * 한쪽만 바뀌어도 게시는 되는데 말은 걸 수 없는 판이 조용히 생긴다 (결정 1). */
+export const CHAT_SAID_BINDING = chatContract.said_binding;
 
 /** 지난 대화가 실리는 입력 이름 — 받는 판에만 실어 보낸다 (결정 2). */
 export const CHAT_HISTORY_BINDING = "history";

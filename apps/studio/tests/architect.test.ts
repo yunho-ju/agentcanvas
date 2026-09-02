@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { makeArchitectSpec, reviewArchitectSpec } from "../src/architect/architect";
+import { reviewArchitectSpec } from "../src/architect/architect";
+import { makeArchitectSpec } from "./architect-fixtures";
+import { chatBindings } from "../src/chat/chatEntry";
 
 describe("local Architect preview", () => {
   it("creates a deterministic four-node draft and completes fake review", () => {
     const spec = makeArchitectSpec("triage incoming requests", "draft-fixed");
     expect(spec.nodes).toHaveLength(4);
     expect(spec.edges).toHaveLength(3);
-    expect(spec.nodes[0].config?.bindings).toEqual({ request: "input.request" });
+    expect(spec.nodes[0].config?.bindings).toEqual({ message: "input.message" });
     expect(spec.state_schema).toEqual({ type: "object", properties: { answer: { type: "string" } } });
     expect(spec.nodes[1].config?.model_ref).toBe("model://default");
     expect(spec.nodes[2].config?.model_ref).toBe("model://default");
@@ -37,10 +39,15 @@ describe("local Architect preview", () => {
   it.each([
     ["orphan edge", (spec: ReturnType<typeof makeArchitectSpec>) => ({ ...spec, edges: [{ ...spec.edges[0], target: { node: "missing", port: "input" } }, ...spec.edges.slice(1)] })],
     ["orphan node", (spec: ReturnType<typeof makeArchitectSpec>) => ({ ...spec, nodes: [...spec.nodes, { id: "orphan", type: "llm.agent", position: { x: 1, y: 1 } }] })],
-    ["cycle", (spec: ReturnType<typeof makeArchitectSpec>) => ({ ...spec, edges: [...spec.edges, { id: "cycle", kind: "data" as const, source: { node: "core-output", port: "input" }, target: { node: "core-input", port: "request" } }] })],
+    ["cycle", (spec: ReturnType<typeof makeArchitectSpec>) => ({ ...spec, edges: [...spec.edges, { id: "cycle", kind: "data" as const, source: { node: "core-output", port: "input" }, target: { node: "core-input", port: "message" } }] })],
   ])("rejects %s graph mutation", (_, mutate) => {
     const result = reviewArchitectSpec(mutate(makeArchitectSpec("request", "draft-fixed")));
     expect(result.graph.passed).toBe(false);
     expect(result.passed).toBe(false);
+  });
+
+  it("makes a draft that can be talked to once it is published", () => {
+    // 초안의 입력 이름이 곧 대화의 자리다 — 이름이 다르면 게시해도 Talk 문이 열리지 않는다 (F3).
+    expect(chatBindings(makeArchitectSpec("answer questions", "draft-fixed")).said).toBe(true);
   });
 });

@@ -4,12 +4,14 @@ from pathlib import Path
 
 import jsonschema
 import pytest
+from agentcanvas_contracts.chat import CHAT_SAID_BINDING
 from agentcanvas_contracts.evaluator_catalog import DEFAULT_EVALUATOR_CATALOG
 from agentcanvas_contracts.instruction_catalog import DEFAULT_INSTRUCTION_CATALOG
 from agentcanvas_contracts.model_catalog import DEFAULT_MODEL_CATALOG
 from agentcanvas_contracts.node_registry import DEFAULT_NODE_TYPES
 from agentcanvas_contracts.schema_catalog import DEFAULT_SCHEMA_CATALOG
 from agentcanvas_contracts.schema_export import (
+    CHAT_CONTRACT_NAME,
     EVALUATOR_CATALOG_NAME,
     INSTRUCTION_CATALOG_NAME,
     JSON_SCHEMA_DIR,
@@ -17,11 +19,13 @@ from agentcanvas_contracts.schema_export import (
     NODE_REGISTRY_NAME,
     SCHEMA_CATALOG_NAME,
     SCHEMA_MODELS,
+    render_chat_contract,
     render_evaluator_catalog,
     render_instruction_catalog,
     render_model_catalog,
     render_schema,
     render_schema_catalog,
+    write_chat_contract,
     write_evaluator_catalog,
     write_instruction_catalog,
     write_model_catalog,
@@ -63,6 +67,7 @@ def test_committed_schema_file_matches_the_model(name):
 def test_no_stale_schema_files_are_committed():
     committed = {path.stem for path in JSON_SCHEMA_DIR.glob("*.json")}
     assert committed == set(SCHEMA_MODELS) | {
+        CHAT_CONTRACT_NAME,
         EVALUATOR_CATALOG_NAME,
         INSTRUCTION_CATALOG_NAME,
         MODEL_CATALOG_NAME,
@@ -169,6 +174,24 @@ def test_write_model_catalog_reports_the_file_it_wrote(tmp_path):
     written = write_model_catalog(tmp_path)
     assert written == tmp_path / f"{MODEL_CATALOG_NAME}.json"
     assert written.read_text(encoding="utf-8") == render_model_catalog()
+
+
+def test_committed_chat_contract_matches_the_binding_the_contracts_name():
+    """대화가 찾는 입력 이름은 한 자리에서만 정해진다 — 화면도 이 파일을 읽는다."""
+    path = JSON_SCHEMA_DIR / f"{CHAT_CONTRACT_NAME}.json"
+    assert path.exists(), (
+        f"{path} is missing — run python -m agentcanvas_contracts.schema_export"
+    )
+    assert path.read_text(encoding="utf-8") == render_chat_contract()
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "said_binding": CHAT_SAID_BINDING
+    }
+
+
+def test_write_chat_contract_reports_the_file_it_wrote(tmp_path):
+    written = write_chat_contract(tmp_path)
+    assert written == tmp_path / f"{CHAT_CONTRACT_NAME}.json"
+    assert written.read_text(encoding="utf-8") == render_chat_contract()
 
 
 def test_committed_schema_catalog_matches_the_default_catalog():

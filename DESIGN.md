@@ -233,7 +233,9 @@ architect-patch-contract (기존 AgentSpec에 실제 Architect를 물어보는 �
 
 architect-blank-provider-contract (빈 캔버스 provider-backed onboarding — Phase 2.5 ARCH-3)
 - 정체: ARCH-1 Guided 카드의 기본 생성 경로. `POST /architect/draft`는 client `draft_id`와 request를 받고, 서버가 canonical blank seed를 만든 뒤 provider에 `agent.patch/v1`만 요청한다. 전체 `AgentSpec` 모델 출력은 허용하지 않는다
-- seed: `agent.spec/v1`, `status=draft`, input required string `request`, state string `answer`, `core.input`/`core.output` 두 노드, 빈 edges/resources/execution. seed는 저장하지 않으며 revision을 서버에서 계산한다
+- seed: `agent.spec/v1`, `status=draft`, input required string `message`(사람이 하는 말 — 게시한 뒤 그 판과 **대화**할 수 있으려면 이 이름이어야 한다, §7 chat-panel), state string `answer`, `core.input`/`core.output` 두 노드, 빈 edges/resources/execution. seed는 저장하지 않으며 revision을 서버에서 계산한다
+- 그 이름의 철자는 **계약이 정한 한 자리**에서 온다(`agentcanvas_contracts.chat`의 `CHAT_SAID_BINDING` → `json_schema/chat_contract.json`): 판을 만드는 쪽(seed)도, 첫 마디를 읽는 쪽(지난 대화 목록)도, 화면(chat door)도 그것을 읽는다 — 두 벌로 적으면 한쪽만 바뀌어 '게시는 되는데 말은 걸 수 없는 판'이 조용히 생긴다
+- 그 자리에는 **두 언어 제목**('사람이 하는 말' / 'What you say')을 함께 싣는다 — 실행 입력 카드가 라벨로 쓰기 때문에, 사람이 `message`라는 원문 이름을 라벨로 읽게 두지 않는다(§7 run-input-card)
 - candidate: exact seed revision patch 적용 → 기존 schema/raw-secret/graph error 검증. 결과는 preview 전용이고 저장·publish하지 않는다. seed v1에서 patch 적용 후 version v2가 되어도 첫 저장의 server-owned version 규칙을 따른다
 - UI: Guided card는 비동기 loading/error를 보여주고 server candidate를 기존 schema/graph/fake dry-run review에 넣는다. 실패 시 blank canvas/request를 보존하며 자동 local fallback을 하지 않는다. 승인 조건과 빈 캔버스 guard는 ARCH-1 규칙을 유지한다
 - 경계: streaming, model picker, auth/workspace, 기존 graph 증분 UI, provider/browser 품질·비용·latency 실증은 포함하지 않는다
@@ -470,7 +472,7 @@ eval-dataset-sharing (여러 문서가 시험 묶음을 함께 쓰는 화면 —
 
 chat-panel (대화 — 게시된 판과 말을 주고받고, 지난 대화를 다시 여는 화면, CHAT-3b·4b)
 - 진입: ModeSegment의 다섯 번째 항목(쉬운 말 '대화'). 모드여도 캔버스는 배경에 그대로 — 중앙 모달 금지, 자리는 `.layer-right` 세로 스택(eval-panel과 같은 문법·폭 var(--panel-inspector)). 다른 우측 모드 패널(시험·고치기)과 **상호배타 — 양방향이다**: 대화를 열면 그 패널이 닫히고, 시험·고치기·만들기로 가면 대화가 닫힌다(듣던 스트림도 함께 놓는다 — 배경에서 혼자 도는 대화를 만들지 않는다, §1 배치표)
-- **모드 버튼 비활성은 이유를 말한다**(title, 다음 걸음까지): 문서 없음 → '먼저 만들거나 열어야 대화할 수 있어요' / 게시 없음 → '아직 사람들에게 내놓은 판이 없어요 — 먼저 게시하면 말을 걸 수 있어요' / 게시된 판이 사람 말을 받지 않음 → '이 문서의 게시된 판에는 받을 자리(message)가 없어요 — 입력에 message를 더하고 다시 게시해 주세요' / 게시된 판을 아직 못 읽음 → '내놓은 판을 확인하는 중이에요'(모르는 것을 없다고 말하지 않는다) / 읽어 보려다 **못 읽음** → 그 까닭(서버 문의 갈래별 문구)과 함께 '내놓은 판을 확인하지 못했어요 (…) — 눌러서 다시 확인해 볼 수 있어요'. **이때만은 버튼이 비활성이 아니라 '다시 확인' 손잡이가 된다** — 못 읽은 채 잠긴 화면을 만들지 않는다. 못 읽은 판을 화면이 저 혼자 계속 두드리지는 않는다(다시 읽는 것은 사람이 시킬 때다)
+- **모드 버튼 비활성은 이유를 말한다**(title, 다음 걸음까지): 문서 없음 → '먼저 만들거나 열어야 대화할 수 있어요' / 게시 없음 → '아직 사람들에게 내놓은 판이 없어요 — 먼저 게시하면 말을 걸 수 있어요' / 게시된 판이 사람 말을 받지 않음 → '게시된 판에는 사람 말을 받을 자리(message)가 없어요 — 입력 노드에 message라는 이름의 줄을 더하고 다시 게시해 주세요'(**어디를 고칠지 말한다** — 고칠 자리는 입력 노드의 받는 줄이고, 그 줄의 이름 칸에 적을 말은 `message`다. 화면의 그 손잡이가 부르는 이름 그대로 말한다 — 사전 키 `control.map.add`('줄 추가')와 같은 말) / 게시된 판을 아직 못 읽음 → '내놓은 판을 확인하는 중이에요'(모르는 것을 없다고 말하지 않는다) / 읽어 보려다 **못 읽음** → 그 까닭(서버 문의 갈래별 문구)과 함께 '내놓은 판을 확인하지 못했어요 (…) — 눌러서 다시 확인해 볼 수 있어요'. **이때만은 버튼이 비활성이 아니라 '다시 확인' 손잡이가 된다** — 못 읽은 채 잠긴 화면을 만들지 않는다. 못 읽은 판을 화면이 저 혼자 계속 두드리지는 않는다(다시 읽는 것은 사람이 시킬 때다)
 - **판정의 근거는 게시된 판**이다 — 캔버스의 지금 그래프가 아니라 서버가 내놓은 그 판의 입력 이름(bindings)을 본다. 캔버스를 고쳐도 이 판정과 대화 상대는 움직이지 않는다. 손에 든 몸통이 **지금 내놓은 판의 것인지**(revision 일치)는 한 자리에서 한 번만 따진다 — 버튼과 패널이 서로 다른 판으로 판정해 '눌리는데 빈 화면'이 되지 않게 한다
 - 구조(위에서 아래로): 헤더[제목 '대화' --text-title + 판 고정 표시 1줄 + 뷰를 바꾸는 ghost 1개] → 말풍선 스택(간격 var(--space-2), 내부 스크롤) → 입력줄 → 아래 손잡이 행 ['새 대화' ghost]['대화 지우기' ghost]. '지난 대화' 뷰에서는 말풍선 스택 아래가 목록 하나로 바뀐다(입력줄·아래 손잡이 행은 서지 않는다 — 목록에서 할 일은 열기와 지우기뿐이다)
 - **판 고정 표시**(--text-caption, accent 글자 — doc-card 게시 표식과 같은 축): 'N번째 판과 이야기하는 중이에요'. 판 번호를 모르면 '게시된 판과 이야기하는 중이에요'. 이 줄은 대화가 시작될 때 집은 판을 그대로 말한다 — 대화 도중 캔버스를 고치거나 다시 게시해도 **바뀌지 않는다**(하던 대화는 첫 판으로 이어진다는 서버의 사실을 화면이 그대로 말한다)

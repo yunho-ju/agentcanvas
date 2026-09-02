@@ -68,33 +68,6 @@ function graphProblems(spec: AgentSpec): number {
   return orphanEdges + unreachableNodes + cycles;
 }
 
-export function makeArchitectSpec(request: string, draftId: string): AgentSpec {
-  return {
-    schema_version: "agent.spec/v1",
-    id: draftId,
-    version: 1,
-    revision: `sha256:${"0".repeat(64)}`,
-    status: "draft",
-    input_schema: {
-      type: "object",
-      required: ["request"],
-      properties: { request: { type: "string" } },
-    },
-    state_schema: { type: "object", properties: { answer: { type: "string" } } },
-    nodes: [
-      { id: "core-input", type: "core.input", position: { x: 0, y: 0 }, config: { bindings: { request: "input.request" } } },
-      { id: "llm-router", type: "llm.router", position: { x: 280, y: 0 }, config: { instruction: request, model_ref: "model://default" } },
-      { id: "llm-agent", type: "llm.agent", position: { x: 560, y: 0 }, config: { instruction: request, model_ref: "model://default" } },
-      { id: "core-output", type: "core.output", position: { x: 840, y: 0 }, config: { binding: "state.answer" } },
-    ],
-    edges: [
-      { id: "edge-input-router", kind: "data", source: { node: "core-input", port: "request" }, target: { node: "llm-router", port: "input" } },
-      { id: "edge-router-agent", kind: "control", source: { node: "llm-router", port: "passthrough" }, target: { node: "llm-agent", port: "messages" } },
-      { id: "edge-agent-output", kind: "data", source: { node: "llm-agent", port: "response" }, target: { node: "core-output", port: "input" } },
-    ],
-  };
-}
-
 export function reviewArchitectSpec(spec: AgentSpec): ArchitectReview {
   const schemaErrors = validateSpec(spec);
   const graphErrorCount = graphProblems(spec);

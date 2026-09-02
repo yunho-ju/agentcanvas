@@ -822,8 +822,8 @@ const TEXTS = {
     en: "The published version was not found on the server — publish again and press to check",
   },
   "chat.door.noMessageInput": {
-    ko: "내놓은 판에는 사람 말을 받는 자리(message)가 없어요 — 입력에 message를 더하고 다시 게시해 주세요",
-    en: "The published version has no place for what a person says (message) — add message to the input and publish again",
+    ko: "게시된 판에는 사람 말을 받을 자리(message)가 없어요 — 입력 노드에 message라는 이름의 줄을 더하고 다시 게시해 주세요",
+    en: "The published version has no place for what a person says (message) — add a row named message to the Input node and publish again",
   },
   "chat.pin.version": {
     ko: "{version}번째 판과 이야기하는 중이에요",

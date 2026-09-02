@@ -13,11 +13,13 @@ from pathlib import Path
 
 import pytest
 from agentcanvas_api.app import create_app
+from agentcanvas_api.architect_service import blank_architect_seed
 from agentcanvas_api.memory_run_store import InMemoryRunStore
 from agentcanvas_api.memory_store import InMemorySpecStore
 from agentcanvas_api.run_service import Work
 from agentcanvas_api.run_store import RunStore
 from agentcanvas_api.run_stream import StreamTiming
+from agentcanvas_contracts.chat import CHAT_SAID_BINDING
 from agentcanvas_contracts.run import Run
 from agentcanvas_contracts.run_events import EventType, RunEvent
 from fastapi.testclient import TestClient
@@ -61,6 +63,7 @@ def a_turn(
     said: str | None = None,
     ended_with: EventType | None = None,
     spec_id: str = SPEC_ID,
+    said_binding: str = CHAT_SAID_BINDING,
 ) -> None:
     """말 한 번을 그대로 쌓아 둔다 — 실행 하나와 그 실행이 남긴 이벤트들."""
     store.start(
@@ -74,7 +77,7 @@ def a_turn(
     )
     opening: dict = {"spec_id": spec_id}
     if said is not None:
-        opening["input"] = {"message": said}
+        opening["input"] = {said_binding: said}
     written = [an_event(run_id, 0, EventType.RUN_STARTED, opening)]
     if ended_with is not None:
         written.append(an_event(run_id, 1, ended_with))
@@ -141,6 +144,25 @@ class TestTheConversationsOfAGraph:
         thread = client.get(f"/specs/{SPEC_ID}/threads").json()[0]
 
         assert thread["first_said"] == "어떻게 시작하나요"
+
+    def test_the_first_word_is_read_from_the_name_a_new_draft_listens_on(
+        self, store: InMemoryRunStore, client: TestClient
+    ):
+        """새 초안이 받기로 한 그 이름이 곧 첫 마디를 읽는 이름이다.
+
+        두 자리가 갈라지면 Architect로 만든 판은 대화가 되어도 목록에서 이름이 없다.
+        """
+        seed = blank_architect_seed("draft-thread-name")
+        (bindings,) = [
+            node.config["bindings"] for node in seed.nodes if node.id == "core-input"
+        ]
+        (listens_on,) = bindings
+
+        a_turn(store, "run_1", "chat_1", 10, said="첫 말", said_binding=listens_on)
+
+        assert (
+            client.get(f"/specs/{SPEC_ID}/threads").json()[0]["first_said"] == "첫 말"
+        )
 
     def test_a_run_nobody_spoke_into_has_no_first_word_instead_of_a_made_up_one(
         self, store: InMemoryRunStore, client: TestClient

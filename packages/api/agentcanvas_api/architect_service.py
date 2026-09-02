@@ -20,6 +20,7 @@ from agentcanvas_contracts.architect_patch import (
     AgentSpecPatch,
     ReplaceNodeConfigOperation,
 )
+from agentcanvas_contracts.chat import CHAT_SAID_BINDING
 from agentcanvas_engine.architect_patch import PatchApplyError, apply_patch
 from agentcanvas_engine.model_call import ModelCall, ModelEvidence
 from agentcanvas_engine.validator import Severity, ValidationIssue, validate_graph
@@ -75,7 +76,11 @@ def architect_request_fingerprint(
 
 
 def blank_architect_seed(draft_id: str) -> AgentSpec:
-    """새 Guided 초안의 서버 소유 base — 저장하지 않고 patch의 기준으로만 쓴다."""
+    """새 Guided 초안의 서버 소유 base — 저장하지 않고 patch의 기준으로만 쓴다.
+
+    입력 자리 이름은 계약이 정한 그 이름(`CHAT_SAID_BINDING`)이다 — 게시한 뒤 그 판과
+    대화하려면 화면이 그 이름을 찾기 때문이다 (DESIGN §7 chat-panel).
+    """
 
     seed = AgentSpec(
         schema_version="agent.spec/v1",
@@ -86,8 +91,16 @@ def blank_architect_seed(draft_id: str) -> AgentSpec:
         status="draft",
         input_schema={
             "type": "object",
-            "required": ["request"],
-            "properties": {"request": {"type": "string"}},
+            "required": [CHAT_SAID_BINDING],
+            # 제목은 두 언어로 — 실행 입력 카드가 라벨로 쓴다(원문 이름이 라벨이 되지
+            # 않게, DESIGN §7 run-input-card).
+            "properties": {
+                CHAT_SAID_BINDING: {
+                    "type": "string",
+                    "title": "What you say",
+                    "x-i18n": {"ko": {"title": "사람이 하는 말"}},
+                }
+            },
         },
         state_schema={"type": "object", "properties": {"answer": {"type": "string"}}},
         nodes=[
@@ -95,7 +108,7 @@ def blank_architect_seed(draft_id: str) -> AgentSpec:
                 id="core-input",
                 type="core.input",
                 position=Position(x=0, y=0),
-                config={"bindings": {"request": "input.request"}},
+                config={"bindings": {CHAT_SAID_BINDING: f"input.{CHAT_SAID_BINDING}"}},
             ),
             Node(
                 id="core-output",

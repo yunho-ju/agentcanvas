@@ -111,7 +111,9 @@ describe("대화 모드로 드는 문", () => {
     screenWithModes();
 
     expect(chatButton()).toBeDisabled();
-    expect(chatButton().title).toContain("message");
+    // 어디를 고칠지 말한다 — 이름(message)만으로는 어느 화면의 무엇을 고칠지 알 수 없다.
+    expect(chatButton().title).toContain("입력 노드");
+    expect(chatButton().title).toContain("message라는 이름의 줄");
   });
 
   it("내놓은 판이 message를 받으면 대화가 열린다 (F1)", async () => {
