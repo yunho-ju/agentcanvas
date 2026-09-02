@@ -11,6 +11,7 @@ import { DocCard } from "../src/shell/DocCard";
 import { OpenDialog } from "../src/shell/OpenDialog";
 import { useEditor } from "../src/store/editor";
 import { asServerAnswer } from "./serverAnswer";
+import { viewportWidth } from "./viewportWidth";
 
 const example = exampleSpec as unknown as AgentSpec;
 
@@ -113,6 +114,84 @@ describe("무엇을 열어 두고 있는지", () => {
     await userEvent.click(screen.getByRole("button", { name: /문서 메뉴/ }));
 
     expect(screen.queryByLabelText("파일 열기")).not.toBeInTheDocument();
+  });
+});
+
+// DESIGN §1 상단 레이어 — 900px 아래에서 되돌리기는 사라지지 않고 이 메뉴로 들어온다.
+describe("자리가 좁으면 되돌리기가 문서 메뉴로 들어온다", () => {
+  function menuItems() {
+    return screen
+      .getAllByRole("button")
+      .filter((button) => button.className.startsWith("doc-menu__"))
+      .map((button) => button.textContent);
+  }
+
+  it("넓은 화면의 메뉴에는 되돌리기가 없다 — 상단에 그대로 있기 때문이다", async () => {
+    viewportWidth(1440);
+
+    await openMenu();
+
+    expect(screen.queryByRole("button", { name: "되돌리기" })).toBeNull();
+  });
+
+  it("좁은 화면에서는 메뉴의 첫 두 항목이 되돌리기·다시하기다", async () => {
+    viewportWidth(880);
+
+    await openMenu();
+
+    expect(menuItems().slice(0, 2)).toEqual(["되돌리기", "다시하기"]);
+  });
+
+  it("메뉴 안에서도 같은 편집을 되돌린다", async () => {
+    viewportWidth(880);
+    useEditor.getState().loadSpec(example);
+    act(() => useEditor.getState().addNode("llm.agent", { x: 0, y: 0 }));
+
+    await openMenu();
+    await userEvent.click(screen.getByRole("button", { name: "되돌리기" }));
+
+    expect(useEditor.getState().nodes).toHaveLength(example.nodes.length);
+  });
+
+  // 명령을 눌러 그 항목이 잠기면 초점이 허공에 떨어진다 — 이 파일의 초점 복귀 규율과 같은 대우.
+  it("되돌리고 나서 그 항목이 잠기면 손은 문서 메뉴 버튼으로 돌아온다", async () => {
+    viewportWidth(880);
+    useEditor.getState().loadSpec(example);
+    act(() => useEditor.getState().addNode("llm.agent", { x: 0, y: 0 }));
+
+    await openMenu();
+    await userEvent.click(screen.getByRole("button", { name: "되돌리기" }));
+
+    expect(screen.getByRole("button", { name: "되돌리기" })).toBeDisabled();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(screen.getByRole("button", { name: /문서 메뉴/ })).toHaveFocus();
+  });
+
+  it("아직 되돌릴 것이 남아 있으면 손은 그 항목에 그대로 있다", async () => {
+    viewportWidth(880);
+    useEditor.getState().loadSpec(example);
+    act(() => {
+      useEditor.getState().addNode("llm.agent", { x: 0, y: 0 });
+      useEditor.getState().addNode("llm.agent", { x: 40, y: 40 });
+    });
+
+    await openMenu();
+    await userEvent.click(screen.getByRole("button", { name: "되돌리기" }));
+
+    expect(screen.getByRole("button", { name: "되돌리기" })).toHaveFocus();
+  });
+
+  it("메뉴 안에서도 되돌릴 것이 없으면 그 까닭을 말한다", async () => {
+    viewportWidth(880);
+    useEditor.getState().loadSpec(example);
+
+    await openMenu();
+
+    expect(screen.getByRole("button", { name: "되돌리기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "되돌리기" })).toHaveAttribute(
+      "title",
+      "되돌릴 편집이 없다",
+    );
   });
 });
 

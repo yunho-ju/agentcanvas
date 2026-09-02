@@ -1,6 +1,8 @@
 // 플로팅 작업대의 규칙 — 캔버스 위의 것들은 부를 때 뜨고, Esc 한 번에 정해진 순서로 물러난다.
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { App } from "../src/App";
@@ -64,12 +66,60 @@ describe("설정 카드는 고른 것이 있을 때만 뜬다", () => {
 });
 
 describe("캔버스 위의 도구들이 앉는 구석", () => {
+  /** 노드를 이만큼만 남긴 그래프 — 미니맵이 설 만한 그래프인지를 노드 수가 정한다. */
+  function withNodes(count: number): AgentSpec {
+    const kept = example.nodes.slice(0, count).map((node) => node.id);
+    return {
+      ...example,
+      nodes: example.nodes.filter((node) => kept.includes(node.id)),
+      edges: example.edges.filter(
+        (edge) => kept.includes(edge.source.node) && kept.includes(edge.target.node),
+      ),
+    };
+  }
+
   it("미니맵은 우하단으로 물러난다 — 위쪽은 문서·모드·실행의 자리다", () => {
     const { container } = render(<App />);
 
     const minimap = container.querySelector(".canvas__minimap");
     expect(minimap).toHaveClass("bottom");
     expect(minimap).toHaveClass("right");
+  });
+
+  // DESIGN §1 우하 — 줄여 볼 것이 없는데 자리를 차지하지 않는다.
+  it("노드가 넷보다 적으면 미니맵은 아예 없다", () => {
+    act(() => store().loadSpec(withNodes(3)));
+
+    const { container } = render(<App />);
+
+    expect(container.querySelector(".canvas__minimap")).toBeNull();
+  });
+
+  it("노드가 넷이 되면 미니맵이 선다", () => {
+    act(() => store().loadSpec(withNodes(4)));
+
+    const { container } = render(<App />);
+
+    expect(container.querySelector(".canvas__minimap")).toBeInTheDocument();
+  });
+
+  // F13 — 로그아웃 고정 버튼이 미니맵 위에 겹쳐 있었다. 그 자리는 이제 비어 있다.
+  it("캔버스 모서리에 떠 있는 고정 버튼은 없다", () => {
+    const { container } = render(<App />);
+
+    expect(container.querySelector(".session-logout")).toBeNull();
+    expect(readFileSync(join(process.cwd(), "src", "app.css"), "utf8")).not.toContain(
+      ".session-logout",
+    );
+  });
+
+  it("미니맵의 그림은 제 컨테이너 안에 맞춘다 — 넘쳐서 잘리지 않는다", () => {
+    const css = readFileSync(join(process.cwd(), "src", "app.css"), "utf8");
+    const at = css.indexOf(".canvas__minimap .react-flow__minimap-svg {");
+    const rule = at === -1 ? "" : css.slice(at, css.indexOf("}", at));
+
+    expect(rule).toContain("width: 100%");
+    expect(rule).toContain("height: 100%");
   });
 });
 

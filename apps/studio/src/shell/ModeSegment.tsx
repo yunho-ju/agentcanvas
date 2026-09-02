@@ -2,10 +2,56 @@
 import { useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { chatDoorTrouble } from "../chat/chatEntry";
+import type { Message, MessageKey } from "../i18n/messages";
 import { useT } from "../i18n/useT";
 import { chatDoor } from "../store/chatSlice";
 import { useEditor } from "../store/editor";
 import { isRunning } from "../store/runSlice";
+import {
+  BuildIcon,
+  ChatIcon,
+  EvalIcon,
+  OptimizeIcon,
+  RunIcon,
+} from "./modeIcons";
+import { pressedMode } from "./modePressed";
+import { MODE_ICONS_ONLY, useWidthMatch } from "./topLayout";
+
+/** 모드 하나의 자리 — 좁은 화면에서는 이름 대신 아이콘만 남고, 이름은 손이 닿는 곳에 남는다. */
+function ModeOption({
+  name,
+  icon: Icon,
+  hint,
+  pressed,
+  disabled,
+  iconOnly,
+  onClick,
+}: {
+  name: MessageKey;
+  /** 이름 대신 설 그림 — 읽어 주지 않는다 (DESIGN §7 mode-segment 아이콘 전용) */
+  icon: () => JSX.Element;
+  hint: Message | MessageKey;
+  pressed: boolean;
+  disabled?: boolean;
+  iconOnly: boolean;
+  onClick: () => void;
+}) {
+  const t = useT();
+
+  return (
+    <button
+      type="button"
+      className="mode-segment__option"
+      aria-pressed={pressed}
+      aria-label={iconOnly ? t(name) : undefined}
+      disabled={disabled}
+      title={iconOnly ? `${t(name)} — ${t(hint)}` : t(hint)}
+      onClick={onClick}
+    >
+      {iconOnly ? <Icon /> : t(name)}
+    </button>
+  );
+}
 
 export function ModeSegment() {
   const spec = useEditor((state) => state.spec);
@@ -38,6 +84,10 @@ export function ModeSegment() {
   const enterOptimizeMode = useEditor((state) => state.enterOptimizeMode);
   const leaveOptimizeMode = useEditor((state) => state.leaveOptimizeMode);
   const t = useT();
+  // 눌린 자리는 언제나 하나 — 화면에 보이는 그 모드다 (DESIGN §7 mode-segment).
+  const pressed = pressedMode({ running, evalOpen, optimizeOpen, chatOpen });
+  // 자리가 좁으면 이름 대신 아이콘만 남는다 (DESIGN §1 상단 레이어 1100↓).
+  const iconOnly = useWidthMatch(MODE_ICONS_ONLY);
 
   // 내놓은 판이 바뀌거나 손에서 놓았으면 그 판의 몸통을 다시 읽는다 — 문의 판정은 그 판의 것이어야 한다.
   // (못 읽은 판을 저 혼자 다시 두드리지는 않는다 — 그 규칙은 store가 지킨다.)
@@ -47,57 +97,55 @@ export function ModeSegment() {
 
   return (
     <div className="mode-segment layer" role="group" aria-label={t("mode.label")}>
-      <button
-        type="button"
-        className="mode-segment__option"
-        aria-pressed={!running && !evalOpen}
-        title={t("mode.build.hint")}
+      <ModeOption
+        name="mode.build"
+        icon={BuildIcon}
+        iconOnly={iconOnly}
+        pressed={pressed === "build"}
+        hint="mode.build.hint"
         onClick={() => {
           if (running) stopRun();
           if (evalOpen) leaveEvalMode();
           if (optimizeOpen) leaveOptimizeMode();
           if (chatOpen) leaveChatMode();
         }}
-      >
-        {t("mode.build")}
-      </button>
-      <button
-        type="button"
-        className="mode-segment__option"
-        aria-pressed={running}
+      />
+      <ModeOption
+        name="mode.run"
+        icon={RunIcon}
+        iconOnly={iconOnly}
+        pressed={pressed === "run"}
         disabled={spec === null || saving || starting}
-        title={
+        hint={
           spec === null
-            ? t("mode.run.none")
+            ? "mode.run.none"
             : saving
-              ? t("save.caption.saving")
+              ? "save.caption.saving"
               : starting
-                ? t("run.starting")
-                : t("mode.run.hint")
+                ? "run.starting"
+                : "mode.run.hint"
         }
         onClick={() => {
           if (running) return;
           if (evalOpen) leaveEvalMode();
           void requestRun();
         }}
-      >
-        {t("mode.run")}
-      </button>
-      <button
-        type="button"
-        className="mode-segment__option"
-        aria-pressed={evalOpen}
-        title={t("mode.eval.hint")}
+      />
+      <ModeOption
+        name="mode.eval"
+        icon={EvalIcon}
+        iconOnly={iconOnly}
+        pressed={pressed === "eval"}
+        hint="mode.eval.hint"
         onClick={() => (evalOpen ? leaveEvalMode() : enterEvalMode())}
-      >
-        {t("mode.eval")}
-      </button>
-      <button
-        type="button"
-        className="mode-segment__option"
-        aria-pressed={optimizeOpen}
+      />
+      <ModeOption
+        name="mode.optimize"
+        icon={OptimizeIcon}
+        iconOnly={iconOnly}
+        pressed={pressed === "optimize"}
         disabled={spec === null}
-        title={spec === null ? t("mode.optimize.none") : t("mode.optimize.hint")}
+        hint={spec === null ? "mode.optimize.none" : "mode.optimize.hint"}
         onClick={() => {
           if (optimizeOpen) {
             leaveOptimizeMode();
@@ -106,15 +154,14 @@ export function ModeSegment() {
           if (evalOpen) leaveEvalMode();
           enterOptimizeMode();
         }}
-      >
-        {t("mode.optimize")}
-      </button>
-      <button
-        type="button"
-        className="mode-segment__option"
-        aria-pressed={chatOpen}
+      />
+      <ModeOption
+        name="mode.chat"
+        icon={ChatIcon}
+        iconOnly={iconOnly}
+        pressed={pressed === "chat"}
         disabled={chatTrouble !== null && !chatCanRetry}
-        title={chatTrouble ? t(chatTrouble.words) : t("mode.chat.hint")}
+        hint={chatTrouble ? chatTrouble.words : "mode.chat.hint"}
         onClick={() => {
           // 못 읽어서 못 여는 자리라면, 누르는 일은 '다시 확인해 보기'다.
           if (chatCanRetry) {
@@ -130,9 +177,7 @@ export function ModeSegment() {
           if (optimizeOpen) leaveOptimizeMode();
           enterChatMode();
         }}
-      >
-        {t("mode.chat")}
-      </button>
+      />
     </div>
   );
 }

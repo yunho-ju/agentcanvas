@@ -1,5 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { useT } from "./i18n/useT";
+import { SignOutProvider } from "./shell/signOut";
 import {
   AUTH_EXPIRED_EVENT,
   login,
@@ -60,14 +61,10 @@ export function SessionGate({ children }: { children: ReactNode }) {
     setState("login");
   }
 
+  // 떠나는 손잡이는 문서 메뉴가 그린다 — 캔버스 모서리에 고정 버튼을 두지 않는다 (DESIGN §1 우하).
   if (state === "ready") {
     return (
-      <>
-        {children}
-        <button className="session-logout" type="button" onClick={() => void signOut()}>
-          {t("auth.logout")}
-        </button>
-      </>
+      <SignOutProvider value={() => void signOut()}>{children}</SignOutProvider>
     );
   }
 

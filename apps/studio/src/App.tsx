@@ -9,6 +9,7 @@ import { ModeSegment } from "./shell/ModeSegment";
 import { OpenDialog } from "./shell/OpenDialog";
 import { ToolWrapCard } from "./resources/ToolWrapCard";
 import { RunControls } from "./shell/RunControls";
+import { TopWidthNotice } from "./shell/TopWidthNotice";
 import { useDockPanel } from "./shell/useDockPanel";
 import {
   findShortcut,
@@ -127,12 +128,19 @@ export function App() {
         <main className="app__canvas">
           <Canvas />
         </main>
-        <div className="layer-top-left">
-          <DocCard />
-          <HistoryControls />
+        {/* 상단의 세 자리는 서로를 모르는 절대 배치가 아니라 한 그리드의 세 칸이다
+            — 어느 폭에서도 겹치지 않는다 (DESIGN §1 상단 레이어). */}
+        <div className="layer-top">
+          <TopWidthNotice />
+          <div className="layer-top-left">
+            <DocCard />
+            <HistoryControls />
+          </div>
+          <div className="layer-top-center">
+            <ModeSegment />
+          </div>
+          <RunControls />
         </div>
-        <ModeSegment />
-        <RunControls />
         <Dock openPanel={dock.openPanel} onToggle={dock.toggle} />
         {/* 견주는 화면은 캔버스 한가운데에 선다 — 두 실행을 고른 동안에만 있다. */}
         <CompareView />
@@ -141,17 +149,21 @@ export function App() {
         <OpenDialog />
         {/* 붙여 넣은 API 설명을 연결로 바꾸는 자리도 한가운데다 — 승인 전에는 문서가 그대로다. */}
         <ToolWrapCard />
+        {/* 겉 레이어는 자리만 잡고 클릭을 받지 않는다 — 스크롤은 손이 닿는 안쪽 기둥의 일이다
+            (DESIGN §1 우측 레이어의 자리 나눔). */}
         <div className="layer-right">
-          <Inspector panelRef={inspectorRef} />
-          <EventList />
-          {/* 시험 모드일 때만 선다 — 캔버스는 배경에 그대로다 (DESIGN §7 eval-panel). */}
-          <EvalPanel />
-          <ArchitectPanel />
-          <OptimizePanel />
-          {/* 대화 모드일 때만 선다 — 다른 모드 패널과 자리를 나눠 쓰지 않는다 (DESIGN §1). */}
-          <ChatPanel />
-          {/* 처음 온 사람의 네 걸음 — 스택의 마지막에서 안내하고, 다 걸으면 물러난다. */}
-          {!architectOpen ? <FirstStepsCard /> : null}
+          <div className="layer-right__stack">
+            <Inspector panelRef={inspectorRef} />
+            <EventList />
+            {/* 시험 모드일 때만 선다 — 캔버스는 배경에 그대로다 (DESIGN §7 eval-panel). */}
+            <EvalPanel />
+            <ArchitectPanel />
+            <OptimizePanel />
+            {/* 대화 모드일 때만 선다 — 다른 모드 패널과 자리를 나눠 쓰지 않는다 (DESIGN §1). */}
+            <ChatPanel />
+            {/* 처음 온 사람의 네 걸음 — 스택의 마지막에서 안내하고, 다 걸으면 물러난다. */}
+            {!architectOpen ? <FirstStepsCard /> : null}
+          </div>
         </div>
         <div className="layer-bottom">
           <StatusBar />

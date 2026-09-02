@@ -102,22 +102,39 @@ button:disabled {
   }
 }
 
-.layer-top-left {
+/* 상단 세 자리는 한 그리드의 세 칸이다 — 서로를 모르는 절대 배치가 아니라서
+   어느 폭에서도 겹치지 않는다 (DESIGN §1 상단 레이어). */
+.layer-top {
   position: absolute;
   top: var(--space-4);
+  right: var(--space-4);
   left: var(--space-4);
-  z-index: 3;
+  z-index: var(--z-float);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: var(--space-2);
+  /* 칸 사이의 빈 자리는 캔버스의 것이다 — 그리드는 클릭을 가로채지 않는다. */
+  pointer-events: none;
+}
+
+.layer-top > * {
+  pointer-events: auto;
+}
+
+.layer-top-left {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
 }
 
+/* 가운데 칸 — 남는 폭을 갖되, 좁아지면 이웃을 밀지 않고 스스로 줄어든다. */
+.layer-top-center {
+  justify-self: center;
+  min-width: 0;
+}
+
 .mode-segment {
-  position: absolute;
-  top: var(--space-4);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
   display: inline-flex;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -125,14 +142,19 @@ button:disabled {
 
 /* 우상단 기둥 — 실행 버튼과, 실행이 물을 것이 있을 때 그 아래에 서는 카드. */
 .layer-top-right {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: var(--space-2);
+}
+
+/* 휴대폰 폭에서 상단 전체를 가로지르는 한 줄 안내 (DESIGN §1 상단 레이어 600↓). */
+.top-notice {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--ink-soft);
+  font-size: var(--text-caption);
 }
 
 .run-controls {
@@ -257,6 +279,27 @@ button:disabled {
   pointer-events: none;
 }
 
+/* 손이 닿는 안쪽 기둥 — 담긴 것이 자리보다 길면 여기가 스스로 스크롤한다 (DESIGN §1).
+   스크롤 상자는 넘치는 것을 자르므로, 카드의 그림자와 초점 링이 들어올 만큼 padding을 두고
+   오른쪽은 그만큼 당겨 카드가 있던 자리에 그대로 서게 한다. */
+.layer-right__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-3);
+  margin-right: calc(var(--space-3) * -1);
+  pointer-events: auto;
+}
+
+/* 모드 패널은 안내 옆에서도 읽을 만큼은 선다 — 그 아래로는 눌리지 않는다 (DESIGN §1). */
+.layer-right__stack > [data-mode-panel] {
+  min-height: calc(var(--space-6) * 8);
+}
+
 .layer-bottom {
   position: absolute;
   left: 50%;
@@ -279,27 +322,6 @@ button:disabled {
 .architect-panel {
   width: var(--panel-inspector);
   max-height: calc(100vh - var(--space-6) * 2);
-/* 손이 닿는 안쪽 기둥 — 담긴 것이 자리보다 길면 여기가 스스로 스크롤한다 (DESIGN §1).
-   스크롤 상자는 넘치는 것을 자르므로, 카드의 그림자와 초점 링이 들어올 만큼 padding을 두고
-   오른쪽은 그만큼 당겨 카드가 있던 자리에 그대로 서게 한다. */
-.layer-right__stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-2);
-  max-height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: var(--space-3);
-  margin-right: calc(var(--space-3) * -1);
-  pointer-events: auto;
-}
-
-/* 모드 패널은 안내 옆에서도 읽을 만큼은 선다 — 그 아래로는 눌리지 않는다 (DESIGN §1). */
-.layer-right__stack > [data-mode-panel] {
-  min-height: calc(var(--space-6) * 8);
-}
-
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -575,11 +597,14 @@ button:disabled {
   font-size: var(--text-caption);
 }
 
+/* 팝오버는 유리가 아니다 — 아래 UI가 글자 뒤에 비치면 읽기가 방해된다 (DESIGN §1). */
 .doc-menu {
   position: absolute;
   top: 100%;
   left: 0;
-  z-index: 4;
+  z-index: var(--z-popover);
+  background: var(--surface-raised);
+  backdrop-filter: none;
   margin-top: var(--space-2);
   min-width: var(--panel-dock);
   display: flex;
@@ -588,13 +613,28 @@ button:disabled {
   padding: var(--space-2);
 }
 
+/* 유리(backdrop-filter)는 그 자체로 쌓임 맥락을 만든다 — 열린 팝오버를 품은 카드와
+   그 카드가 든 레이어도 함께 올라가야 이웃(독·실행 버튼) 위에 선다 (DESIGN §1 쌓이는 순서). */
+.layer-top:has(.doc-menu),
+.layer-top:has(.revision-history) {
+  z-index: var(--z-popover);
+}
+
+.doc-card:has(.doc-menu),
+.doc-card:has(.revision-history) {
+  z-index: var(--z-popover);
+}
+
 .doc-menu__open,
 .doc-menu__open-server,
 .doc-menu__save,
 .doc-menu__export,
 .doc-menu__arrange,
 .doc-menu__publish,
-.doc-menu__unpublish {
+.doc-menu__unpublish,
+.doc-menu__undo,
+.doc-menu__redo,
+.doc-menu__logout {
   padding: var(--space-2) var(--space-3);
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-control);
@@ -610,7 +650,10 @@ button:disabled {
 .doc-menu__export:hover:not(:disabled),
 .doc-menu__arrange:hover:not(:disabled),
 .doc-menu__publish:hover:not(:disabled),
-.doc-menu__unpublish:hover:not(:disabled) {
+.doc-menu__unpublish:hover:not(:disabled),
+.doc-menu__undo:hover:not(:disabled),
+.doc-menu__redo:hover:not(:disabled),
+.doc-menu__logout:hover {
   background: var(--surface-hover);
 }
 
@@ -620,7 +663,10 @@ button:disabled {
 .doc-menu__export:active:not(:disabled),
 .doc-menu__arrange:active:not(:disabled),
 .doc-menu__publish:active:not(:disabled),
-.doc-menu__unpublish:active:not(:disabled) {
+.doc-menu__unpublish:active:not(:disabled),
+.doc-menu__undo:active:not(:disabled),
+.doc-menu__redo:active:not(:disabled),
+.doc-menu__logout:active {
   background: var(--surface-active);
   transform: scale(0.99);
 }
@@ -631,15 +677,28 @@ button:disabled {
 .doc-menu__export:focus-visible,
 .doc-menu__arrange:focus-visible,
 .doc-menu__publish:focus-visible,
-.doc-menu__unpublish:focus-visible {
+.doc-menu__unpublish:focus-visible,
+.doc-menu__undo:focus-visible,
+.doc-menu__redo:focus-visible,
+.doc-menu__logout:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
+}
+
+/* 문서를 다루는 항목들과 떠나는 일 사이의 구분선 (DESIGN §7 doc-card 로그아웃). */
+.doc-menu__logout {
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--border-hair) solid var(--hairline);
+  color: var(--ink-soft);
 }
 
 .doc-menu__export:disabled,
 .doc-menu__arrange:disabled,
 .doc-menu__open-server:disabled,
-.doc-menu__publish:disabled {
+.doc-menu__publish:disabled,
+.doc-menu__undo:disabled,
+.doc-menu__redo:disabled {
   color: var(--ink-faint);
 }
 
@@ -667,7 +726,9 @@ button:disabled {
   position: absolute;
   top: 100%;
   left: 0;
-  z-index: 4;
+  z-index: var(--z-popover);
+  background: var(--surface-raised);
+  backdrop-filter: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -832,6 +893,11 @@ button:disabled {
   color: var(--ink-faint);
 }
 
+/* 좁은 화면에서 이름 대신 서는 그림 — 이름은 aria-label과 title에 남는다. */
+.mode-segment__icon {
+  display: block;
+}
+
 /* ── 우상단 실행 ─────────────────────────────────────────────────────────── */
 
 .run-controls__run {
@@ -914,7 +980,7 @@ button:disabled {
   top: 50%;
   left: var(--space-4);
   transform: translateY(-50%);
-  z-index: 3;
+  z-index: var(--z-dock-panel);
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
@@ -1353,6 +1419,12 @@ button:disabled {
 
 .canvas__controls button:active {
   background: var(--surface-active);
+}
+
+/* 그림이 컨테이너보다 크면 잘린다 — 지도는 제 액자 안에 맞춘다 (DESIGN §1 우하). */
+.canvas__minimap .react-flow__minimap-svg {
+  width: 100%;
+  height: 100%;
 }
 
 .canvas__minimap {
@@ -3097,6 +3169,45 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* 안내는 제 높이만 쓴다 — 모드 패널의 자리를 눌러 차지하지 않는다 (DESIGN §1). */
+  flex: 0 0 auto;
+}
+
+/* 모드 패널이 서 있는 동안의 한 줄 — 제목과 걸은 걸음 수를 함께 이고 여닫는다. */
+.first-steps__collapsed {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.first-steps__collapsed:hover {
+  background: var(--surface-hover);
+}
+
+.first-steps__collapsed:active {
+  transform: scale(0.98);
+  background: var(--surface-active);
+}
+
+.first-steps__collapsed:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.first-steps__walked {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 .first-steps__title {
@@ -3169,45 +3280,6 @@ button:disabled {
 .first-steps__hide {
   align-self: flex-start;
   padding: var(--space-1) var(--space-2);
-  /* 안내는 제 높이만 쓴다 — 모드 패널의 자리를 눌러 차지하지 않는다 (DESIGN §1). */
-  flex: 0 0 auto;
-}
-
-/* 모드 패널이 서 있는 동안의 한 줄 — 제목과 걸은 걸음 수를 함께 이고 여닫는다. */
-.first-steps__collapsed {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
-  border: var(--border-hair) solid transparent;
-  border-radius: var(--radius-control);
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.first-steps__collapsed:hover {
-  background: var(--surface-hover);
-}
-
-.first-steps__collapsed:active {
-  transform: scale(0.98);
-  background: var(--surface-active);
-}
-
-.first-steps__collapsed:focus-visible {
-  outline: none;
-  box-shadow: var(--ring-focus);
-}
-
-.first-steps__walked {
-  font-size: var(--text-caption);
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-control);
   background: none;
@@ -4517,6 +4589,43 @@ button:disabled {
   }
 }
 
+/* 1100px 아래에서는 모드가 이름 대신 아이콘만 보여 준다 — 자리도 그만큼 좁아진다.
+   접는 폭의 단일 출처는 shell/topLayout.ts다 (layout-css 테스트가 두 값을 맞춰 본다). */
+@media (max-width: 1100px) {
+  /* 그림만 남아도 손가락이 닿는 자리는 좁히지 않는다 (독 버튼과 같은 최소 크기). */
+  .mode-segment__option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--dock-button);
+    min-height: var(--space-6);
+    padding: var(--space-1) var(--space-2);
+  }
+}
+
+/* 900px 아래에서는 되돌리기 줄이 문서 메뉴로 들어가고, 브랜드 이름은 자리를 내준다. */
+@media (max-width: 900px) {
+  .doc-card__brand {
+    display: none;
+  }
+}
+
+/* 휴대폰 폭에서는 세 칸이 한 줄에 들어가지 않는다 — 나란히 두면 서로 밀려 나와 겹친다.
+   보기 전용인 폭이므로(§10) 위에서 아래로 쌓아 무엇도 가리지 않게 한다. */
+@media (max-width: 599px) {
+  .layer-top {
+    grid-template-columns: 1fr;
+  }
+
+  .layer-top-center {
+    justify-self: start;
+  }
+
+  .layer-top-right {
+    align-items: flex-start;
+  }
+}
+
 /* ── 단일 관리자 세션 ──────────────────────────────────────────────────── */
 
 .session-screen {
@@ -4600,25 +4709,6 @@ button:disabled {
 
 .session-card__primary:hover:not(:disabled) {
   background: var(--accent-hover);
-}
-
-.session-logout {
-  position: fixed;
-  right: var(--space-4);
-  bottom: var(--space-4);
-  z-index: 8;
-  padding: 7px 10px;
-  border: var(--border-hair) solid var(--hairline);
-  border-radius: var(--radius-control);
-  color: var(--ink-soft);
-  background: var(--surface-glass);
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-}
-
-.session-logout:hover {
-  color: var(--ink);
-  border-color: var(--hairline-strong);
 }
 
 /* ── 연결 패널과 도구 만들기 카드 (DESIGN §7 resources-panel / tool-wrap-card) ── */

@@ -135,7 +135,7 @@ describe("물을 것이 있을 때의 실행 버튼", () => {
   it("카드가 열려 있을 때 실행 버튼을 다시 누르면 닫지 않고 첫 칸에 손을 얹는다", async () => {
     store().loadSpec(ONE_FIELD);
     serveRuns(trial);
-    render(<RunControls />);
+    const { container } = render(<RunControls />);
 
     await pressRun();
     await pressRun();
@@ -287,7 +287,8 @@ describe("카드가 입은 옷", () => {
   }
 
   it("실행 버튼 아래 같은 기둥에 선다", () => {
-    expect(cssBlock(".layer-top-right")).toContain("position: absolute");
+    // 우상단 자리는 이제 상단 그리드의 오른쪽 칸이다 (DESIGN §1 상단 레이어).
+    expect(cssBlock(".layer-top")).toContain("grid-template-columns: auto 1fr auto");
     expect(cssBlock(".layer-top-right")).toContain("flex-direction: column");
     expect(cssBlock(".layer-top-right")).toContain("gap: var(--space-2)");
   });

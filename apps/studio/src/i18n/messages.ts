@@ -33,6 +33,10 @@ const TEXTS = {
   "auth.submit": { ko: "로그인", en: "Sign in" },
   "auth.submitting": { ko: "확인 중…", en: "Checking…" },
   "auth.logout": { ko: "로그아웃", en: "Sign out" },
+  "auth.logout.hint": {
+    ko: "이 컴퓨터에서 나갑니다 — 만든 문서는 서버에 그대로 있어요",
+    en: "Leaves this computer — your saved documents stay on the server",
+  },
 
   // 문서와 파일
   "doc.menu.hint": {
@@ -681,6 +685,12 @@ const TEXTS = {
     en: "Changing the settings on '{id}' left this — {impact}",
   },
 
+  // 좁은 화면 (DESIGN §1 상단 레이어 600↓)
+  "top.readOnly": {
+    ko: "이 화면은 데스크톱에서 편집할 수 있어요 — 여기서는 보기만 돼요",
+    en: "You can edit this on a desktop — here you can only look",
+  },
+
   // 모드
   "mode.label": { ko: "모드", en: "Mode" },
   "mode.build": { ko: "만들기", en: "Build" },
@@ -1072,6 +1082,15 @@ const TEXTS = {
   },
   "guide.done": { ko: "첫 실행까지 해냈어요", en: "You made it all the way to a run" },
   "guide.hide": { ko: "이제 안 봐도 돼요", en: "Hide these steps" },
+  // 모드 패널이 열려 있으면 안내는 한 줄로 접힌다 — 접힌 줄을 여닫는 말
+  "guide.expand.hint": {
+    ko: "눌러서 네 걸음을 다시 펼쳐 봐요",
+    en: "Press to open the four steps again",
+  },
+  "guide.collapse.hint": {
+    ko: "눌러서 다시 한 줄로 접어요",
+    en: "Press to fold it back into one line",
+  },
 
   // 실행에 넣을 값을 묻는 카드
   "runInput.label": { ko: "실행에 넣을 값", en: "Values for this run" },
@@ -1082,15 +1101,6 @@ const TEXTS = {
   "runInput.confirm": { ko: "이 값으로 실행", en: "Run with these" },
   "runInput.cancel": { ko: "그만두기", en: "Never mind" },
   "runInput.blocked": {
-  // 모드 패널이 열려 있으면 안내는 한 줄로 접힌다 — 접힌 줄을 여닫는 말
-  "guide.expand.hint": {
-    ko: "눌러서 네 걸음을 다시 펼쳐 봐요",
-    en: "Press to open the four steps again",
-  },
-  "guide.collapse.hint": {
-    ko: "눌러서 다시 한 줄로 접어요",
-    en: "Press to fold it back into one line",
-  },
     ko: "필수 입력을 채우면 실행할 수 있어요",
     en: "Fill in what is required and you can run it",
   },

@@ -38,6 +38,9 @@ import { heldPortOf, useLandingHint } from "./useLandingHint";
 
 const flowNodeTypes = { agentNode: NodeCard };
 
+/** 이만큼은 있어야 줄여 볼 것이 있다 — 그보다 작으면 미니맵을 두지 않는다 (DESIGN §1 우하). */
+const MINIMAP_FROM_NODES = 4;
+
 /** 캔버스가 카드를 재기까지 기다려 주는 프레임 수(≈0.15초) — 그 안에 못 재면 화면을 흔들지 않는다. */
 const MEASURE_TRIES = 10;
 
@@ -232,8 +235,11 @@ function CanvasSurface() {
       >
         <AlignmentGuides />
         <Controls className="canvas__controls" showInteractive={false} />
-        {/* 위쪽은 문서·모드·실행의 자리다 — 미니맵은 우하단 구석으로 물러난다. */}
-        <MiniMap className="canvas__minimap" position="bottom-right" pannable zoomable />
+        {/* 위쪽은 문서·모드·실행의 자리다 — 미니맵은 우하단 구석으로 물러난다.
+            줄여 볼 것이 없는 작은 그래프에서는 아예 서지 않는다 (DESIGN §1 우하). */}
+        {nodes.length >= MINIMAP_FROM_NODES ? (
+          <MiniMap className="canvas__minimap" position="bottom-right" pannable zoomable />
+        ) : null}
       </ReactFlow>
       <NodePicker />
       {/* 이을 수 없는 이유는 손이 있는 이 자리에서 말한다 (DESIGN §7). */}

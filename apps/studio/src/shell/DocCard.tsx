@@ -18,6 +18,9 @@ import { captionFor, savedVersion, unsavedChanges } from "../store/saveSlice";
 import { LocaleToggle } from "../i18n/LocaleToggle";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { RevisionHistory } from "./RevisionHistory";
+import { type HistoryCommand, useHistoryCommands } from "./historyCommands";
+import { HISTORY_IN_MENU, useWidthMatch } from "./topLayout";
+import { useSignOut } from "./signOut";
 
 export function DocCard() {
   const spec = useEditor((state) => state.spec);
@@ -58,6 +61,12 @@ export function DocCard() {
   const wasListing = useRef(false);
   const wasFileAsking = useRef(false);
   const wasHistoryOpen = useRef(false);
+  const ranHistory = useRef<HistoryCommand["id"] | null>(null);
+  // 좁은 화면에서 상단의 되돌리기 줄이 이 메뉴로 들어온다 (DESIGN §1 상단 레이어 900↓).
+  const history = useHistoryCommands();
+  const historyInMenu = useWidthMatch(HISTORY_IN_MENU);
+  // 이 자리를 떠나는 길 — 세션 껍데기가 있을 때만 있다 (DESIGN §7 doc-card 로그아웃).
+  const signOut = useSignOut();
   const t = useT();
 
   // 목록을 닫으면 손은 목록을 연 자리(문서 메뉴 버튼)로 돌아온다 — 초점이 허공에 떨어지면
@@ -78,6 +87,17 @@ export function DocCard() {
     if (wasHistoryOpen.current && !historyOpen) menuButton.current?.focus();
     wasHistoryOpen.current = historyOpen;
   }, [historyOpen]);
+
+  // 되돌리기를 눌러 되돌릴 것이 다 떨어지면 그 항목은 잠긴다 — 잠긴 자리에 손을 두고 오지
+  // 않는다. 남은 것이 있으면 잇따라 누를 수 있게 그 자리에 그대로 둔다.
+  useEffect(() => {
+    const ran = ranHistory.current;
+    if (ran === null) return;
+    ranHistory.current = null;
+    if (history.find((command) => command.id === ran)?.disabled) {
+      menuButton.current?.focus();
+    }
+  }, [history]);
 
   // 고치기를 끝내면 손은 시작한 자리(문서명)로 돌아온다 — 초점이 허공에 떨어지면
   // 그다음 키가 앱에 닿지 않고, 키보드만 쓰는 사람은 자리를 잃는다.
@@ -204,6 +224,26 @@ export function DocCard() {
       <LocaleToggle />
       {open ? (
         <div className="doc-menu layer">
+          {/* 좁은 화면에서는 상단의 되돌리기 줄이 이 메뉴의 첫 두 항목으로 들어온다
+              (DESIGN §1 상단 레이어 900↓) — 같은 명령, 같은 비활성 이유다.
+              되돌리기는 잇따라 누르는 일이라 메뉴를 닫지 않는다. */}
+          {historyInMenu
+            ? history.map((command) => (
+                <button
+                  key={command.id}
+                  type="button"
+                  className={`doc-menu__${command.id}`}
+                  onClick={() => {
+                    ranHistory.current = command.id;
+                    command.run();
+                  }}
+                  disabled={command.disabled}
+                  title={t(command.hint)}
+                >
+                  {t(command.name)}
+                </button>
+              ))
+            : null}
           <button
             type="button"
             className="doc-menu__save"
@@ -326,6 +366,21 @@ export function DocCard() {
           >
             {t("doc.arrange")}
           </button>
+          {/* 문서의 일이 아니라 이 자리를 떠나는 일이라 구분선 뒤 마지막에 선다
+              (DESIGN §7 doc-card 로그아웃). 세션을 모르는 화면에는 아예 없다. */}
+          {signOut ? (
+            <button
+              type="button"
+              className="doc-menu__logout"
+              onClick={() => {
+                signOut();
+                setOpen(false);
+              }}
+              title={t("auth.logout.hint")}
+            >
+              {t("auth.logout")}
+            </button>
+          ) : null}
         </div>
       ) : null}
       {historyOpen && spec !== null ? (
