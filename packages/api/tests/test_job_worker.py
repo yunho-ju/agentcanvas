@@ -396,7 +396,9 @@ def test_run_is_reclaimed_after_the_lease_owner_process_is_killed(tmp_path: Path
     finally:
         worker.stop()
 
-    assert jobs.latest_for_reference("run", started.run.id).attempt == 2
+    # 죽은 주인의 리스가 되찾아졌다는 사실이 이 테스트의 주장이다 — 느린 러너에서 워커 자신의
+    # 리스가 한 번 더 만료돼 세 번째 시도로 끝나도(CI f55d06c) 그 사실은 그대로다.
+    assert jobs.latest_for_reference("run", started.run.id).attempt >= 2
 
 
 def test_shutdown_relinquishes_a_job_that_outlives_the_grace_period(tmp_path: Path):
