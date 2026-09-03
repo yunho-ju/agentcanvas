@@ -128,7 +128,7 @@ Dependencies point one way: `contracts ← engine ← adapters ← apps`.
 
 ## Community and contributing
 
-Questions, ideas and defects go through the [issue templates](https://github.com/yunho-ju/agentcanvas/issues/new/choose). Pull requests are welcome — read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. Every commit needs a DCO sign-off (`git commit -s`); CI checks it. Security reports follow [`SECURITY.md`](SECURITY.md), and the project's decision rules are in [`GOVERNANCE.md`](GOVERNANCE.md).
+Questions and ideas go to [GitHub Discussions](https://github.com/yunho-ju/agentcanvas/discussions); defects go through the [issue templates](https://github.com/yunho-ju/agentcanvas/issues/new/choose). Pull requests are welcome — read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. Every commit needs a DCO sign-off (`git commit -s`); CI checks it. Security reports follow [`SECURITY.md`](SECURITY.md), and the project's decision rules are in [`GOVERNANCE.md`](GOVERNANCE.md).
 
 ## License
 

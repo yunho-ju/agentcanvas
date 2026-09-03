@@ -128,7 +128,7 @@ pnpm gen:types && git diff --exit-code -- apps/studio/src/generated
 
 ## 커뮤니티와 기여
 
-질문과 아이디어, 결함은 모두 [이슈 템플릿](https://github.com/yunho-ju/agentcanvas/issues/new/choose)으로 보내 주세요. Pull request도 환영합니다 — 먼저 [`CONTRIBUTING.md`](CONTRIBUTING.md)를 읽어 주세요. 모든 커밋에는 DCO 서명(`git commit -s`)이 필요하고, CI가 이를 확인합니다. 보안 신고는 [`SECURITY.md`](SECURITY.md)를 따르고, 프로젝트의 결정 규칙은 [`GOVERNANCE.md`](GOVERNANCE.md)에 있습니다.
+질문과 아이디어는 [GitHub Discussions](https://github.com/yunho-ju/agentcanvas/discussions)에, 결함은 [이슈 템플릿](https://github.com/yunho-ju/agentcanvas/issues/new/choose)으로 보내 주세요. Pull request도 환영합니다 — 먼저 [`CONTRIBUTING.md`](CONTRIBUTING.md)를 읽어 주세요. 모든 커밋에는 DCO 서명(`git commit -s`)이 필요하고, CI가 이를 확인합니다. 보안 신고는 [`SECURITY.md`](SECURITY.md)를 따르고, 프로젝트의 결정 규칙은 [`GOVERNANCE.md`](GOVERNANCE.md)에 있습니다.
 
 ## 라이선스
 
