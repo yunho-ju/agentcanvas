@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
@@ -361,6 +361,50 @@ describe("keys while a run is on screen", () => {
     await userEvent.keyboard("{Escape}");
 
     expect(isRunning(store())).toBe(false);
+  });
+
+  // 한 걸음(←/→)도 손이다 (DESIGN §7 event-list) — 같은 시각의 사건에서도 옮겨 간 그 줄이 가운데 줄이다.
+  it("옮겨 간 줄이 같은 시각의 사건에서도 가운데 줄로 보인다", async () => {
+    await watchRun();
+    const startedAt = new Date("2026-08-01T12:30:00.000Z");
+    /** 가운데 세 사건의 시각이 똑같은 실행 — 시각만으로는 옮겨 간 줄을 되찾을 수 없다. */
+    const tiedEvents = [0, 100, 100, 100, 200].map((offsetMs, index) => ({
+      seq: index,
+      run_id: "run_tied",
+      event_type: (
+        ["run.started", "node.started", "node.completed", "node.started", "run.completed"] as const
+      )[index],
+      timestamp: new Date(startedAt.getTime() + offsetMs).toISOString(),
+      spec_revision: example.revision,
+      ...(index === 1 || index === 2 ? { node_id: "input" } : {}),
+      ...(index === 3 ? { node_id: "triage" } : {}),
+      payload: {},
+    }));
+    act(() => {
+      useEditor.setState({
+        runEvents: tiedEvents,
+        activeRunId: "run_tied",
+        runHistory: [
+          {
+            id: "run_tied",
+            at: startedAt,
+            order: 1,
+            events: tiedEvents,
+            specSnapshot: example,
+          },
+        ],
+      });
+      store().goToEvent(1);
+    });
+    await focusCanvas();
+
+    await userEvent.keyboard("{ArrowRight}");
+
+    const shownRows = within(screen.getByRole("region", { name: "실행 기록" }))
+      .getAllByRole("button")
+      .filter((button) => button.getAttribute("aria-current") === "true");
+    expect(shownRows).toHaveLength(1);
+    expect(within(shownRows[0]).getByText("'input' 노드가 일을 마쳤다")).toBeInTheDocument();
   });
 });
 

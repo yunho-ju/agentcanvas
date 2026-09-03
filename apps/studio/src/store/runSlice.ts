@@ -368,7 +368,13 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
 
     scrubToSeq: (seq) => moveTo(seq),
 
-    stepRun: (direction) => moveTo(steppedSeq(get().runEvents, currentSeq(get()), direction)),
+    // 한 걸음(←/→)도 손이다 — moveTo처럼 시각으로 떠넘기지 않고, 옮겨 간 그 줄을 그대로 쥔다.
+    // 같은 시각의 사건이 여럿이면 시각만으로는 옮겨 간 자리를 되찾을 수 없다(shownSeq 주석 참고).
+    stepRun: (direction) => {
+      const events = get().runEvents;
+      const seq = steppedSeq(events, currentSeq(get()), direction);
+      set({ runOffsetMs: offsetOf(events, seq), isPlaying: false, pickedSeq: seq });
+    },
 
     restartRun: () => moveTo(get().runEvents[0]?.seq ?? 0),
 

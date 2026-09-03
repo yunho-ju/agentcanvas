@@ -118,3 +118,50 @@ describe("누른 줄을 놓는 때", () => {
     expect(currentSeq(store())).toBe(0);
   });
 });
+
+describe("한 걸음(←/→)도 손이다 — 같은 시각의 사건에서도 옮겨 간 그 줄이 현재다", () => {
+  it("같은 시각 셋 중 첫째에서 한 걸음 앞으로 가면 둘째가 현재다 — 같은 시각의 마지막(셋째)이 아니다", () => {
+    store().goToEvent(1);
+
+    store().stepRun(1);
+
+    expect(currentSeq(store())).toBe(2);
+    expect(store().runOffsetMs).toBe(100);
+  });
+
+  it("둘째에서 한 걸음 물러나면 첫째가 현재다", () => {
+    store().goToEvent(1);
+    store().stepRun(1);
+
+    store().stepRun(-1);
+
+    expect(currentSeq(store())).toBe(1);
+  });
+
+  it("마지막 사건에서 앞으로 가도 제자리다", () => {
+    store().goToEvent(4);
+
+    store().stepRun(1);
+
+    expect(currentSeq(store())).toBe(4);
+  });
+
+  it("한 걸음 옮긴 다음 재생하면 그때부터는 다시 시각이 현재 항목을 정한다", () => {
+    store().goToEvent(1);
+    store().stepRun(1);
+
+    store().playRun();
+    store().tickRun(50);
+
+    expect(currentSeq(store())).toBe(3);
+  });
+
+  it("한 걸음 옮긴 다음 스크럽하면 누른 줄은 사라진다", () => {
+    store().goToEvent(1);
+    store().stepRun(1);
+
+    store().scrubToSeq(4);
+
+    expect(currentSeq(store())).toBe(4);
+  });
+});
