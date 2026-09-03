@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { selectedEdgeOf, selectedNodeOf } from "../graph/selection";
 import type { FlowEdge, FlowNode } from "../graph/serialize";
 import { type DetachSlice, createDetachSlice } from "./detachSlice";
+import { type DocPopoverSlice, createDocPopoverSlice } from "./docPopoverSlice";
 import { type ArchitectSlice, createArchitectSlice } from "./architectSlice";
 import { type ChatSlice, createChatSlice } from "./chatSlice";
 import { type ChatHistorySlice, createChatHistorySlice } from "./chatHistorySlice";
@@ -46,6 +47,7 @@ export type EditorState = GraphSlice &
   ChatCaseSlice &
   ChatFixSpotSlice &
   OpenSlice &
+  DocPopoverSlice &
   PickerSlice &
   ViewSlice &
   HintSlice &
@@ -86,6 +88,7 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createChatCaseSlice(...args),
   ...createChatFixSpotSlice(...args),
   ...createOpenSlice(...args),
+  ...createDocPopoverSlice(...args),
   ...createPickerSlice(...args),
   ...createViewSlice(...args),
   ...createHintSlice(...args),

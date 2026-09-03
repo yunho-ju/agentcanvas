@@ -143,6 +143,8 @@ export interface ShortcutContext {
   comparing: boolean;
   /** 노드를 고르는 피커가 열려 있는가 */
   pickerOpen: boolean;
+  /** 문서 카드 위의 팝오버(문서 메뉴·판 기록)가 떠 있는가 */
+  docPopoverOpen: boolean;
   /** 실행에 넣을 값을 묻는 카드가 사람에게 묻고 있는가 */
   runInputAsking: boolean;
   /** 손이 그 카드의 칸 안에 있는가 */
@@ -189,6 +191,9 @@ interface RetreatStep {
  */
 const ESCAPE_CHAIN: RetreatStep[] = [
   { when: (it) => it.pickerOpen, step: ({ editor }) => editor.closePicker() },
+  // 문서 메뉴·판 기록도 잠깐 뜬 팝오버다 — 맨 위에 떠 있으므로 가장 먼저 물러난다
+  // (DESIGN §1 팝오버 예외, §7 doc-card).
+  { when: (it) => it.docPopoverOpen, step: ({ editor }) => editor.closeDocPopover() },
   { when: (it) => it.previewing, step: ({ editor }) => editor.cancelDetach() },
   { when: (it) => it.gateConfirming, step: ({ editor }) => editor.cancelReject() },
   { when: (it) => it.chatDeleteAsking, step: ({ editor }) => editor.cancelDeleteChat() },
@@ -233,12 +238,14 @@ export function findShortcut(
   context: ShortcutContext,
 ): ShortcutAction | undefined {
   // 글자를 치는 중이면 모든 키는 그 입력 상자의 것이다 (되돌리기도 마찬가지다).
-  // 예외 셋 (DESIGN §1·§7): 저장은 어디서든 저장이고, 피커의 Esc는 검색 칸에서도 피커의 것이며,
-  // 값을 적는 칸(승인 폼·실행 입력)의 Esc는 그 칸에서 손을 떼는 일이다.
+  // 예외 셋 (DESIGN §1·§7): 저장은 어디서든 저장이고, 잠깐 뜬 팝오버(노드 피커·문서 메뉴·판 기록)의
+  // Esc는 글자를 치는 중에도 그 팝오버의 것이며, 값을 적는 칸(승인 폼·실행 입력)의 Esc는
+  // 그 칸에서 손을 떼는 일이다.
   const typingException =
     WHILE_TYPING.has(name) ||
     (name === "Escape" &&
       (context.pickerOpen ||
+        context.docPopoverOpen ||
         context.onGateField ||
         context.onRunInputField ||
         context.onToolWrapField ||

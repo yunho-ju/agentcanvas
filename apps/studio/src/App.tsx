@@ -88,6 +88,7 @@ export function App() {
         panelOpen: dock.openPanel !== null,
         comparing: isComparing(editor),
         pickerOpen: editor.picker !== null,
+        docPopoverOpen: editor.docPopover !== "closed",
         runInputAsking: runInputIsAsking(editor),
         onRunInputField: isRunInputFieldFocused(event.target),
         gateAsking: gateIsAsking(editor),

@@ -400,6 +400,7 @@ describe("saving when saving is not possible", () => {
     chatGateAsking: true,
     chatGateConfirming: true,
     chatSwitchAsking: true,
+    docPopoverOpen: true,
   };
 
   it("저장할 수 없는 자리에서도 그 키는 앱이 받는다 — 브라우저가 가져가지 않는다", () => {
@@ -463,6 +464,7 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
     chatGateAsking: false,
     chatGateConfirming: false,
     chatSwitchAsking: false,
+    docPopoverOpen: false,
   };
 
   /** Esc 한 번이 무엇을 물렸는지 — 걸음은 하나뿐이어야 한다. */
@@ -470,6 +472,7 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
     const done: string[] = [];
     const editor = {
       closePicker: () => done.push("picker"),
+      closeDocPopover: () => done.push("doc.popover"),
       closeRunInput: () => done.push("run.input"),
       cancelDetach: () => done.push("detach"),
       cancelReject: () => done.push("gate.reject"),
@@ -609,6 +612,25 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
   it("전환을 되묻는 물음이 대화 패널보다 먼저 물러난다", () => {
     expect(whatEscapeDid({ chatSwitchAsking: true, chatOpen: true })).toEqual([
       "chat.switch.ask",
+    ]);
+  });
+
+  // 잠깐 뜬 팝오버는 언제나 맨 위에 있으므로 가장 먼저 물러난다 (DESIGN §1 팝오버 예외).
+  it("문서 메뉴가 열려 있으면 Esc는 선택을 풀지 않고 그 팝오버만 닫는다", () => {
+    expect(whatEscapeDid({ docPopoverOpen: true, hasSelection: true })).toEqual([
+      "doc.popover",
+    ]);
+  });
+
+  it("글자를 치는 중이어도 열린 팝오버가 먼저 물러난다", () => {
+    expect(whatEscapeDid({ docPopoverOpen: true, editing: true })).toEqual([
+      "doc.popover",
+    ]);
+  });
+
+  it("실행 입력 카드가 떠 있어도 팝오버가 먼저 물러난다 — 한 걸음씩이다", () => {
+    expect(whatEscapeDid({ docPopoverOpen: true, runInputAsking: true })).toEqual([
+      "doc.popover",
     ]);
   });
 

@@ -353,6 +353,23 @@ describe("문서의 판 기록", () => {
     await waitFor(() => expect(fetchRevisions).toHaveBeenCalledTimes(2));
   });
 
+  it("판 기록을 열면 메뉴는 닫힌다 — 팝오버는 한 번에 하나다 (DESIGN §7 doc-card)", async () => {
+    await openHistory(async () => ({ revisions: rows }));
+
+    expect(await screen.findByRole("heading", { name: "판 기록" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("파일 열기")).not.toBeInTheDocument();
+  });
+
+  it("판 기록이 열린 채 메뉴 버튼을 누르면 판 기록은 물러나고 메뉴가 선다", async () => {
+    await openHistory(async () => ({ revisions: rows }));
+    await screen.findByRole("heading", { name: "판 기록" });
+
+    await userEvent.click(screen.getByRole("button", { name: /문서 메뉴/ }));
+
+    expect(screen.getByLabelText("파일 열기")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "판 기록" })).toBeNull();
+  });
+
   it("닫으면 문서 메뉴 버튼으로 초점이 돌아온다", async () => {
     await openHistory(async () => ({ revisions: rows }));
     await screen.findByRole("list");
@@ -361,6 +378,44 @@ describe("문서의 판 기록", () => {
 
     expect(screen.getByRole("button", { name: /문서 메뉴/ })).toHaveFocus();
     expect(screen.queryByRole("heading", { name: "판 기록" })).toBeNull();
+  });
+});
+
+// 잠깐 뜬 팝오버는 Esc로 닫힌다 — 체인보다 먼저다 (DESIGN §1 팝오버 예외, §7 doc-card).
+// 어떤 길로 닫혔든 초점은 문서 메뉴 버튼으로 돌아온다 — 초점을 허공에 두지 않는다.
+describe("팝오버를 Esc로 닫기", () => {
+  function menuButton() {
+    return screen.getByRole("button", { name: /문서 메뉴/ });
+  }
+
+  // 손이 메뉴를 떠나 캔버스에 있어도 Esc는 그 팝오버를 닫고, 손은 연 자리로 돌아온다
+  // — 초점을 허공에 두지 않는다 (브리프 케이스 "메뉴 열림, 초점 캔버스").
+  it("초점이 메뉴를 떠나 있어도 Esc가 메뉴를 닫고 손은 문서 메뉴 버튼으로 돌아온다", async () => {
+    render(<App />);
+    await userEvent.click(menuButton());
+    expect(screen.getByLabelText("파일 열기")).toBeInTheDocument();
+    const canvas = screen.getByRole("application", { name: /캔버스/ });
+    canvas.focus();
+    expect(canvas).toHaveFocus();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByLabelText("파일 열기")).not.toBeInTheDocument();
+    expect(menuButton()).toHaveFocus();
+  });
+
+  it("판 기록이 열려 있으면 Esc가 판 기록을 닫고 손은 문서 메뉴 버튼으로 돌아온다", async () => {
+    useEditor.getState().loadSpec(example);
+    useEditor.setState({ fetchRevisions: async () => ({ revisions: [] }) });
+    render(<App />);
+    await userEvent.click(menuButton());
+    await userEvent.click(screen.getByRole("button", { name: "판 기록" }));
+    expect(await screen.findByRole("heading", { name: "판 기록" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("heading", { name: "판 기록" })).toBeNull();
+    expect(menuButton()).toHaveFocus();
   });
 });
 

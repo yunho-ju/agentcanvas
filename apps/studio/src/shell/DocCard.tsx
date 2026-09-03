@@ -50,8 +50,13 @@ export function DocCard() {
   const requestFileOpen = useEditor((state) => state.requestFileOpen);
   const listing = useEditor(docListIsOpen);
   const fileAsking = useEditor(fileOpenIsAsking);
-  const [open, setOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  // 이 카드 위에 무엇이 떠 있는지는 store가 안다 — Esc 체인이 볼 수 있어야 하기 때문이다
+  // (DESIGN §1 팝오버 예외, §7 doc-card).
+  const docPopover = useEditor((state) => state.docPopover);
+  const toggleDocMenu = useEditor((state) => state.toggleDocMenu);
+  const openRevisionHistory = useEditor((state) => state.openRevisionHistory);
+  const closeDocPopover = useEditor((state) => state.closeDocPopover);
+  const open = docPopover === "menu";
   const [renaming, setRenaming] = useState(false);
   const [problems, setProblems] = useState<Message[]>([]);
   const field = useRef<HTMLInputElement>(null);
@@ -60,7 +65,7 @@ export function DocCard() {
   const wasRenaming = useRef(false);
   const wasListing = useRef(false);
   const wasFileAsking = useRef(false);
-  const wasHistoryOpen = useRef(false);
+  const wasPopoverOpen = useRef(false);
   const ranHistory = useRef<HistoryCommand["id"] | null>(null);
   // 좁은 화면에서 상단의 되돌리기 줄이 이 메뉴로 들어온다 (DESIGN §1 상단 레이어 900↓).
   const history = useHistoryCommands();
@@ -82,11 +87,13 @@ export function DocCard() {
     wasFileAsking.current = fileAsking;
   }, [fileAsking]);
 
-  // 판 기록을 닫으면 손은 문서 메뉴 버튼으로 돌아온다 — 열린 자리를 잃지 않는다.
+  // 팝오버가 어떤 길로 닫혔든(항목 선택·재클릭·Esc) 손은 문서 메뉴 버튼으로 돌아온다
+  // — 열린 자리를 잃지 않는다 (DESIGN §7 doc-card).
   useEffect(() => {
-    if (wasHistoryOpen.current && !historyOpen) menuButton.current?.focus();
-    wasHistoryOpen.current = historyOpen;
-  }, [historyOpen]);
+    const popoverOpen = docPopover !== "closed";
+    if (wasPopoverOpen.current && !popoverOpen) menuButton.current?.focus();
+    wasPopoverOpen.current = popoverOpen;
+  }, [docPopover]);
 
   // 되돌리기를 눌러 되돌릴 것이 다 떨어지면 그 항목은 잠긴다 — 잠긴 자리에 손을 두고 오지
   // 않는다. 남은 것이 있으면 잇따라 누를 수 있게 그 자리에 그대로 둔다.
@@ -122,7 +129,7 @@ export function DocCard() {
     }
     setProblems([]);
     requestFileOpen(result.spec);
-    setOpen(false);
+    closeDocPopover();
   }
 
   function onExport() {
@@ -135,7 +142,7 @@ export function DocCard() {
     }
     setProblems([]);
     downloadSpec(candidate, `${candidate.id}.json`);
-    setOpen(false);
+    closeDocPopover();
   }
 
   function keepTheName() {
@@ -198,10 +205,7 @@ export function DocCard() {
             aria-expanded={open}
             title={t("doc.menu.hint")}
             aria-label={t("doc.menu.label", { name: title })}
-            onClick={() => {
-              setHistoryOpen(false);
-              setOpen(!open);
-            }}
+            onClick={toggleDocMenu}
           >
             <span className="doc-card__caret" aria-hidden="true">
               ▾
@@ -249,7 +253,7 @@ export function DocCard() {
             className="doc-menu__save"
             onClick={() => {
               void saveSpec();
-              setOpen(false);
+              closeDocPopover();
             }}
             disabled={spec === null || saving}
             title={
@@ -268,7 +272,7 @@ export function DocCard() {
             className="doc-menu__open-server"
             onClick={() => {
               void showDocList();
-              setOpen(false);
+              closeDocPopover();
             }}
             title={t("open.action.hint")}
           >
@@ -279,10 +283,7 @@ export function DocCard() {
             className="doc-menu__open-server"
             disabled={spec === null}
             title={spec === null ? t("revisionHistory.none") : t("revisionHistory.action")}
-            onClick={() => {
-              setHistoryOpen(true);
-              setOpen(false);
-            }}
+            onClick={openRevisionHistory}
           >
             {t("revisionHistory.action")}
           </button>
@@ -297,7 +298,7 @@ export function DocCard() {
                 title={changed ? t("publish.disabled.unsaved") : t("publish.replace.hint")}
                 onClick={() => {
                   void publishCurrent();
-                  setOpen(false);
+                  closeDocPopover();
                 }}
               >
                 {t("publish.replace")}
@@ -308,7 +309,7 @@ export function DocCard() {
                 title={t("publish.down.hint")}
                 onClick={() => {
                   void unpublishCurrent();
-                  setOpen(false);
+                  closeDocPopover();
                 }}
               >
                 {t("publish.down")}
@@ -328,7 +329,7 @@ export function DocCard() {
               }
               onClick={() => {
                 void publishCurrent();
-                setOpen(false);
+                closeDocPopover();
               }}
             >
               {t("publish.action")}
@@ -359,7 +360,7 @@ export function DocCard() {
             className="doc-menu__arrange"
             onClick={() => {
               arrangeNodes();
-              setOpen(false);
+              closeDocPopover();
             }}
             disabled={spec === null || running}
             title={t("doc.arrange.hint")}
@@ -374,7 +375,7 @@ export function DocCard() {
               className="doc-menu__logout"
               onClick={() => {
                 signOut();
-                setOpen(false);
+                closeDocPopover();
               }}
               title={t("auth.logout.hint")}
             >
@@ -383,8 +384,8 @@ export function DocCard() {
           ) : null}
         </div>
       ) : null}
-      {historyOpen && spec !== null ? (
-        <RevisionHistory specId={spec.id} onClose={() => setHistoryOpen(false)} />
+      {docPopover === "history" && spec !== null ? (
+        <RevisionHistory specId={spec.id} onClose={closeDocPopover} />
       ) : null}
       {problems.length > 0 ? (
         <p role="alert" className="doc-card__problems">
