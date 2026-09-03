@@ -37,8 +37,18 @@ AgentCanvas의 사용자에게 영향을 주는 변경은 이 문서에 기록�
 - HTTP tool adapter that runs tool nodes for real, with failures on the error port, an optional hold for approval before a call, and carry/retrieve/digest handling for large responses.
 - `GET /models` lists the models this server can actually call, and the model picker offers those first while keeping the rest visible but disabled with the reason.
 - Architect drafts fill each step's `model_ref` with a model this server can call and name the graph's input row `message`, so a draft can be talked to once published.
+- Skills: a document carries skills in the open `SKILL.md` format (`spec.skills`, `skill://name@rev` tags) and an AI agent step lists the ones it follows (`skill_refs`). The validator reports a step that names a skill the document lacks, a duplicated tag, and (as information) a skill nobody follows. Three domain-neutral starter skills ship with the contracts.
+- Skills reach the model: a step's skills are handed to the adapter after its instruction (20k-character body budget, description-only past it), every `llm.requested` event records `skill_refs`, the run view says "follows: …", case suggestions cover the skills a document follows, and `ReleaseManifest` can carry a fingerprint of each skill body.
+- Skills on screen: a check list on the agent inspector, a dock panel listing the document's skills with who follows them (read in place, delete in one undo step), and an import card that reads a pasted `SKILL.md`, an address (`GET /skills/fetch`, skills.sh or GitHub, host allowlist, size cap, timeout, nested folders found through the repository tree) or a starter skill — never touching the document before approval.
+- Make a skill from a step's instruction (`POST /skills/draft`): name it, say when to use it, glance at similar skills, get a drafted standard structure from a model — or an honest bare frame when no model can be called — and add it so the step follows it in one undo step, with a hand-off to Testing.
+- Find skills (`GET /skills/search`): results from the document, the starters and skills.sh (through the skills CLI, off the request, bounded cache), a remote skill always read in full before it can be added; the guided Architect draft may make a step follow document or starter skills (`add_skill` patch operation, catalog text only — a skill body the model wrote itself is never accepted).
+- Input rows with a kind: the Input node's rows are name, kind in plain words (text, a number, a yes-or-no, a list, a bundle, anything) and required, written to the document's `input_schema`; the run card asks with the matching field.
 
 ### Changed
+
+- The AI agent's `messages` port takes anything (it was declared as a list, which the engine never read); text from an input row or another agent's answer can be connected to it, and mismatches are reported only where a port truly wants one kind.
+- Esc closes the document menu and the revision history like any other popover, and focus returns to the menu button.
+- An empty `skills` list is left out of a document's revision, so documents saved before skills existed keep their revision.
 
 - OpenAI provider는 API key뿐 아니라 `AGENTCANVAS_OPENAI_MODEL`도 명시해야 활성화됩니다. AgentCanvas는 외부 model 기본값을 선택하지 않습니다.
 - Node cards re-measure their ports when the ports change, so a hand-placed input node can be connected.

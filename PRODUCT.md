@@ -22,6 +22,7 @@ AgentCanvas는 비개발자도 AI agent graph를 만들고, 실행 흐름을 관
 | Talk(대화) | revision publish, 내놓은 판과 대화, 지난 대화 목록, 대화에서 뽑은 고칠 지점, 대화 한 줄→시험 케이스 | 여러 사용자에게 여는 공개 창구·release/rollback 절차 없음 |
 | AI Architect | 자연어→검토 마친 draft(contract·flow·fake run 통과, step의 `model_ref`까지 채움)→명시적 적용 | OpenAI key와 model ID 필요, 자동 저장·배포 안 함 |
 | Tools(도구) | API 문서를 붙여 connection·tool로 승인, palette의 도구 노드, HTTP 실행, 실행 전 승인, 큰 응답 다루기 | 실제 MCP executor 없음 |
+| Skills(skill) | 표준 `SKILL.md`를 문서 안에 보관, AI 단계가 입음(모델 지시에 실리고 실행 이벤트에 기록), 붙여넣기·주소·검색(문서→시작 skill→skills.sh)으로 가져오기, 지시문을 skill로 만들기(모델 초안, 없으면 틀), Architect 초안이 skill을 고름 | 지시 전용(`scripts/` 실행 안 함), Improve 제안에는 아직 없음, 원격 검색은 `npx` 필요 |
 | Operate | 단일 관리자 auth, SQLite migration/backup, durable jobs, Compose, `GET /models` 기반 모델 목록 | TLS, horizontal scaling, managed backup 없음 |
 
 Build, Run, Test, Improve, Talk 다섯 가지가 현재 Studio mode입니다. Blank canvas에서 AI Architect onboarding도 제공됩니다. Existing graph용 Architect patch API는 preview-only이며 해당 patch UI는 아직 없습니다.
