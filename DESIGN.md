@@ -365,6 +365,7 @@ skill-import-card (붙여 넣거나 주소를 주면 skill이 된다 — SK-3)
 - 입력 상태: 제목 'skill을 가져올까요' + 설명 한 줄('일하는 방법을 적어 둔 글을 붙여 넣거나, skills.sh 주소를 주세요') + 입력 종류 세그먼트 2종(글 붙여넣기 / 주소) + textarea. 모델을 부르지 않는다 — 파서(순수)가 그 자리에서 읽는다. 읽지 못하면 issue를 쉬운 말로(예: '이름은 소문자·숫자·하이픈만 쓸 수 있어요'), 원문 issue 코드 노출 금지
 - review 상태: [이름 --text-label][description --text-body][본문 미리보기: 처음 12줄 + '더 보기'][캡션: 출처·라이선스·길이(줄 수)]. 본문이 500줄을 넘으면 warn 캡션 '긴 글이에요 — 모델이 다 읽지 못할 수 있어요'. `scripts/`가 있었으면 캡션 '이 skill의 실행 파일은 가져오지 않아요 — 글만 따라요'(놀라움 없음)
 - 버튼 행: [문서에 넣기 primary][다시 적기 ghost]. 승인 1회 = undo 1걸음. 같은 이름의 skill이 이미 있으면 primary 대신 [바꿔 넣기](이전 판과 무엇이 달라지는지 줄 수로 말한다) — 조용히 덮지 않는다. 승인 즉시 skills-panel과 skill-wear 목록에 나타난다
+- 입력 상태 아래 '시작 skill에서 고르기': 번들 시작 skill 세 줄([이름 --text-label][description --text-caption]) — 줄을 누르면 곧장 review 상태로(붙여넣기와 같은 길, 값이 채워졌을 뿐). 처음 온 사람이 빈 칸 앞에서 멈추지 않게 한다(프리셋 우선 원칙)
 - 어디서 열리는가: skill-wear의 [skill 가져오기…], skills-panel의 [skill 가져오기]. 두 입구, 한 카드
 
 run-input-card (실행에 넣을 값 — '실행해 보기'가 물을 것이 있을 때)
