@@ -121,9 +121,9 @@ describe("무엇을 열어 두고 있는지", () => {
 describe("자리가 좁으면 되돌리기가 문서 메뉴로 들어온다", () => {
   function menuItems() {
     return screen
-      .getAllByRole("button")
-      .filter((button) => button.className.startsWith("doc-menu__"))
-      .map((button) => button.textContent);
+      .getAllByRole("menuitem")
+      .filter((item) => item.className.startsWith("doc-menu__"))
+      .map((item) => item.textContent);
   }
 
   it("넓은 화면의 메뉴에는 되돌리기가 없다 — 상단에 그대로 있기 때문이다", async () => {
@@ -148,7 +148,7 @@ describe("자리가 좁으면 되돌리기가 문서 메뉴로 들어온다", ()
     act(() => useEditor.getState().addNode("llm.agent", { x: 0, y: 0 }));
 
     await openMenu();
-    await userEvent.click(screen.getByRole("button", { name: "되돌리기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "되돌리기" }));
 
     expect(useEditor.getState().nodes).toHaveLength(example.nodes.length);
   });
@@ -160,9 +160,9 @@ describe("자리가 좁으면 되돌리기가 문서 메뉴로 들어온다", ()
     act(() => useEditor.getState().addNode("llm.agent", { x: 0, y: 0 }));
 
     await openMenu();
-    await userEvent.click(screen.getByRole("button", { name: "되돌리기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "되돌리기" }));
 
-    expect(screen.getByRole("button", { name: "되돌리기" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "되돌리기" })).toBeDisabled();
     expect(document.activeElement).not.toBe(document.body);
     expect(screen.getByRole("button", { name: /문서 메뉴/ })).toHaveFocus();
   });
@@ -176,9 +176,9 @@ describe("자리가 좁으면 되돌리기가 문서 메뉴로 들어온다", ()
     });
 
     await openMenu();
-    await userEvent.click(screen.getByRole("button", { name: "되돌리기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "되돌리기" }));
 
-    expect(screen.getByRole("button", { name: "되돌리기" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "되돌리기" })).toHaveFocus();
   });
 
   it("메뉴 안에서도 되돌릴 것이 없으면 그 까닭을 말한다", async () => {
@@ -187,8 +187,8 @@ describe("자리가 좁으면 되돌리기가 문서 메뉴로 들어온다", ()
 
     await openMenu();
 
-    expect(screen.getByRole("button", { name: "되돌리기" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "되돌리기" })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: "되돌리기" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "되돌리기" })).toHaveAttribute(
       "title",
       "되돌릴 편집이 없다",
     );
@@ -282,13 +282,13 @@ describe("문서의 판 기록", () => {
     useEditor.getState().loadSpec(example);
     useEditor.setState({ fetchRevisions });
     await openMenu();
-    await userEvent.click(screen.getByRole("button", { name: "판 기록" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "판 기록" }));
   }
 
   it("문서가 없으면 판 기록을 열 수 없고 이유를 title로 말한다", async () => {
     await openMenu();
 
-    const action = screen.getByRole("button", { name: "판 기록" });
+    const action = screen.getByRole("menuitem", { name: "판 기록" });
     expect(action).toBeDisabled();
     expect(action).toHaveAttribute("title", "문서를 먼저 열어야 판 기록을 볼 수 있어요");
   });
@@ -409,7 +409,7 @@ describe("팝오버를 Esc로 닫기", () => {
     useEditor.setState({ fetchRevisions: async () => ({ revisions: [] }) });
     render(<App />);
     await userEvent.click(menuButton());
-    await userEvent.click(screen.getByRole("button", { name: "판 기록" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "판 기록" }));
     expect(await screen.findByRole("heading", { name: "판 기록" })).toBeInTheDocument();
 
     await userEvent.keyboard("{Escape}");
@@ -419,18 +419,206 @@ describe("팝오버를 Esc로 닫기", () => {
   });
 });
 
+// 바깥을 누르면 팝오버가 물러난다 — pointerdown 기준, 메뉴 버튼 자신은 바깥이 아니다
+// (DESIGN §7 doc-card, UXQ2-7). 메뉴는 role=menu·항목은 role=menuitem, ↑↓ roving.
+describe("문서 메뉴 바깥 클릭과 방향키 (UXQ2-7)", () => {
+  function menuButton() {
+    return screen.getByRole("button", { name: /문서 메뉴/ });
+  }
+
+  function menuContainer() {
+    return document.querySelector(".doc-menu") as HTMLElement;
+  }
+
+  function menuItems() {
+    return within(menuContainer()).getAllByRole("menuitem");
+  }
+
+  // 브라우저 기본 동작(mousedown이 누른 자리에 초점을 준다)은 막지 않는다 — 막으면 입력칸에
+  // 글을 못 쓰고 캔버스 끌기의 첫 걸음이 사라진다 (DESIGN §7 doc-card, UXQ2-7 회송).
+  it("초점을 받을 수 없는 자리를 바깥 클릭하면 닫히고 손은 문서 메뉴 버튼으로 돌아온다", async () => {
+    render(
+      <>
+        <DocCard />
+        <div data-testid="void">가만히 있는 자리</div>
+      </>,
+    );
+    await userEvent.click(menuButton());
+    expect(screen.getByLabelText("파일 열기")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("void"));
+
+    expect(screen.queryByLabelText("파일 열기")).not.toBeInTheDocument();
+    await waitFor(() => expect(menuButton()).toHaveFocus());
+  });
+
+  it("바깥의 입력칸을 누르면 닫히지만 그 칸에 초점이 남는다 — 글을 쓸 수 있어야 한다", async () => {
+    render(
+      <>
+        <DocCard />
+        <input data-testid="outside-input" />
+      </>,
+    );
+    await userEvent.click(menuButton());
+    expect(screen.getByLabelText("파일 열기")).toBeInTheDocument();
+    const outsideInput = screen.getByTestId("outside-input");
+
+    await userEvent.click(outsideInput);
+
+    expect(screen.queryByLabelText("파일 열기")).not.toBeInTheDocument();
+    expect(outsideInput).toHaveFocus();
+  });
+
+  it("초점을 받을 수 있는 캔버스 대역을 누르면 닫히지만 그 자리에 초점이 남는다", async () => {
+    render(
+      <>
+        <DocCard />
+        <div data-testid="outside-focusable" tabIndex={0} />
+      </>,
+    );
+    await userEvent.click(menuButton());
+    expect(screen.getByLabelText("파일 열기")).toBeInTheDocument();
+    const outsideFocusable = screen.getByTestId("outside-focusable");
+
+    await userEvent.click(outsideFocusable);
+
+    expect(screen.queryByLabelText("파일 열기")).not.toBeInTheDocument();
+    expect(outsideFocusable).toHaveFocus();
+  });
+
+  it("메뉴 버튼을 다시 누르면 한 번만 토글돼 닫힌다 — 바깥 판정과 겹쳐 재열림하지 않는다", async () => {
+    await openMenu();
+    expect(screen.getByLabelText("파일 열기")).toBeInTheDocument();
+
+    await userEvent.click(menuButton());
+
+    expect(screen.queryByLabelText("파일 열기")).not.toBeInTheDocument();
+  });
+
+  it("메뉴 안(항목 아닌 자리)을 누르면 그대로 열려 있다", async () => {
+    await openMenu();
+
+    await userEvent.click(menuContainer());
+
+    expect(screen.getByLabelText("파일 열기")).toBeInTheDocument();
+  });
+
+  it("메뉴가 열리면 첫 항목에 초점이 간다", async () => {
+    useEditor.getState().loadSpec(example);
+    await openMenu();
+
+    expect(menuItems()[0]).toHaveFocus();
+  });
+
+  // 문서가 없으면 첫 항목('저장')이 잠긴다 — 잠긴 항목은 초점을 받지 못하므로(브라우저 규칙)
+  // 살아 있는 다음 항목으로 건너뛴다. 건너뛰지 않으면 초점이 메뉴 버튼에 남아 방향키가 메뉴에
+  // 닿지 않는다(실브라우저 QA로 드러난 결함).
+  it("잠긴 항목은 건너뛰고 살아 있는 항목 사이로만 초점이 간다", async () => {
+    await openMenu();
+    const save = screen.getByRole("menuitem", { name: "저장" });
+    const open = screen.getByRole("menuitem", { name: "열기" });
+    const fileOpen = screen.getByRole("menuitem", { name: "파일 열기" });
+    expect(save).toBeDisabled();
+    expect(open).toHaveFocus();
+
+    await userEvent.keyboard("{ArrowDown}");
+
+    expect(fileOpen).toHaveFocus();
+  });
+
+  it("↑를 누르면 첫 항목에서 마지막 항목으로 돈다", async () => {
+    useEditor.getState().loadSpec(example);
+    await openMenu();
+    const items = menuItems();
+    expect(items[0]).toHaveFocus();
+
+    await userEvent.keyboard("{ArrowUp}");
+
+    expect(items[items.length - 1]).toHaveFocus();
+  });
+
+  it("↓를 누르면 마지막 항목에서 첫 항목으로 돈다", async () => {
+    useEditor.getState().loadSpec(example);
+    await openMenu();
+    const items = menuItems();
+    await userEvent.keyboard("{End}");
+    expect(items[items.length - 1]).toHaveFocus();
+
+    await userEvent.keyboard("{ArrowDown}");
+
+    expect(items[0]).toHaveFocus();
+  });
+
+  it("Home을 누르면 첫 항목으로 간다", async () => {
+    useEditor.getState().loadSpec(example);
+    await openMenu();
+    const items = menuItems();
+    await userEvent.keyboard("{End}");
+    expect(items[items.length - 1]).toHaveFocus();
+
+    await userEvent.keyboard("{Home}");
+
+    expect(items[0]).toHaveFocus();
+  });
+
+  // roving 불변식: 초점이 간 항목만 tabIndex 0이고 나머지는 전부 -1이다 —
+  // 그래야 Tab이 메뉴를 한 걸음에 지나간다.
+  it("초점이 간 항목만 tabIndex 0이고 나머지는 전부 -1이다", async () => {
+    useEditor.getState().loadSpec(example);
+    await openMenu();
+    const items = menuItems();
+
+    await userEvent.keyboard("{ArrowDown}");
+
+    items.forEach((item, index) => {
+      expect(item).toHaveAttribute("tabindex", index === 1 ? "0" : "-1");
+    });
+  });
+
+  // <label htmlFor>는 클릭에만 반응하고 Enter/Space에는 반응하지 않는 죽은 자리다 —
+  // 항목은 진짜 버튼이라야 방향키로 초점을 옮긴 뒤 키보드로도 열 수 있다(UXQ2-7 2차 회송).
+  it("파일 열기 항목에 초점이 있을 때 Enter를 누르면 숨은 파일 선택 창이 열린다", async () => {
+    await openMenu();
+    const fileOpen = screen.getByRole("menuitem", { name: "파일 열기" });
+    fileOpen.focus();
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  // 캔버스는 스스로 초점을 받는 자리다 — 닫힌 뒤 손은 거기 그대로 남는다(메뉴 버튼으로
+  // 새지 않는다), 끌기의 첫 mousedown을 잃지 않기 위해서다 (DESIGN §7 doc-card, UXQ2-7 회송).
+  it("판 기록 팝오버 바깥의 캔버스를 누르면 닫히고 손은 캔버스에 남는다", async () => {
+    useEditor.getState().loadSpec(example);
+    useEditor.setState({ fetchRevisions: async () => ({ revisions: [] }) });
+    render(<App />);
+    await userEvent.click(menuButton());
+    await userEvent.click(screen.getByRole("menuitem", { name: "판 기록" }));
+    expect(await screen.findByRole("heading", { name: "판 기록" })).toBeInTheDocument();
+    const canvas = screen.getByRole("application", { name: /캔버스/ });
+
+    await userEvent.click(canvas);
+
+    expect(screen.queryByRole("heading", { name: "판 기록" })).toBeNull();
+    expect(canvas).toHaveFocus();
+  });
+});
+
 describe("exporting", () => {
   it("cannot export before a spec is open", async () => {
     await openMenu();
 
-    expect(screen.getByRole("button", { name: "내보내기" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "내보내기" })).toBeDisabled();
   });
 
   it("downloads the canvas as an AgentSpec JSON file", async () => {
     useEditor.getState().loadSpec(example);
     await openMenu();
 
-    await userEvent.click(screen.getByRole("button", { name: "내보내기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "내보내기" }));
 
     expect(createdBlobs).toHaveLength(1);
     expect(JSON.parse(await createdBlobs[0].text())).toEqual(example);
@@ -441,7 +629,7 @@ describe("exporting", () => {
     useEditor.setState({ spec: { ...example, revision: "not-a-revision" } });
     await openMenu();
 
-    await userEvent.click(screen.getByRole("button", { name: "내보내기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "내보내기" }));
 
     expect(createdBlobs).toHaveLength(0);
     expect(await screen.findByRole("alert")).toHaveTextContent("revision");
@@ -453,7 +641,7 @@ describe("tidying the canvas", () => {
     useEditor.getState().loadSpec(example);
     await openMenu();
 
-    await userEvent.click(screen.getByRole("button", { name: "정리하기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "정리하기" }));
 
     expect(useEditor.getState().nodes[0].position).not.toEqual(example.nodes[0].position);
     expect(useEditor.getState().undoStack).toHaveLength(1);
@@ -462,7 +650,7 @@ describe("tidying the canvas", () => {
   it("has nothing to tidy before a file is open", async () => {
     await openMenu();
 
-    expect(screen.getByRole("button", { name: "정리하기" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "정리하기" })).toBeDisabled();
   });
 });
 
@@ -497,7 +685,7 @@ describe("서버에 맡긴 것과 아직 맡기지 않은 것", () => {
     useEditor.setState({ sendSpec: acceptingServer(1) });
     await openMenu();
 
-    await userEvent.click(screen.getByRole("button", { name: "저장" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "저장" }));
 
     expect(await screen.findByText("저장했어요 · 1번째 판")).toBeInTheDocument();
     expect(useEditor.getState().feedbackNotice?.tone).toBe("ok");
@@ -506,7 +694,7 @@ describe("서버에 맡긴 것과 아직 맡기지 않은 것", () => {
   it("저장한 뒤에 고치면 저장 안 된 변경이 있다고 말한다", async () => {
     useEditor.setState({ sendSpec: acceptingServer(2) });
     await openMenu();
-    await userEvent.click(screen.getByRole("button", { name: "저장" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "저장" }));
     await screen.findByText("저장했어요 · 2번째 판");
 
     act(() => useEditor.getState().addNode("llm.agent", { x: 10, y: 10 }));
@@ -518,7 +706,7 @@ describe("서버에 맡긴 것과 아직 맡기지 않은 것", () => {
     useEditor.setState({ sendSpec: sleepingServer });
     await openMenu();
 
-    await userEvent.click(screen.getByRole("button", { name: "저장" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "저장" }));
 
     expect(await screen.findByText("아직 저장 안 했어요")).toBeInTheDocument();
     expect(useEditor.getState().feedbackNotice?.tone).toBe("danger");
@@ -529,7 +717,7 @@ describe("서버에 맡긴 것과 아직 맡기지 않은 것", () => {
     useEditor.setState({ sendSpec: acceptingServer(1, [{ message: "무슨 노드죠" }]) });
     await openMenu();
 
-    await userEvent.click(screen.getByRole("button", { name: "저장" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "저장" }));
 
     await screen.findByText("저장했어요 · 1번째 판");
     expect(useEditor.getState().feedbackNotice?.tone).toBe("warn");
@@ -621,7 +809,7 @@ describe("맡길 것이 없거나 이미 맡기는 중일 때", () => {
     useEditor.setState({ spec: null, nodes: [], edges: [], savedSpec: null });
     await openMenu();
 
-    const save = screen.getByRole("button", { name: "저장" });
+    const save = screen.getByRole("menuitem", { name: "저장" });
     expect(save).toBeDisabled();
     expect(save).toHaveAttribute("title", "아직 저장할 그래프가 없어요");
   });
@@ -631,7 +819,7 @@ describe("맡길 것이 없거나 이미 맡기는 중일 때", () => {
     useEditor.setState({ saving: true });
     await openMenu();
 
-    const save = screen.getByRole("button", { name: "저장" });
+    const save = screen.getByRole("menuitem", { name: "저장" });
     expect(save).toBeDisabled();
     expect(save).toHaveAttribute("title", "저장하는 중이에요");
   });

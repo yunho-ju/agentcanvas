@@ -46,15 +46,15 @@ describe("이 자리를 떠나는 길", () => {
     await openMenuInSession();
 
     const items = screen
-      .getAllByRole("button")
-      .filter((button) => button.className.startsWith("doc-menu__"));
+      .getAllByRole("menuitem")
+      .filter((item) => item.className.startsWith("doc-menu__"));
     expect(items.at(-1)).toHaveTextContent("로그아웃");
   });
 
   it("그 항목을 누르면 서버에 세션을 닫아 달라고 하고 로그인 화면으로 돌아간다", async () => {
     await openMenuInSession();
 
-    const item = screen.getByRole("button", { name: "로그아웃" });
+    const item = screen.getByRole("menuitem", { name: "로그아웃" });
     expect(item).toHaveClass("doc-menu__logout");
     await userEvent.click(item);
 

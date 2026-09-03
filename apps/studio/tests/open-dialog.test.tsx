@@ -54,7 +54,7 @@ function deferred<T>() {
 /** 문서 메뉴를 펼치고 '열기'를 누른다 — 사용자가 실제로 걷는 길. */
 async function openTheList() {
   await userEvent.click(screen.getByRole("button", { name: /문서 메뉴/ }));
-  await userEvent.click(screen.getByRole("button", { name: "열기" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "열기" }));
   return screen.findByRole("dialog", { name: "어떤 문서를 열까요" });
 }
 

@@ -6,6 +6,7 @@ import { localized } from "../i18n/locale";
 import { useLocale, useT } from "../i18n/useT";
 import { nodeTypes } from "../registry/registry";
 import { useEditor } from "../store/editor";
+import { useOutsidePress } from "../hooks/useOutsidePress";
 import { NodeTypeChip } from "./NodeTypeChip";
 import { type PickerOption, pickerOptions } from "./pickerOptions";
 
@@ -55,14 +56,7 @@ export function NodePicker() {
   }, [picker]);
 
   // 캔버스 아무 데나 누르면 물러난다 — 그만두는 데 버튼을 찾을 필요가 없다.
-  useEffect(() => {
-    if (!picker) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!panelRef.current?.contains(event.target as Node)) closePicker();
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [picker, closePicker]);
+  useOutsidePress(picker !== null, [panelRef], closePicker);
 
   if (!picker) return null;
 

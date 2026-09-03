@@ -3,6 +3,7 @@
 import {
   type ChangeEvent,
   type KeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -17,10 +18,17 @@ import { isRunning } from "../store/runSlice";
 import { captionFor, savedVersion, unsavedChanges } from "../store/saveSlice";
 import { LocaleToggle } from "../i18n/LocaleToggle";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { focusableMenuItemsIn, focusMenuItem, rovedMenuFocus } from "./docMenuFocus";
+import { DocMenuItem } from "./DocMenuItem";
 import { RevisionHistory } from "./RevisionHistory";
 import { type HistoryCommand, useHistoryCommands } from "./historyCommands";
 import { HISTORY_IN_MENU, useWidthMatch } from "./topLayout";
 import { useSignOut } from "./signOut";
+import { useOutsidePress } from "../hooks/useOutsidePress";
+
+// 메뉴 컨테이너가 이 id로 토글 버튼을 가리켜 이름을 물려받는다(aria-labelledby) —
+// 이름 글이 두 곳에 따로 있지 않다.
+const MENU_TOGGLE_ID = "doc-menu-toggle";
 
 export function DocCard() {
   const spec = useEditor((state) => state.spec);
@@ -62,10 +70,14 @@ export function DocCard() {
   const field = useRef<HTMLInputElement>(null);
   const nameButton = useRef<HTMLButtonElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const historyPopover = useRef<HTMLDivElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const wasRenaming = useRef(false);
   const wasListing = useRef(false);
   const wasFileAsking = useRef(false);
   const wasPopoverOpen = useRef(false);
+  const closedByOutsideClick = useRef(false);
   const ranHistory = useRef<HistoryCommand["id"] | null>(null);
   // 좁은 화면에서 상단의 되돌리기 줄이 이 메뉴로 들어온다 (DESIGN §1 상단 레이어 900↓).
   const history = useHistoryCommands();
@@ -88,12 +100,52 @@ export function DocCard() {
   }, [fileAsking]);
 
   // 팝오버가 어떤 길로 닫혔든(항목 선택·재클릭·Esc) 손은 문서 메뉴 버튼으로 돌아온다
-  // — 열린 자리를 잃지 않는다 (DESIGN §7 doc-card).
+  // — 열린 자리를 잃지 않는다 (DESIGN §7 doc-card). 바깥 클릭은 예외: 누른 자리가 스스로
+  // 초점을 받았으면(입력칸·버튼·캔버스) 거기 둔다 — 브라우저 기본 동작이 자리 잡을 시간을
+  // 준 뒤(setTimeout 0) 초점이 허공(body)에 떨어졌을 때만 메뉴 버튼으로 돌아온다.
   useEffect(() => {
     const popoverOpen = docPopover !== "closed";
-    if (wasPopoverOpen.current && !popoverOpen) menuButton.current?.focus();
+    if (wasPopoverOpen.current && !popoverOpen) {
+      if (closedByOutsideClick.current) {
+        closedByOutsideClick.current = false;
+        const id = window.setTimeout(() => {
+          const active = document.activeElement;
+          if (active === null || active === document.body) menuButton.current?.focus();
+        }, 0);
+        wasPopoverOpen.current = popoverOpen;
+        return () => window.clearTimeout(id);
+      }
+      menuButton.current?.focus();
+    }
     wasPopoverOpen.current = popoverOpen;
   }, [docPopover]);
+
+  // 메뉴·판 기록 바깥을 누르면 물러난다 — 메뉴 버튼 자신은 바깥이 아니다(토글과 겹쳐
+  // 닫힘→재열림이 되지 않게, UXQ2-7). closeDocPopover는 store 함수라 참조가 안정돼 있다.
+  useOutsidePress(docPopover !== "closed", [menuButton, menu, historyPopover], () => {
+    closedByOutsideClick.current = true;
+    closeDocPopover();
+  });
+
+  // 메뉴가 열리면 첫 항목에 초점이 간다(roving tabindex의 시작 자리).
+  useEffect(() => {
+    if (!open) return;
+    const container = menu.current;
+    if (!container) return;
+    focusMenuItem(container, 0);
+  }, [open]);
+
+  // ↑↓Home/End로 항목 사이를 오간다(끝에서 반대편으로 순환) — roving tabindex.
+  const onMenuKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    const rovingKeys = ["ArrowDown", "ArrowUp", "Home", "End"] as const;
+    const key = rovingKeys.find((candidate) => candidate === event.key);
+    const container = menu.current;
+    if (!key || !container) return;
+    event.preventDefault();
+    const items = focusableMenuItemsIn(container);
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    focusMenuItem(container, rovedMenuFocus(current, key, items.length));
+  }, []);
 
   // 되돌리기를 눌러 되돌릴 것이 다 떨어지면 그 항목은 잠긴다 — 잠긴 자리에 손을 두고 오지
   // 않는다. 남은 것이 있으면 잇따라 누를 수 있게 그 자리에 그대로 둔다.
@@ -200,9 +252,11 @@ export function DocCard() {
           )}
           <button
             type="button"
+            id={MENU_TOGGLE_ID}
             ref={menuButton}
             className="doc-card__menu-toggle"
             aria-expanded={open}
+            aria-haspopup="menu"
             title={t("doc.menu.hint")}
             aria-label={t("doc.menu.label", { name: title })}
             onClick={toggleDocMenu}
@@ -227,15 +281,20 @@ export function DocCard() {
       <ThemeToggle />
       <LocaleToggle />
       {open ? (
-        <div className="doc-menu layer">
+        <div
+          className="doc-menu layer"
+          role="menu"
+          ref={menu}
+          aria-labelledby={MENU_TOGGLE_ID}
+          onKeyDown={onMenuKeyDown}
+        >
           {/* 좁은 화면에서는 상단의 되돌리기 줄이 이 메뉴의 첫 두 항목으로 들어온다
               (DESIGN §1 상단 레이어 900↓) — 같은 명령, 같은 비활성 이유다.
               되돌리기는 잇따라 누르는 일이라 메뉴를 닫지 않는다. */}
           {historyInMenu
             ? history.map((command) => (
-                <button
+                <DocMenuItem
                   key={command.id}
-                  type="button"
                   className={`doc-menu__${command.id}`}
                   onClick={() => {
                     ranHistory.current = command.id;
@@ -245,11 +304,10 @@ export function DocCard() {
                   title={t(command.hint)}
                 >
                   {t(command.name)}
-                </button>
+                </DocMenuItem>
               ))
             : null}
-          <button
-            type="button"
+          <DocMenuItem
             className="doc-menu__save"
             onClick={() => {
               void saveSpec();
@@ -265,10 +323,9 @@ export function DocCard() {
             }
           >
             {t("save.action")}
-          </button>
+          </DocMenuItem>
           {/* 두 '열기'는 이름으로 구분한다 — 서버에 둔 것은 '열기', 내 컴퓨터의 것은 '파일 열기'. */}
-          <button
-            type="button"
+          <DocMenuItem
             className="doc-menu__open-server"
             onClick={() => {
               void showDocList();
@@ -277,22 +334,20 @@ export function DocCard() {
             title={t("open.action.hint")}
           >
             {t("open.action")}
-          </button>
-          <button
-            type="button"
+          </DocMenuItem>
+          <DocMenuItem
             className="doc-menu__open-server"
             disabled={spec === null}
             title={spec === null ? t("revisionHistory.none") : t("revisionHistory.action")}
             onClick={openRevisionHistory}
           >
             {t("revisionHistory.action")}
-          </button>
+          </DocMenuItem>
           {/* 게시 — 저장된 판을 대화 상대로 내놓는다. 저장 안 된 변경이 있으면 막고 이유를 말한다
               (게시는 저장된 판을 가리키는 일). 이미 게시됐으면 갱신·내리기 두 갈래로 나뉜다. */}
           {published ? (
             <>
-              <button
-                type="button"
+              <DocMenuItem
                 className="doc-menu__publish"
                 disabled={changed}
                 title={changed ? t("publish.disabled.unsaved") : t("publish.replace.hint")}
@@ -302,9 +357,8 @@ export function DocCard() {
                 }}
               >
                 {t("publish.replace")}
-              </button>
-              <button
-                type="button"
+              </DocMenuItem>
+              <DocMenuItem
                 className="doc-menu__unpublish"
                 title={t("publish.down.hint")}
                 onClick={() => {
@@ -313,11 +367,10 @@ export function DocCard() {
                 }}
               >
                 {t("publish.down")}
-              </button>
+              </DocMenuItem>
             </>
           ) : (
-            <button
-              type="button"
+            <DocMenuItem
               className="doc-menu__publish"
               disabled={spec === null || changed}
               title={
@@ -333,30 +386,34 @@ export function DocCard() {
               }}
             >
               {t("publish.action")}
-            </button>
+            </DocMenuItem>
           )}
-          {/* 이 라벨의 글은 파일 입력의 이름이기도 하다 — 기호를 섞지 않는다. */}
-          <label className="doc-menu__open" htmlFor="open-spec">
+          {/* 숨은 파일 입력을 대신 연다 — label은 Enter/Space에 반응하지 않는 죽은 자리라 쓰지
+              않는다(UXQ2-7 2차 회송). 이 버튼의 글이 곧 입력의 이름이다. */}
+          <DocMenuItem
+            className="doc-menu__open"
+            onClick={() => fileInput.current?.click()}
+          >
             {t("doc.open")}
-          </label>
+          </DocMenuItem>
           <input
-            id="open-spec"
+            ref={fileInput}
+            aria-label={t("doc.open")}
             className="doc-menu__file"
             type="file"
             accept="application/json,.json"
+            tabIndex={-1}
             onChange={onOpen}
           />
-          <button
-            type="button"
+          <DocMenuItem
             className="doc-menu__export"
             onClick={onExport}
             disabled={spec === null}
             title={spec === null ? t("doc.export.none") : t("doc.export.hint")}
           >
             {t("doc.export")}
-          </button>
-          <button
-            type="button"
+          </DocMenuItem>
+          <DocMenuItem
             className="doc-menu__arrange"
             onClick={() => {
               arrangeNodes();
@@ -366,12 +423,11 @@ export function DocCard() {
             title={t("doc.arrange.hint")}
           >
             {t("doc.arrange")}
-          </button>
+          </DocMenuItem>
           {/* 문서의 일이 아니라 이 자리를 떠나는 일이라 구분선 뒤 마지막에 선다
               (DESIGN §7 doc-card 로그아웃). 세션을 모르는 화면에는 아예 없다. */}
           {signOut ? (
-            <button
-              type="button"
+            <DocMenuItem
               className="doc-menu__logout"
               onClick={() => {
                 signOut();
@@ -380,12 +436,15 @@ export function DocCard() {
               title={t("auth.logout.hint")}
             >
               {t("auth.logout")}
-            </button>
+            </DocMenuItem>
           ) : null}
         </div>
       ) : null}
       {docPopover === "history" && spec !== null ? (
-        <RevisionHistory specId={spec.id} onClose={closeDocPopover} />
+        // display:contents — 바깥 클릭 판정용 ref만 두르고 판 기록의 레이아웃은 그대로 둔다.
+        <div ref={historyPopover} style={{ display: "contents" }}>
+          <RevisionHistory specId={spec.id} onClose={closeDocPopover} />
+        </div>
       ) : null}
       {problems.length > 0 ? (
         <p role="alert" className="doc-card__problems">
