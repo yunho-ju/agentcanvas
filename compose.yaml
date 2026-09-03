@@ -20,6 +20,7 @@ services:
       AGENTCANVAS_SECRET_ANTHROPIC_API_KEY: ${AGENTCANVAS_SECRET_ANTHROPIC_API_KEY:-}
       AGENTCANVAS_LOCAL_MODEL: ${AGENTCANVAS_LOCAL_MODEL:-}
       AGENTCANVAS_LOCAL_BASE_URL: ${AGENTCANVAS_LOCAL_BASE_URL:-http://host.docker.internal:11434/v1}
+      AGENTCANVAS_JUDGE_MODEL: ${AGENTCANVAS_JUDGE_MODEL:-}
     volumes:
       - agentcanvas-data:/data
       - agentcanvas-backups:/backups
