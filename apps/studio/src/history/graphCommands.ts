@@ -151,17 +151,25 @@ export interface EditOptions {
   merge?: boolean;
 }
 
-export function changeNodeConfig(
+/** 이 편집 앞뒤로 문서가 받기로 한 값의 모양 — 모양이 바뀌지 않는 편집이면 둘이 같다. */
+interface InputShapes {
+  was?: JsonSchema;
+  now?: JsonSchema;
+}
+
+/** 설정을 바꾸는 편집 하나 — 문서의 모양이 함께 바뀌든 아니든 판정과 되돌림은 이 자리다. */
+function configEdit(
   graph: Scene,
   id: string,
   config: Record<string, unknown>,
-  inputSchema?: JsonSchema,
+  shapes: InputShapes,
   resources?: Resources,
   options: EditOptions = {},
 ): Command {
+  const inputSchema = shapes.now;
   const previous = graph.nodes.find((node) => node.id === id);
   // 설정을 바꾸는 것도 무언가를 빼는 일이다 — 노드를 뺄 때와 같은 잣대로 영향을 잰다.
-  const impact = analyzeConfigChange(graph, id, config, inputSchema, resources);
+  const impact = analyzeConfigChange(graph, id, config, inputSchema, resources, shapes.was);
   const removedEdges = placed(
     graph.edges,
     impact.brokenEdges.map((edge) => edge.id),
@@ -187,7 +195,7 @@ export function changeNodeConfig(
       : {}),
     apply: (current) => ({
       ...current,
-      ...withNodeConfig(current, id, config, inputSchema, resources).graph,
+      ...withNodeConfig(current, id, config, inputSchema, resources, shapes.was).graph,
     }),
     revert: (current) => ({
       ...current,
@@ -199,6 +207,52 @@ export function changeNodeConfig(
         : current.nodes,
       edges: restored(current.edges, removedEdges),
     }),
+  };
+}
+
+export function changeNodeConfig(
+  graph: Scene,
+  id: string,
+  config: Record<string, unknown>,
+  inputSchema?: JsonSchema,
+  resources?: Resources,
+  options: EditOptions = {},
+): Command {
+  // 문서가 받기로 한 값의 모양은 이 편집이 건드리지 않는다 — 앞뒤가 같다.
+  return configEdit(graph, id, config, { was: inputSchema, now: inputSchema }, resources, options);
+}
+
+/**
+ * 입력 노드가 받는 줄을 고친다 — 받는 자리(config)와 문서가 적어 둔 모양(input_schema)이
+ * 한 걸음에 함께 바뀌고 함께 돌아온다 (DESIGN §7 input-rows).
+ * 무엇이 끊어지는지 재고 말하는 일은 설정을 바꿀 때 쓰던 그 자리의 답이다 — 새 판정을 만들지 않는다.
+ */
+export function changeInputRows(
+  graph: Scene,
+  id: string,
+  config: Record<string, unknown>,
+  inputSchema: JsonSchema,
+  resources?: Resources,
+): Command {
+  const node = graph.nodes.find((candidate) => candidate.id === id);
+  if (!node) return doNothing;
+  const wasSchema = graph.input_schema;
+  const same =
+    changedFields(node.data.spec.config ?? {}, config).length === 0 &&
+    JSON.stringify(wasSchema) === JSON.stringify(inputSchema);
+  if (same) return doNothing;
+
+  const change = configEdit(
+    graph,
+    id,
+    config,
+    { was: wasSchema, now: inputSchema },
+    resources,
+  );
+  return {
+    ...change,
+    apply: (current) => ({ ...change.apply(current), input_schema: inputSchema }),
+    revert: (current) => ({ ...change.revert(current), input_schema: wasSchema }),
   };
 }
 

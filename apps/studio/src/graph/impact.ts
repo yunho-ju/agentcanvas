@@ -61,16 +61,21 @@ export function analyzeDetach(graph: FlowGraph, nodeId: string): Impact {
   });
 }
 
-/** 노드의 설정을 바꾸면 무엇이 망가지는가 — 사라지는 포트에 걸린 연결까지 센다. */
+/**
+ * 노드의 설정을 바꾸면 무엇이 망가지는가 — 사라지는 포트에 걸린 연결까지 센다.
+ * 문서가 받기로 한 값의 모양이 함께 바뀌는 편집이면 바뀌기 전 모양을 함께 준다.
+ */
 export function analyzeConfigChange(
   graph: FlowGraph,
   nodeId: string,
   config: Record<string, unknown>,
   inputSchema?: JsonSchema,
   resources?: Resources,
+  wasInputSchema?: JsonSchema,
 ): Impact {
   return impactBetween(
     graph,
-    withNodeConfig(graph, nodeId, config, inputSchema, resources).graph,
+    withNodeConfig(graph, nodeId, config, inputSchema, resources, wasInputSchema ?? inputSchema)
+      .graph,
   );
 }

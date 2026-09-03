@@ -20,6 +20,7 @@ export type ControlKind =
   | "select"
   | "array"
   | "stringMap"
+  | "inputRows"
   | "secretRef"
   | "schemaRef"
   | "modelRef"
@@ -64,13 +65,14 @@ function additionalType(schema: Record<string, unknown>): unknown {
   return asObject(schema.additionalProperties)?.type;
 }
 
-/** string의 format이 골라 주는 특수 편집기. 없으면 한 줄 텍스트다. */
+/** format이 골라 주는 특수 편집기. 없으면 type이 고른다. */
 const CONTROL_BY_FORMAT: Record<string, ControlKind> = {
   "secret-ref": "secretRef",
   "schema-ref": "schemaRef",
   "model-ref": "modelRef",
   instruction: "instructionText",
   textarea: "textarea",
+  "input-rows": "inputRows",
 };
 
 /**
@@ -87,9 +89,7 @@ const CONTROL_BY_MARKER: Record<string, ControlKind> = {
  * 새 type을 지원할 때 여기 한 줄을 더한다 — 읽는 쪽 코드는 그대로다.
  */
 const CONTROL_BY_TYPE: Record<string, (schema: Record<string, unknown>) => ControlKind> = {
-  string: (schema) =>
-    (typeof schema.format === "string" ? CONTROL_BY_FORMAT[schema.format] : undefined) ??
-    "text",
+  string: () => "text",
   number: () => "number",
   integer: () => "number",
   boolean: () => "boolean",
@@ -113,6 +113,10 @@ function controlOf(schema: Record<string, unknown>, marked?: ControlKind): Contr
   const byMarker = marked ?? markedControl(schema);
   if (byMarker) return byMarker;
   if (stringList(schema.enum)) return "select";
+  // format은 계약이 이 자리의 모양에 대해 아는 말이다 — type이 고르기 전에 묻는다.
+  const byFormat =
+    typeof schema.format === "string" ? CONTROL_BY_FORMAT[schema.format] : undefined;
+  if (byFormat) return byFormat;
   const byType =
     typeof schema.type === "string" ? CONTROL_BY_TYPE[schema.type] : undefined;
   // 표에 없는 조각은 버리지 않고 raw JSON으로 넘긴다.

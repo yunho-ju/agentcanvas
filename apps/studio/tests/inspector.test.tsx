@@ -214,41 +214,228 @@ describe("the way to delete the node you are looking at", () => {
   });
 });
 
-describe("core.input bindings", () => {
+// 입력 노드가 받는 줄 편집기 (DESIGN §7 input-rows).
+describe("core.input rows", () => {
   beforeEach(() => {
     store().select("node", "input");
   });
 
-  it("shows one row per binding the node already has", () => {
+  function rowOf(name: string): HTMLElement {
+    return screen.getByDisplayValue(name).closest("li") as HTMLElement;
+  }
+
+  function inputSchema() {
+    return store().spec?.input_schema as Record<string, Record<string, unknown>>;
+  }
+
+  it("shows one row per value the node takes in, and never the place it comes from", () => {
     render(<Inspector />);
+
     expect(screen.getByDisplayValue("question")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("input.patient_context")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("patient_context")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("input.question")).not.toBeInTheDocument();
   });
 
-  it("grows a new output port as soon as a binding is added", async () => {
+  it("says in plain words what these rows are for", () => {
     render(<Inspector />);
 
-    await userEvent.click(screen.getByRole("button", { name: /추가/ }));
-    const rows = screen.getAllByLabelText(/이름/);
-    await userEvent.type(rows.at(-1) as HTMLElement, "vitals");
-    const paths = screen.getAllByLabelText(/가져올 위치/);
-    await userEvent.type(paths.at(-1) as HTMLElement, "input.vitals");
+    expect(screen.getByText(/^받는 값/)).toBeInTheDocument();
+    expect(screen.getByText(/실행할 때 사람에게 물을 값/)).toBeInTheDocument();
+  });
 
+  function portsOfInput(): string[] {
+    return Object.keys(
+      store().nodes.find((node) => node.id === "input")?.data.ports.outputs ?? {},
+    );
+  }
+
+  async function nameNewRow(name: string) {
+    await userEvent.click(screen.getByRole("button", { name: "줄 추가" }));
+    await userEvent.type(screen.getAllByLabelText(/번째 이름/).at(-1) as HTMLElement, name);
+  }
+
+  // 치는 도중의 이름이 포트가 되어 남지 않는다 (DESIGN §7 input-rows).
+  it("waits until the name is finished before writing it down", async () => {
+    render(<Inspector />);
+
+    await nameNewRow("vitals");
+
+    expect(portsOfInput()).not.toContain("vitals");
+    expect(portsOfInput()).not.toContain("vital");
+  });
+
+  it("grows a new output port when the name is left behind", async () => {
+    render(<Inspector />);
+
+    await nameNewRow("vitals");
+    await userEvent.tab();
+
+    expect(portsOfInput()).toContain("vitals");
+    expect(configOf("input")).toEqual({
+      bindings: {
+        question: "input.question",
+        patient_context: "input.patient_context",
+        vitals: "input.vitals",
+      },
+    });
+  });
+
+  it("takes Enter as 'this name is finished' too", async () => {
+    render(<Inspector />);
+
+    await nameNewRow("vitals");
+    await userEvent.keyboard("{Enter}");
+
+    expect(portsOfInput()).toContain("vitals");
+  });
+
+  it("leaves no half-typed port behind while a name is being written", async () => {
+    render(<Inspector />);
+
+    await nameNewRow("vitals");
+    await userEvent.tab();
+
+    expect(portsOfInput().filter((port) => "vitals".startsWith(port))).toEqual(["vitals"]);
+  });
+
+  it("a brand new row takes text until someone says otherwise", async () => {
+    render(<Inspector />);
+
+    await nameNewRow("vitals");
+    await userEvent.tab();
+
+    expect(inputSchema().properties.vitals).toEqual({ type: "string" });
+  });
+
+  it("renames the value someone renamed, and nothing else", async () => {
+    render(<Inspector />);
+
+    const name = within(rowOf("patient_context")).getByLabelText(/번째 이름/);
+    await userEvent.clear(name);
+    await userEvent.type(name, "context");
+    await userEvent.tab();
+
+    expect(configOf("input")).toEqual({
+      bindings: { question: "input.question", context: "input.context" },
+    });
+    expect(inputSchema().properties).toEqual({
+      question: { type: "string" },
+      context: { type: "object" },
+    });
+  });
+
+  it("writes the kind someone picked into the document", async () => {
+    render(<Inspector />);
+
+    await userEvent.selectOptions(
+      within(rowOf("question")).getByLabelText(/번째 종류/),
+      "number",
+    );
+
+    expect(inputSchema().properties.question).toEqual({ type: "number" });
+  });
+
+  it("takes anything at all when that is what someone picked", async () => {
+    render(<Inspector />);
+
+    await userEvent.selectOptions(
+      within(rowOf("question")).getByLabelText(/번째 종류/),
+      "any",
+    );
+
+    expect(inputSchema().properties).not.toHaveProperty("question");
+    expect(inputSchema().required).toBeUndefined();
+  });
+
+  it("marks a row the run cannot start without", async () => {
+    render(<Inspector />);
+
+    await userEvent.click(within(rowOf("patient_context")).getByLabelText("꼭 받아요"));
+
+    expect(inputSchema().required).toContain("patient_context");
+  });
+
+  it("never spells a data type the way a program does", () => {
+    const { container } = render(<Inspector />);
+
+    for (const raw of ["string", "number", "integer", "boolean", "array", "object"]) {
+      expect(container.textContent).not.toContain(raw);
+    }
+  });
+
+  it("keeps a shape written in the document itself out of the user's hands", () => {
+    act(() =>
+      store().loadSpec({
+        ...example,
+        input_schema: { properties: { question: { type: ["string", "number"] } } },
+      } as AgentSpec),
+    );
+    store().select("node", "input");
+    render(<Inspector />);
+
+    const kind = within(rowOf("question")).getByLabelText(/번째 종류/);
+    expect(kind).toBeDisabled();
+    expect(kind).toHaveAttribute("title", "이 줄의 모양은 문서에 직접 적혀 있어요");
+  });
+
+  it("keeps a name it cannot write down instead of dropping it quietly", async () => {
+    render(<Inspector />);
+
+    await nameNewRow("question");
+    await userEvent.tab();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("같은 이름이 두 개");
+    expect(configOf("input")).toEqual({
+      bindings: { question: "input.question", patient_context: "input.patient_context" },
+    });
+    expect(portsOfInput()).toEqual(["question", "patient_context"]);
+    // 사람이 친 글자는 칸에 그대로 남는다 — 조용히 지우지 않는다.
+    expect(screen.getAllByLabelText(/번째 이름/).at(-1)).toHaveValue("question");
+  });
+
+  it("keeps an empty row out of the document and says what it needs", async () => {
+    render(<Inspector />);
+
+    await userEvent.click(screen.getByRole("button", { name: "줄 추가" }));
+    await userEvent.tab();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("이름을 적어야");
+    expect(configOf("input")).toEqual({
+      bindings: { question: "input.question", patient_context: "input.patient_context" },
+    });
+  });
+
+  // 모양이 없는 값은 필수로 물을 수 없다 — 조용히 되돌리지 않고 이유를 말한다 (DESIGN §7).
+  it("cannot ask for a value it has no shape for, and says why", async () => {
+    render(<Inspector />);
+
+    await userEvent.selectOptions(
+      within(rowOf("question")).getByLabelText(/번째 종류/),
+      "any",
+    );
+
+    const required = within(rowOf("question")).getByLabelText("꼭 받아요");
+    expect(required).toBeDisabled();
+    expect(required).not.toBeChecked();
+    expect(required.closest("label")).toHaveAttribute(
+      "title",
+      "종류를 정해야 꼭 받게 할 수 있어요",
+    );
+  });
+
+  // 네 손잡이를 한 행에 두면 좁은 패널에서 지우기가 화면 밖으로 밀린다 (DESIGN §7 input-rows).
+  it("gives every row two lines so nothing is pushed off the panel", () => {
+    render(<Inspector />);
+
+    const row = rowOf("question");
+    const lines = row.querySelectorAll(".control__row-line");
+    expect(lines).toHaveLength(2);
+    expect(within(lines[0] as HTMLElement).getByLabelText(/번째 이름/)).toBeInTheDocument();
+    expect(within(lines[0] as HTMLElement).getByLabelText(/번째 종류/)).toBeInTheDocument();
+    expect(within(lines[1] as HTMLElement).getByLabelText("꼭 받아요")).toBeInTheDocument();
     expect(
-      Object.keys(store().nodes.find((node) => node.id === "input")?.data.ports.outputs ?? {}),
-    ).toContain("vitals");
-  });
-
-  it("warns when two rows carry the same name instead of losing one quietly", async () => {
-    render(<Inspector />);
-
-    await userEvent.click(screen.getByRole("button", { name: /추가/ }));
-    const names = screen.getAllByLabelText(/번째 이름/);
-    await userEvent.type(names.at(-1) as HTMLElement, "question");
-
-    const warnings = screen.getAllByRole("alert");
-    expect(warnings).toHaveLength(2);
-    expect(warnings[0]).toHaveTextContent("마지막 값만 저장된다");
+      within(lines[1] as HTMLElement).getByRole("button", { name: "이 줄 지우기" }),
+    ).toBeInTheDocument();
   });
 
   it("says nothing while every row has its own name", () => {
@@ -256,11 +443,10 @@ describe("core.input bindings", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("removes the connection that used a binding the user deleted", async () => {
+  it("removes the connection that used a row the user deleted", async () => {
     render(<Inspector />);
 
-    const row = screen.getByDisplayValue("question").closest("li") as HTMLElement;
-    await userEvent.click(within(row).getByRole("button", { name: /지우기/ }));
+    await userEvent.click(within(rowOf("question")).getByRole("button", { name: "이 줄 지우기" }));
 
     expect(store().edges.map((edge) => edge.id)).not.toContain("input-triage");
     expect(translate("ko", store().notice!)).toContain("input");

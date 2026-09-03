@@ -236,19 +236,17 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                     "properties": {
                         "bindings": {
                             "type": "object",
-                            "title": "Values to bring in",
+                            # 이 자리의 편집기는 이름·값 표가 아니라 받는 줄 편집기다
+                            # (DESIGN §7 input-rows). 화면은 노드 타입 이름을 보지 않는다.
+                            "format": "input-rows",
+                            "title": "Values it takes in",
                             "description": (
-                                "Pick which values to take from what the agent was "
-                                "given. Each name you write on the left becomes an "
-                                "output of this node."
+                                "These are the values a run asks a person for."
                             ),
                             "x-i18n": {
                                 "ko": {
-                                    "title": "가져올 입력 값",
-                                    "description": (
-                                        "에이전트가 받은 입력에서 어떤 값을 꺼내 쓸지 정한다. "
-                                        "왼쪽에 적은 이름이 그대로 이 노드의 출력 포트가 된다."
-                                    ),
+                                    "title": "받는 값",
+                                    "description": "실행할 때 사람에게 물을 값이에요.",
                                 }
                             },
                             "additionalProperties": {"type": "string"},

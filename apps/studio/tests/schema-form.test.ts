@@ -9,9 +9,10 @@ function controlsOf(schema: unknown): Record<string, string> {
 }
 
 describe("describeForm on the six base node types", () => {
-  it("reads core.input bindings as a name -> text map", () => {
+  // 입력 노드가 받는 줄은 이름·값 표가 아니라 제 편집기를 쓴다 (DESIGN §7 input-rows).
+  it("reads core.input bindings as the rows the run will ask for", () => {
     expect(controlsOf(nodeTypes["core.input"].config_schema)).toEqual({
-      bindings: "stringMap",
+      bindings: "inputRows",
     });
   });
 
@@ -99,6 +100,33 @@ describe("describeForm control choice", () => {
         properties: { note: { type: "string", format: "textarea" } },
       }),
     ).toEqual({ note: "textarea" });
+  });
+
+  // format이 없는 이름->글자 표는 그대로 일반 표 편집기다 — 다른 노드의 표는 바뀌지 않는다.
+  it("still reads a plain name -> text map as a name -> text map", () => {
+    expect(
+      controlsOf({
+        type: "object",
+        properties: {
+          headers: { type: "object", additionalProperties: { type: "string" } },
+        },
+      }),
+    ).toEqual({ headers: "stringMap" });
+  });
+
+  it("gives the input rows their own editor when the contract asks for it", () => {
+    expect(
+      controlsOf({
+        type: "object",
+        properties: {
+          bindings: {
+            type: "object",
+            format: "input-rows",
+            additionalProperties: { type: "string" },
+          },
+        },
+      }),
+    ).toEqual({ bindings: "inputRows" });
   });
 
   it("treats a checkbox schema as a checkbox", () => {

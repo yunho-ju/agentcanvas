@@ -17,6 +17,7 @@ import {
 } from "../canvas/alignmentGuides";
 import { checkConnection } from "../graph/connection";
 import { newDraftSpec, newNode, randomDraftId } from "../graph/draft";
+import { type InputRow, applyRows } from "../graph/inputRows";
 import { uniqueId } from "../graph/ids";
 import { arrangedPositions } from "../graph/layout";
 import { type Scene, sceneOf } from "../graph/scene";
@@ -36,6 +37,7 @@ import {
   changedFields,
   addNode as addNodeCommand,
   changeEdgeData,
+  changeInputRows,
   changeNodeConfig,
   moveNodes,
   removeParts,
@@ -84,6 +86,11 @@ export interface GraphSlice extends FlowGraph {
     config: Record<string, unknown>,
     options?: EditOptions,
   ) => void;
+  /**
+   * 입력 노드가 받는 줄을 고친다 — 받는 자리와 문서가 적어 둔 모양이 한 걸음에 함께 바뀐다
+   * (DESIGN §7 input-rows).
+   */
+  setInputRows: (id: string, rows: InputRow[]) => void;
   updateEdgeKind: (id: string, kind: EdgeKind) => void;
   updateEdgeCondition: (id: string, expression: string) => void;
   /** 노드를 데이터가 흐르는 순서대로 왼쪽에서 오른쪽으로 정리한다 */
@@ -376,6 +383,19 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
           get().spec?.resources,
           options,
         ),
+      );
+    },
+
+    setInputRows: (id, rows) => {
+      const node = get().nodes.find((candidate) => candidate.id === id);
+      if (!node) return;
+      const { config, input_schema } = applyRows(
+        node.data.spec,
+        get().spec?.input_schema,
+        rows,
+      );
+      get().runCommand(
+        changeInputRows(scene(), id, config, input_schema, get().spec?.resources),
       );
     },
 

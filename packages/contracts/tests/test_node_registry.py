@@ -288,6 +288,13 @@ def test_core_input_without_bindings_has_no_output_ports():
     assert resolved.outputs == {}
 
 
+def test_core_input_bindings_ask_for_the_input_rows_editor():
+    # 화면은 노드 타입 이름으로 편집기를 고르지 않는다 — 계약이 format으로 말한다
+    # (DESIGN §7 input-rows).
+    bindings = DEFAULT_NODE_TYPES["core.input"].config_schema["properties"]["bindings"]
+    assert bindings["format"] == "input-rows"
+
+
 def test_core_output_has_single_fixed_input_port():
     resolved = resolve_ports(
         node("core.output", {"binding": "state.answer"}),

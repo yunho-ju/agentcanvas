@@ -85,20 +85,25 @@ function stillConnected(
   return !checkConnection(before, source, target).ok;
 }
 
-/** 노드 하나의 config를 바꾸고, 그 때문에 끊어지는 연결을 함께 알려준다. */
+/**
+ * 노드 하나의 config를 바꾸고, 그 때문에 끊어지는 연결을 함께 알려준다.
+ * 문서가 받기로 한 값의 모양(input_schema)까지 함께 바뀌는 편집이면 바뀌기 전 모양을 함께 준다 —
+ * 판정은 "이 편집 전에는 이을 수 있었는가"이므로 앞뒤 두 모양이 모두 필요하다.
+ */
 export function withNodeConfig(
   graph: FlowGraph,
   id: string,
   config: Record<string, unknown>,
   inputSchema?: JsonSchema,
   resources?: Resources,
+  wasInputSchema: JsonSchema | undefined = inputSchema,
 ): ConfigChange {
   const target = graph.nodes.find((node) => node.id === id);
   if (!target) return { graph, removedEdges: [] };
 
   const next = reconfigured(target, config, inputSchema, resources);
   const nodes = graph.nodes.map((node) => (node.id === id ? next : node));
-  const before = asSpec(graph.nodes, inputSchema, resources);
+  const before = asSpec(graph.nodes, wasInputSchema, resources);
   const after = asSpec(nodes, inputSchema, resources);
   const kept = (edge: FlowEdge) => stillConnected(edge, [next], before, after);
   return {

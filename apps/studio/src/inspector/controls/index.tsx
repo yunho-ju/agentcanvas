@@ -22,6 +22,7 @@ import {
   parseJson,
   toNumber,
 } from "../values";
+import { InputRowsControl } from "./InputRowsControl";
 import { StringMapControl } from "./StringMapControl";
 import type { ControlEntry, ControlProps } from "./types";
 
@@ -475,4 +476,5 @@ export const CONTROLS: Record<ControlKind, ControlEntry> = {
   toolSelect: { Component: ToolSelectControl },
   json: { Component: JsonControl },
   stringMap: { Component: StringMapControl, selfLabelled: true },
+  inputRows: { Component: InputRowsControl, selfLabelled: true },
 };

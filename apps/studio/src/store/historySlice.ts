@@ -43,6 +43,7 @@ export const createHistorySlice: StateCreator<EditorState, [], [], HistorySlice>
             ...(get().spec as AgentSpec),
             name: next.name,
             resources: next.resources,
+            input_schema: next.input_schema,
           },
         }
       : {}),

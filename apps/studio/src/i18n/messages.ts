@@ -1496,6 +1496,22 @@ const TEXTS = {
     en: "That name is used twice — only the last value is kept",
   },
 
+  // 입력 노드가 받는 줄 (DESIGN §7 input-rows) — 이름 칸·지우기·줄 추가는 위 표의 말을 그대로 쓴다.
+  "control.rows.kind": { ko: "{row}번째 종류", en: "Kind on row {row}" },
+  "control.rows.required": { ko: "꼭 받아요", en: "Always needed" },
+  "control.rows.needsKind": {
+    ko: "종류를 정해야 꼭 받게 할 수 있어요",
+    en: "Pick a kind before making it required",
+  },
+  "control.rows.locked": {
+    ko: "이 줄의 모양은 문서에 직접 적혀 있어요",
+    en: "The shape of this row is written in the document itself",
+  },
+  "control.rows.empty": {
+    ko: "이름이 비어 있는 줄이 있다 — 이름을 적어야 저장된다",
+    en: "One row has no name — write a name and it is kept",
+  },
+
   // 설정 값이 규칙에 맞지 않을 때
   "validate.required": { ko: "꼭 채워야 하는 값이다", en: "This one has to be filled in" },
   "validate.type": { ko: "{name}를 넣어야 한다", en: "This needs {name}" },
@@ -1551,6 +1567,10 @@ const TEXTS = {
   "type.list": { ko: "목록", en: "a list" },
   "type.bundle": { ko: "묶음", en: "a bundle" },
   "type.nothing": { ko: "빈 값", en: "nothing" },
+  // 자료형이 아니라 "적어 두지 않았다"는 뜻 — 그 자리는 무엇이든 받는다.
+  "type.any": { ko: "아무 값이나", en: "anything" },
+  // 문서에 직접 적혀 있어 화면이 부를 이름이 없는 모양.
+  "type.custom": { ko: "직접 정한 모양", en: "a shape of its own" },
 
   // 이을 수 없는 연결 — 이 카드의 말은 모두 [이유] — [다음 걸음] 한 목소리다 (DESIGN §7).
   // 화면에 보이는 포트 이름만 가리키고, 내부 이름표(node.port)는 쓰지 않는다.
