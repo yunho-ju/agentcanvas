@@ -53,6 +53,8 @@ export interface ChatHistorySlice {
   /** 지난 대화를 잊는다 — 문서를 놓거나 모드를 떠나면 이 목록은 이 문서의 것이 아니다 */
   forgetPastChats: () => void;
   showNowChat: () => void;
+  /** 목록에서 새로 말을 건다 — 화면의 대화만 처음으로 돌리고 적던 말은 남긴 채 작성 뷰로 옮긴다 */
+  newChatFromThreads: () => void;
   /** 이 문서에서 오갔던 대화들을 다시 물어본다 */
   loadChatThreads: () => Promise<void>;
   /** 고른 대화를 연다 — 기다리는 말이 있으면 먼저 한 번 더 묻는다 */
@@ -188,6 +190,11 @@ export const createChatHistorySlice: StateCreator<EditorState, [], [], ChatHisto
     },
 
     showNowChat: () => set({ ...NOTHING_ASKED, chatView: "now" }),
+
+    newChatFromThreads: () => {
+      startFreshKeepingDraft();
+      get().showNowChat();
+    },
 
     forgetPastChats: () => {
       set({

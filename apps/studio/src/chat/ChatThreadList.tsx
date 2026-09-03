@@ -4,6 +4,7 @@
 import type { ThreadSummary } from "../api/threads";
 import { useLocale, useT } from "../i18n/useT";
 import { chatNothingToFix } from "../store/chatFixSpotSlice";
+import { chatIsWaiting } from "../store/chatSlice";
 import { useEditor } from "../store/editor";
 import type { FixSpot } from "./fixSpots";
 import { fixSpotHint, fixSpotSummary, fixSpotWords } from "./fixSpotWords";
@@ -143,6 +144,9 @@ export function ChatThreadList() {
   const failure = useEditor((state) => state.chatThreadsFailure);
   const deleteFailure = useEditor((state) => state.chatThreadDeleteFailure);
   const load = useEditor((state) => state.loadChatThreads);
+  const opening = useEditor((state) => state.chatOpening);
+  const waiting = useEditor(chatIsWaiting);
+  const startOver = useEditor((state) => state.newChatFromThreads);
   const nothingToFix = useEditor(chatNothingToFix);
   const t = useT();
   // 목록 위 한 줄은 훑어 둔 자리 전부에서 나온다 — 파생은 순수 함수의 몫이다.
@@ -170,6 +174,24 @@ export function ChatThreadList() {
           {t(deleteFailure)}
         </p>
       ) : null}
+
+      {/* 목록은 이어 갈 대화를 보여 주는 자리이지 새 말을 막는 자리가 아니다 (GP-2).
+          기다리는 말이 있으면 서지 않는다 — 되묻기 없이 그 말을 버리는 길을 만들지 않는다. */}
+      <button
+        type="button"
+        className="chat-threads__new"
+        onClick={startOver}
+        disabled={waiting || opening !== null}
+        title={
+          waiting
+            ? t("chat.send.waiting")
+            : opening !== null
+              ? t("chat.threads.opening.hint")
+              : t("chat.new.hint")
+        }
+      >
+        {t("chat.new")}
+      </button>
 
       {/* 무엇부터 보면 좋은지 목록 위에서 먼저 말한다 — 결론이 먼저다(개수·점수 금지). */}
       {summary ? <p className="chat-threads__summary">{summary}</p> : null}

@@ -908,3 +908,71 @@ describe("뷰를 오가기 (L1·L2)", () => {
     expect(screen.getByLabelText("할 말")).toBeInTheDocument();
   });
 });
+
+describe("목록에서 새로 말 걸기 (GP-2)", () => {
+  it("이어 갈 대화가 없어도 목록에서 새로 말을 걸 수 있다", async () => {
+    serving({ threads: [] });
+    render(<ChatPanel />);
+
+    await goToPast();
+
+    expect(screen.getByRole("button", { name: "새 대화" })).toBeInTheDocument();
+  });
+
+  it("새 대화를 누르면 작성 뷰로 옮겨 가고 적는 자리에 초점이 선다", async () => {
+    serving();
+    render(<ChatPanel />);
+    await goToPast();
+
+    await userEvent.click(screen.getByRole("button", { name: "새 대화" }));
+    await settle();
+
+    const field = screen.getByLabelText("할 말");
+    expect(field).toBeInTheDocument();
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("새 대화는 화면의 대화만 처음으로 돌리고, 적던 말은 그대로 둔다", async () => {
+    serving();
+    render(<ChatPanel />);
+    await goToPast();
+    await userEvent.click(screen.getByRole("button", { name: /안녕/ }));
+    await settle();
+    await userEvent.type(screen.getByLabelText("할 말"), "적던 말");
+    await goToPast();
+
+    await userEvent.click(screen.getByRole("button", { name: "새 대화" }));
+    await settle();
+
+    expect(store().chatTurns).toEqual([]);
+    expect(store().chatThreadId).toBeNull();
+    expect(screen.getByLabelText("할 말")).toHaveValue("적던 말");
+    expect(document.activeElement).toBe(screen.getByLabelText("할 말"));
+  });
+
+  it("답을 기다리는 중에는 새 대화가 서지 않는다 — 기다리던 말을 말없이 버리지 않는다", async () => {
+    serving();
+    useEditor.setState({ watchChatEvents: () => new Promise(() => undefined) });
+    render(<ChatPanel />);
+    await userEvent.type(screen.getByLabelText("할 말"), "기다리는 말");
+    await userEvent.click(screen.getByRole("button", { name: "보내기" }));
+    await settle();
+    await goToPast();
+
+    const fresh = screen.getByRole("button", { name: "새 대화" });
+    expect(fresh).toBeDisabled();
+    expect(fresh).toHaveAttribute("title", "답이 올 때까지 기다려 주세요");
+  });
+
+  it("대화를 여는 중에는 새 대화가 서지 않고 그 까닭을 말한다", async () => {
+    serving({ events: () => new Promise<ThreadEventsOutcome>(() => {}) });
+    render(<ChatPanel />);
+    await goToPast();
+
+    await userEvent.click(screen.getByRole("button", { name: /안녕/ }));
+
+    const fresh = screen.getByRole("button", { name: "새 대화" });
+    expect(fresh).toBeDisabled();
+    expect(fresh).toHaveAttribute("title", "고른 대화를 여는 중이에요 — 잠시만요");
+  });
+});
