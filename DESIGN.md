@@ -368,6 +368,17 @@ skill-import-card (붙여 넣거나 주소를 주면 skill이 된다 — SK-3)
 - 입력 상태 아래 '시작 skill에서 고르기': 번들 시작 skill 세 줄([이름 --text-label][description --text-caption]) — 줄을 누르면 곧장 review 상태로(붙여넣기와 같은 길, 값이 채워졌을 뿐). 처음 온 사람이 빈 칸 앞에서 멈추지 않게 한다(프리셋 우선 원칙)
 - 어디서 열리는가: skill-wear의 [skill 가져오기…], skills-panel의 [skill 가져오기]. 두 입구, 한 카드
 
+skill-find (skill 찾아보기 — skill-import-card의 세 번째 입력 종류, SK-4)
+- 입력 종류 세그먼트가 3종이 된다: 글 붙여넣기 / 주소 / **찾아보기**. 찾아보기 = 검색 input(.control, placeholder '무엇을 잘하게 하고 싶나요 — 예: 표로 정리하기') + [찾기 primary] (빈 입력 disabled + 이유)
+- 결과 목록(카드 안 스크롤 영역): 줄 = [이름 --text-label][한 줄 캡션 --text-caption: 출처(문서에 있음 / 시작 skill / skills.sh의 owner/repo) · 설치 수(있으면 '많이 쓰여요' 배지는 두지 않고 숫자만 — 인기는 근거가 아니라 참고다)]. 순서: 이 문서 → 시작 skill → 원격. 문서에 이미 있는 것은 '이미 있어요' 캡션 + 누르면 그 skill 읽기(가져오기 아님)
+- 줄을 누르면 그 skill을 가져와(원격이면 서버가 본문을 읽어 온다 — 주소 모드와 같은 길) review 상태로 간다. 원격 결과의 본문은 **review에서 반드시 읽힌 뒤** [문서에 넣기]다 — 설치 수만 보고 넣는 길은 없다(코드처럼 취급)
+- 기다림: '찾는 중이에요' 한 줄(guided 문법). 원격이 닿지 않으면 문서·시작 skill 결과만 보이고 캡션 한 줄 '바깥 목록은 지금 닿지 않았어요 — 이 문서와 시작 skill에서만 찾았어요'(실패를 빈 결과로 둔갑시키지 않는다). 아무것도 없으면 '찾은 skill이 없어요 — 직접 만들거나(지시문 칸의 skill로 저장) 글을 붙여 넣을 수 있어요'
+- 원문 노출 금지 규칙 그대로: `skill://`, 코드, JSON 없음. 출처 주소는 캡션의 owner/repo 이름으로, 전체 주소는 title로
+
+guided-architect-card 보강 (SK-4 — 초안이 skill을 고른다)
+- 초안의 llm 단계는 이 문서의 skill과 시작 skill 중에서 어울리는 것을 `skill_refs`로 고를 수 있다. 시작 skill을 골랐으면 초안 적용이 그 skill을 문서에 함께 넣는다(patch의 add_skill — 승인 전 문서 불변, 승인 1회 = undo 1걸음은 그대로)
+- 검토 카드의 단계 줄에 '따르는 skill: a, b' 캡션(--text-caption). 채워야 할 칸 계산과 무관(skill은 비어도 실행된다)
+
 skill-make-card (지시문을 skill로 — skill-import-card의 '만들기' 모드, SK-5)
 - 표면·원칙은 skill-import-card를 물려받는다(한 카드, 두 모드). 아래는 **다른 점만**
 - 입구: agent inspector 지시문 칸의 프리셋 셀렉트 옆 [skill로 저장 button-ghost]. 지시문이 비어 있으면 disabled + title '지시문을 먼저 적어야 skill로 만들 수 있어요'(공백만은 적은 것이 아니다 — writtenInstructions와 같은 판정)
