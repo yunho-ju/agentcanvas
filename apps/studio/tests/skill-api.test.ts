@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { HttpResponse } from "../src/api/http";
 import { draftSkillOnServer } from "../src/api/skillDraft";
-import { fetchSkillOnServer } from "../src/api/skills";
+import { fetchSkillOnServer, searchSkillsOnServer } from "../src/api/skills";
 import { translate } from "../src/i18n/messages";
 
 function response(status: number, body: unknown): HttpResponse {
@@ -37,6 +37,7 @@ describe("skill 원문을 가져오는 문", () => {
     ["skill.fetch.notfound", 404, /skill을 찾지 못했어요/],
     ["skill.fetch.toolarge", 413, /너무 커서/],
     ["skill.fetch.timeout", 504, /제때 답하지 않았어요/],
+    ["skill.fetch.ratelimited", 429, /잠시 쉬어야 해요/],
   ])("서버가 댄 까닭 %s를 쉬운 말 한 줄로 옮긴다", async (detail, status, said) => {
     const fetch = async () => response(status, { detail });
 
@@ -113,5 +114,87 @@ describe("skill 초안을 청하는 문", () => {
     const line = translate("ko", outcome.failure!);
     expect(line).toMatch(/잠시 뒤 다시/);
     expect(line).not.toContain("provider is down");
+  });
+});
+
+describe("skill을 찾아 달라고 청하는 문", () => {
+  it("적은 물음을 실어 묻고, 찾은 줄과 바깥에 닿았는지를 읽는다", async () => {
+    const calls: { url: string }[] = [];
+    const fetch = async (url: string) => {
+      calls.push({ url });
+      return response(200, {
+        hits: [
+          {
+            name: "plain-answer",
+            description: "Use it plainly",
+            origin: "starter",
+            url: null,
+            installs: null,
+            owner_repo: null,
+            ref: "skill://plain-answer@1",
+          },
+        ],
+        remote_reached: true,
+      });
+    };
+
+    const outcome = await searchSkillsOnServer("표로 정리", {
+      baseUrl: "http://here",
+      fetch,
+    });
+
+    expect(calls[0].url).toBe(
+      "http://here/skills/search?q=%ED%91%9C%EB%A1%9C%20%EC%A0%95%EB%A6%AC",
+    );
+    expect(outcome.hits?.[0].name).toBe("plain-answer");
+    expect(outcome.remoteReached).toBe(true);
+  });
+
+  it("서버에 닿지 못하면 그 사실을 쉬운 말로 말한다", async () => {
+    const fetch = async () => {
+      throw new Error("offline");
+    };
+
+    const outcome = await searchSkillsOnServer("표로 정리", { fetch });
+
+    expect(outcome.hits).toBeUndefined();
+    expect(translate("ko", outcome.failure!)).toMatch(/서버에 닿지 못했어요/);
+  });
+
+  it("모양이 다른 줄은 결과로 삼지 않는다 — 자료형을 믿고 그리지 않는다", async () => {
+    const sound = {
+      name: "plain-answer",
+      description: null,
+      origin: "starter",
+      url: null,
+      installs: null,
+      owner_repo: null,
+      ref: "skill://plain-answer@1",
+    };
+    const odd = [
+      { ...sound, origin: "elsewhere" },
+      { ...sound, installs: "많이" },
+      { ...sound, url: 7 },
+      { ...sound, description: 3 },
+      { ...sound, ref: true },
+    ];
+
+    for (const hit of odd) {
+      const outcome = await searchSkillsOnServer("표로 정리", {
+        fetch: async () => response(200, { hits: [hit], remote_reached: true }),
+      });
+
+      expect(outcome.hits).toBeUndefined();
+      expect(translate("ko", outcome.failure!)).toMatch(/알 수 없는 답이 왔어요/);
+    }
+  });
+
+  it("알 수 없는 답은 빈 결과로 둔갑하지 않는다", async () => {
+    const fetch = async () => response(200, { hits: "nope" });
+
+    const outcome = await searchSkillsOnServer("표로 정리", { fetch });
+
+    expect(outcome.hits).toBeUndefined();
+    expect(translate("ko", outcome.failure!)).toMatch(/알 수 없는 답이 왔어요/);
   });
 });

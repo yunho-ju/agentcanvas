@@ -11,7 +11,8 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
-from typing import Any, Literal
+from time import monotonic
+from typing import Annotated, Any, Literal
 
 from agentcanvas_adapters.case_suggester import SuggestedCase
 from agentcanvas_adapters.entailment import EntailmentCall, local_entailment
@@ -30,6 +31,12 @@ from agentcanvas_adapters.skill_fetch import (
     fetch_skill_markdown,
     gets_with_httpx,
 )
+from agentcanvas_adapters.skill_search import (
+    RemoteSearch,
+    npx_skills_find,
+    remembering,
+    search_skills,
+)
 from agentcanvas_adapters.tool_adapters import tools_from
 from agentcanvas_adapters.tool_wrapper import ToolSource
 from agentcanvas_contracts.agent_spec import AgentSpec, NonEmptyText
@@ -47,6 +54,7 @@ from agentcanvas_contracts.skill_def import (
     SKILL_NAME_PATTERN,
     SkillDef,
 )
+from agentcanvas_contracts.starter_skills import starter_skills
 from agentcanvas_engine.model_call import ModelCall, says_the_first_way
 from agentcanvas_engine.routed_runtime import (
     resume_routed_run_stream,
@@ -54,7 +62,7 @@ from agentcanvas_engine.routed_runtime import (
 )
 from agentcanvas_engine.tool_call import CallsATool
 from agentcanvas_engine.validator import ValidationIssue
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -295,6 +303,29 @@ class SkillMarkdown(BaseModel):
     text: str
 
 
+class SkillSearchHit(BaseModel):
+    """찾아낸 skill 한 줄 — 본문은 아직 읽지 않았다(누르면 그때 읽어 온다)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    description: str | None = None
+    origin: Literal["starter", "remote"]
+    url: str | None = None
+    installs: int | None = None
+    owner_repo: str | None = None
+    ref: str | None = None
+
+
+class SkillSearchAnswer(BaseModel):
+    """찾은 것들과, 바깥까지 닿았는가 — 닿지 못한 것은 결과 없음과 다른 일이다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hits: list[SkillSearchHit]
+    remote_reached: bool
+
+
 class SkillDraftBody(BaseModel):
     """이 지시문을 skill 한 장으로 지어 달라는 청 — 승인 전에는 문서를 건드리지 않는다.
 
@@ -376,6 +407,8 @@ class ArchitectPatchResponse(BaseModel):
     candidate: AgentSpec
     issues: list[ValidationIssue]
     evidence: ArchitectEvidence | None = None
+    #: 아무도 모르는 이름표라 단계에서 빼낸 skill들 — 검토 카드가 그 사실을 말한다.
+    dropped_skill_refs: list[str] = Field(default_factory=list)
 
 
 class OptimizePreviewResponse(ArchitectPatchResponse):
@@ -687,6 +720,7 @@ SKILL_FETCH_STATUS = {
     "skill.fetch.notfound": 404,
     "skill.fetch.toolarge": 413,
     "skill.fetch.timeout": 504,
+    "skill.fetch.ratelimited": 429,
 }
 
 
@@ -707,6 +741,7 @@ def create_app(
     durability: bool | None = None,
     asks_entailment: EntailmentCall | None = None,
     gets_a_page: Gets | None = None,
+    searches_skills: RemoteSearch | None = None,
 ) -> FastAPI:
     """저장소·시계·일꾼·모델·허용할 자리·인증을 주입해 서버를 만든다.
 
@@ -758,6 +793,13 @@ def create_app(
     tool_wrapper = ToolWrapperService(asks_a_model)
     # 초안은 부를 모델이 없어도 답한다 — 물을 곳이 있는가만 조립 때 한 번 정해 둔다
     # (심판 자리와 같은 갈림: 지어낸 판단은 모델이 지은 초안이 아니다).
+    # 바깥 목록을 부르는 일도 주입이다: 적어 주지 않으면 진짜 `npx skills find`가 나가고,
+    # 같은 물음은 10분 동안 다시 나가지 않는다.
+    finds_skills_outside = (
+        searches_skills
+        if searches_skills is not None
+        else remembering(npx_skills_find, clock=monotonic)
+    )
     skill_drafts = SkillDraftService(
         asks_a_model, someone_to_ask=asks_a_model is not says_the_first_way
     )
@@ -988,6 +1030,7 @@ def create_app(
             candidate=outcome.candidate,
             issues=outcome.issues,
             evidence=evidence,
+            dropped_skill_refs=list(outcome.dropped_skill_refs),
         )
 
     @app.post("/architect/patch", response_model=ArchitectPatchResponse)
@@ -1059,6 +1102,24 @@ def create_app(
             text=drafted.text,
             drafted_by=drafted.drafted_by,
             issues=drafted.issues,
+        )
+
+    @app.get("/skills/search", response_model=SkillSearchAnswer)
+    def search_for_skills(
+        q: Annotated[NonEmptyText, Query()],
+    ) -> SkillSearchAnswer:
+        """물음 하나 = 시작 skill과 바깥 목록에서 찾은 줄들.
+
+        이 문서가 이미 가진 skill은 여기 오지 않는다 — 화면이 알고 있으므로 앞에 합치는
+        일은 화면의 몫이다(문서를 서버에 보내지 않는다). 바깥에 닿지 못해도 실패가 아니다:
+        있는 것만 돌려주고 닿지 못했다고 말한다.
+        """
+        found = search_skills(
+            q.strip(), starters=starter_skills().values(), remote=finds_skills_outside
+        )
+        return SkillSearchAnswer(
+            hits=[SkillSearchHit(**vars(hit)) for hit in found.hits],
+            remote_reached=found.remote_reached,
         )
 
     @app.get("/skills/fetch", response_model=SkillMarkdown)

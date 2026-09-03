@@ -18,7 +18,8 @@ export type PatchOperation =
   | RemoveEdgeOperation
   | AddResourceOperation
   | ReplaceResourceOperation
-  | RemoveResourceOperation;
+  | RemoveResourceOperation
+  | AddSkillOperation;
 export type Id = string;
 export type X = number;
 export type Y = number;
@@ -77,6 +78,19 @@ export type Tools = ToolDef[];
 export type Op6 = "replace_resource";
 export type Op7 = "remove_resource";
 export type ResourceId = string;
+export type Op8 = "add_skill";
+export type Body = string;
+export type Compatibility = string | null;
+export type Description = string;
+export type License = string | null;
+export type Name1 = string;
+export type Ref = string;
+export type Path = string;
+export type Text = string;
+export type References = SkillReference[];
+export type FetchedAt = string | null;
+export type FetchedRevision = string | null;
+export type Url = string;
 export type SchemaVersion = "agent.patch/v1";
 
 /**
@@ -239,4 +253,46 @@ export interface ReplaceResourceOperation {
 export interface RemoveResourceOperation {
   op: Op7;
   resource_id: ResourceId;
+}
+/**
+ * 문서가 따를 skill 한 장을 들인다 — 본문은 카탈로그의 원문 그대로다.
+ *
+ * 모델이 본문을 지어내는 자리가 아니다: 서버가 고른 카탈로그의 SkillDef를 그대로 싣는다
+ * (제안이 skill을 고르면 그 skill이 함께 들어와야 단계가 없는 것을 입지 않는다).
+ */
+export interface AddSkillOperation {
+  op: Op8;
+  skill: SkillDef;
+}
+/**
+ * 표준 SKILL.md 하나 — 노드는 `skill_refs`에 이 `ref`를 적어 입는다.
+ */
+export interface SkillDef {
+  body: Body;
+  compatibility?: Compatibility;
+  description: Description;
+  license?: License;
+  metadata?: Metadata;
+  name: Name1;
+  ref: Ref;
+  references?: References;
+  source?: SkillSource | null;
+}
+export interface Metadata {
+  [k: string]: string;
+}
+/**
+ * skill 곁의 읽을 문서 하나 — 점진 공개의 셋째 단계에서 사람이 펼쳐 본다.
+ */
+export interface SkillReference {
+  path: Path;
+  text: Text;
+}
+/**
+ * 이 skill이 어디서 왔는가 — 나중에 새 판이 나왔는지 확인하는 데 쓴다.
+ */
+export interface SkillSource {
+  fetched_at?: FetchedAt;
+  fetched_revision?: FetchedRevision;
+  url: Url;
 }

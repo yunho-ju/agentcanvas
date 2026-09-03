@@ -30,7 +30,9 @@ EVERYDAY_WORDS = frozenset(
     }
 )  # fmt: skip
 
-_WORD = re.compile(r"[a-z0-9]+")
+#: 낱말 하나 — 로마자·숫자가 이어진 토막, 또는 한글이 이어진 토막(U+AC00–U+D7A3).
+#: 두 언어가 같은 줄을 고르려면 이 규칙이 TS(graph/similarSkills)와 글자 하나까지 같아야 한다.
+_WORD = re.compile(r"[a-z0-9]+|[\uac00-\ud7a3]+")
 
 
 class SkillQuery(ContractModel):
@@ -42,7 +44,7 @@ class SkillQuery(ContractModel):
 
 
 def _words_in(text: str) -> set[str]:
-    """글 하나가 쓴 낱말들 — 대소문자·구두점은 셈에 들지 않는다."""
+    """글 하나가 쓴 낱말들 — 대소문자·구두점은 셈에 들지 않는다(한글도 낱말이다)."""
     return {word for word in _WORD.findall(text.lower()) if word not in EVERYDAY_WORDS}
 
 

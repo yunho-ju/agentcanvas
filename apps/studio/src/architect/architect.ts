@@ -1,8 +1,32 @@
 import type { AgentSpec } from "../generated/agent_spec";
+import { skillRefs } from "../registry/registry";
 import { fakeRun } from "../run/fakeRun";
 import { nodeSetupIssues } from "../graph/nodeSetupIssues";
 import { validateSpec } from "../graph/validateSpec";
 import { nodeTypes } from "../registry/registry";
+
+/** 이 초안에서 skill을 따르는 단계 하나 — 이름표가 아니라 사람이 읽을 이름으로 말한다. */
+export interface StepWearingSkills {
+  /** 그 단계를 이 문서에서 부르는 이름(노드 id) — 같은 종류의 두 단계를 가르는 유일한 이름 */
+  node: string;
+  skills: string[];
+}
+
+/**
+ * 초안의 어느 단계가 무엇을 따르는가 (DESIGN §7 guided-architect-card 보강).
+ * 문서에 없는 이름표는 여기 오지 않는다 — 서버가 이미 빼냈고, 남은 것은 검증이 말한다.
+ */
+export function stepsWearingSkills(spec: AgentSpec): StepWearingSkills[] {
+  const names = new Map((spec.skills ?? []).map((skill) => [skill.ref, skill.name]));
+  return spec.nodes.flatMap((node) => {
+    const nodeType = nodeTypes[node.type];
+    if (nodeType === undefined) return [];
+    const worn = skillRefs(node, nodeType)
+      .map((ref) => names.get(ref))
+      .filter((name): name is string => name !== undefined);
+    return worn.length === 0 ? [] : [{ node: node.id, skills: worn }];
+  });
+}
 
 export const ARCHITECT_REVIEW_TIME = new Date("2026-01-01T00:00:00.000Z");
 

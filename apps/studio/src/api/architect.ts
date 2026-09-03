@@ -41,10 +41,18 @@ export type ArchitectDraftOutcome =
       draft: AgentSpec;
       patch: AgentSpecPatch;
       issues: ArchitectIssue[];
+      /** 서버가 알아보지 못해 단계에서 빼낸 skill 이름표들 — 검토 카드가 그 사실을 말한다 */
+      droppedSkillRefs?: string[];
       evidence?: ArchitectEvidence;
       failure?: undefined;
     }
-  | { draft?: undefined; patch?: undefined; issues?: undefined; failure: Message };
+  | {
+      draft?: undefined;
+      patch?: undefined;
+      issues?: undefined;
+      droppedSkillRefs?: undefined;
+      failure: Message;
+    };
 
 export interface ArchitectApiOptions extends ServerOptions {
   /** 이 시한까지만 provider preview를 기다린다. */
@@ -99,10 +107,12 @@ function draftOf(body: unknown): ArchitectDraftOutcome {
     return { failure: msg("architect.error.strange") };
   }
   const evidence = evidenceOf(body.evidence);
+  const dropped = body.dropped_skill_refs;
   return {
     draft: body.candidate as unknown as AgentSpec,
     patch: body.patch as unknown as AgentSpecPatch,
     issues: body.issues as ArchitectIssue[],
+    droppedSkillRefs: Array.isArray(dropped) ? dropped.map(String) : [],
     ...(evidence ? { evidence } : {}),
   };
 }

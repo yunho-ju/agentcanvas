@@ -15,6 +15,8 @@ export interface ArchitectSlice {
   architectRequest: string;
   architectDraft: AgentSpec | null;
   architectReview: ArchitectReview | null;
+  /** 서버가 알아보지 못해 초안에서 빼낸 skill이 몇 개인가 — 검토 카드가 그 사실을 말한다 */
+  architectDroppedSkills: number;
   architectError: Message | null;
   architectLoading: boolean;
   requestArchitectDraft: (request: string, draftId: string) => Promise<ArchitectDraftOutcome>;
@@ -34,6 +36,7 @@ export const createArchitectSlice: StateCreator<EditorState, [], [], ArchitectSl
     architectRequest: "",
     architectDraft: null,
     architectReview: null,
+    architectDroppedSkills: 0,
     architectError: null,
     architectLoading: false,
     requestArchitectDraft: createArchitectDraftOnServer,
@@ -50,6 +53,7 @@ export const createArchitectSlice: StateCreator<EditorState, [], [], ArchitectSl
         architectLoading: true,
         architectDraft: null,
         architectReview: null,
+        architectDroppedSkills: 0,
         architectError: null,
       });
 
@@ -70,6 +74,7 @@ export const createArchitectSlice: StateCreator<EditorState, [], [], ArchitectSl
         architectDraft: outcome.draft,
         architectMode: "review",
         architectReview: reviewArchitectSpec(outcome.draft),
+        architectDroppedSkills: outcome.droppedSkillRefs?.length ?? 0,
         architectLoading: false,
         architectError: null,
       });
@@ -80,17 +85,17 @@ export const createArchitectSlice: StateCreator<EditorState, [], [], ArchitectSl
     },
     resetArchitect: () => {
       buildSequence += 1;
-      set({ architectMode: "guided", architectDraft: null, architectReview: null, architectError: null, architectLoading: false });
+      set({ architectMode: "guided", architectDraft: null, architectReview: null, architectDroppedSkills: 0, architectError: null, architectLoading: false });
     },
     skipArchitect: () => {
       buildSequence += 1;
-      set({ architectMode: "closed", architectDraft: null, architectReview: null, architectError: null, architectLoading: false });
+      set({ architectMode: "closed", architectDraft: null, architectReview: null, architectDroppedSkills: 0, architectError: null, architectLoading: false });
     },
     applyArchitectDraft: () => {
       const { architectDraft, architectReview, spec, nodes } = get();
       if (!architectDraft || !architectReview?.passed || spec !== null || nodes.length !== 0) return false;
       get().loadSpec(architectDraft);
-      set({ architectMode: "closed", architectDraft: null, architectReview: null, architectLoading: false });
+      set({ architectMode: "closed", architectDraft: null, architectReview: null, architectDroppedSkills: 0, architectLoading: false });
       return true;
     },
   };

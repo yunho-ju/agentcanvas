@@ -1,3 +1,4 @@
+import { stepsWearingSkills } from "./architect";
 import { useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 
@@ -15,6 +16,7 @@ export function ArchitectPanel() {
   const reset = useEditor((state) => state.resetArchitect);
   const skip = useEditor((state) => state.skipArchitect);
   const apply = useEditor((state) => state.applyArchitectDraft);
+  const dropped = useEditor((state) => state.architectDroppedSkills);
   const t = useT();
 
   if (mode === "closed" || spec !== null || nodes.length !== 0 || (mode === "review" && !draft)) return null;
@@ -51,6 +53,24 @@ export function ArchitectPanel() {
             <span>{t("architect.toFill", { count: toFill })}</span>
             {toFill > 0 ? <span className="architect-panel__to-fill-hint">{t("architect.toFill.hint")}</span> : null}
           </p>
+          {/* 어느 단계가 무엇을 따르는지 (DESIGN §7 guided-architect-card 보강).
+              채워야 할 칸 셈과는 무관하다 — skill은 비어도 실행된다. */}
+          {draft && stepsWearingSkills(draft).length > 0 ? (
+            <ul className="architect-panel__steps">
+              {stepsWearingSkills(draft).map((step) => (
+                <li className="architect-panel__step" key={step.node}>
+                  <span className="architect-panel__step-name">{step.node}</span>
+                  <span className="architect-panel__step-skills">
+                    {t("architect.stepSkills", { skills: step.skills.join(", ") })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {/* 조용히 빼지 않는다 — 무엇이 빠졌는지 말한다 (§9). */}
+          {dropped > 0 ? (
+            <p className="architect-panel__dropped">{t("architect.skillsDropped")}</p>
+          ) : null}
           <div className="architect-panel__actions">
             <button type="button" className="button-primary" onClick={apply} disabled={!canApply} title={!canApply ? t("architect.apply.disabled") : t("architect.apply.hint")}>{t("architect.apply")}</button>
             <button type="button" className="button-ghost" onClick={reset} title={t("architect.back.hint")}>{t("architect.back")}</button>

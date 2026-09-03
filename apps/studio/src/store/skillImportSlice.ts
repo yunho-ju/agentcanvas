@@ -6,6 +6,7 @@
 import type { StateCreator } from "zustand";
 import { type SkillFetchOutcome, fetchSkillOnServer } from "../api/skills";
 import type { SkillDef } from "../generated/skill_def";
+import type { ServerHit } from "../graph/skillHits";
 import { parseSkillMarkdown } from "../graph/skillMarkdown";
 import type { Message } from "../i18n/messages";
 import { resolveStarterSkill } from "../registry/starterSkills";
@@ -20,9 +21,12 @@ export type SkillImportMode = "closed" | "input" | "review";
 /** 어디서 가져오는가 — 붙여 넣은 글, 또는 주소 */
 export type SkillSourceKind = "paste" | "url";
 
+/** 카드가 지금 무엇을 묻고 있는가 — 가져올 것을 받거나, 찾아보거나 */
+export type SkillImportKind = SkillSourceKind | "find";
+
 export interface SkillImportSlice {
   skillImportMode: SkillImportMode;
-  skillImportKind: SkillSourceKind;
+  skillImportKind: SkillImportKind;
   /** 붙여 넣은 글, 또는 적은 주소 (고른 종류에 따라 뜻이 다르다) */
   skillImportSource: string;
   skillImportLoading: boolean;
@@ -38,7 +42,7 @@ export interface SkillImportSlice {
   fetchSkillOnServer: (url: string) => Promise<SkillFetchOutcome>;
   openSkillImport: () => void;
   closeSkillImport: () => void;
-  setSkillImportKind: (kind: SkillSourceKind) => void;
+  setSkillImportKind: (kind: SkillImportKind) => void;
   setSkillImportSource: (source: string) => void;
   /** 적은 것을 읽어 미리보기로 간다 — 붙여넣기는 그 자리에서, 주소는 서버를 거쳐서 */
   readSkillImport: () => Promise<void>;
@@ -69,8 +73,23 @@ export interface SkillMakeCardState {
   skillDraftedBy: "model" | "scaffold" | null;
 }
 
+/** 찾아보기가 함께 비우는 자리 — 카드는 하나라 닫으면 셋 다 처음으로 돌아간다. */
+export interface SkillFindCardState {
+  skillFindQuery: string;
+  /** 실제로 물어본 물음 — 적는 동안 결과가 흔들리지 않게 답과 함께 둔다 */
+  skillFindAsked: string;
+  skillFindLoading: boolean;
+  /** 서버가 준 줄들 — 아직 찾지 않았으면 null(결과 없음과 다른 일이다) */
+  skillFindHits: ServerHit[] | null;
+  skillFindRemoteReached: boolean;
+  /** 카드 안에서 펴 읽고 있는 이 문서의 skill */
+  skillFindReading: SkillDef | null;
+}
+
 /** 문서를 옮겨 가거나 승인을 마치면 이 자리는 처음으로 돌아간다. */
-export const CLOSED_SKILL_IMPORT: SkillCardState & SkillMakeCardState = {
+export const CLOSED_SKILL_IMPORT: SkillCardState &
+  SkillMakeCardState &
+  SkillFindCardState = {
   skillImportMode: "closed",
   skillImportKind: "paste",
   skillImportSource: "",
@@ -83,6 +102,12 @@ export const CLOSED_SKILL_IMPORT: SkillCardState & SkillMakeCardState = {
   skillMakeName: "",
   skillMakeDescription: "",
   skillDraftedBy: null,
+  skillFindQuery: "",
+  skillFindAsked: "",
+  skillFindLoading: false,
+  skillFindHits: null,
+  skillFindRemoteReached: false,
+  skillFindReading: null,
 };
 
 /**
@@ -159,12 +184,15 @@ export const createSkillImportSlice: StateCreator<
         set({ skillImportError: { key: "skillImport.error.empty" } });
         return;
       }
+      const kind = get().skillImportKind;
+      // 찾아보기에는 읽을 원문이 아직 없다 — 줄을 누르는 것이 그 길이다.
+      if (kind === "find") return;
       const sequence = ++askSequence;
       set({ skillImportLoading: true, skillImportError: null, skillImportIssues: [] });
 
       let outcome: Awaited<ReturnType<ReadsSource>>;
       try {
-        outcome = await SOURCE_READERS[get().skillImportKind](get(), source);
+        outcome = await SOURCE_READERS[kind](get(), source);
       } catch {
         outcome = { failure: { key: "skillImport.error.offline" } };
       }

@@ -29,6 +29,7 @@ import { type RunSlice, createRunSlice } from "./runSlice";
 import { type PublishSlice, createPublishSlice } from "./publishSlice";
 import { type SaveSlice, createSaveSlice } from "./saveSlice";
 import { type SelectionSlice, createSelectionSlice } from "./selectionSlice";
+import { type SkillFindSlice, createSkillFindSlice } from "./skillFindSlice";
 import { type SkillImportSlice, createSkillImportSlice } from "./skillImportSlice";
 import { type SkillMakeSlice, createSkillMakeSlice } from "./skillMakeSlice";
 import { type SkillSlice, createSkillSlice } from "./skillSlice";
@@ -65,6 +66,7 @@ export type EditorState = GraphSlice &
   OptimizeSlice &
   SkillSlice &
   SkillImportSlice &
+  SkillFindSlice &
   SkillMakeSlice &
   ToolWrapSlice;
 
@@ -82,6 +84,7 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createToolWrapSlice(...args),
   ...createSkillSlice(...args),
   ...createSkillImportSlice(...args),
+  ...createSkillFindSlice(...args),
   ...createSkillMakeSlice(...args),
   ...createHistorySlice(...args),
   ...createSelectionSlice(...args),

@@ -24,7 +24,9 @@
       }
     ],
     "howMany": 3,
-    "expect": ["plain-answer"]
+    "expect": [
+      "plain-answer"
+    ]
   },
   {
     "name": "겹치는 말이 하나도 없으면 목록에 들지 않는다",
@@ -68,7 +70,10 @@
       }
     ],
     "howMany": 2,
-    "expect": ["plain-answer", "answer-in-order"]
+    "expect": [
+      "plain-answer",
+      "answer-in-order"
+    ]
   },
   {
     "name": "점수가 같으면 이름 차례로 — 두 언어가 같은 줄을 고른다",
@@ -90,6 +95,33 @@
       }
     ],
     "howMany": 3,
-    "expect": ["first-thought", "second-thought"]
+    "expect": [
+      "first-thought",
+      "second-thought"
+    ]
+  },
+  {
+    "name": "한국어로 물어도 같은 줄을 고른다",
+    "query": {
+      "name": "표-정리",
+      "description": "숫자를 표로 정리해서 보여 줄 때 쓰세요.",
+      "body": "표로 정리해요.\n"
+    },
+    "candidates": [
+      {
+        "name": "ask-before-acting",
+        "description": "바깥을 바꾸는 걸음 앞에서는 사람에게 먼저 물어봐요.",
+        "body": "바꾸기 전에 물어봐요.\n"
+      },
+      {
+        "name": "table-tidy",
+        "description": "숫자를 표로 정리할 때 쓰세요.",
+        "body": "칸을 맞춰 표를 만들어요.\n"
+      }
+    ],
+    "howMany": 3,
+    "expect": [
+      "table-tidy"
+    ]
   }
 ]

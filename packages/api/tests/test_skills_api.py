@@ -98,3 +98,17 @@ def test_an_address_that_does_not_answer_in_time_says_so():
     assert answer.json()["detail"] == "skill.fetch.timeout"
     # 저쪽이 보낸 말은 화면으로 나가지 않는다 — 코드 하나만 건넨다.
     assert "timed out" not in answer.text
+
+
+def test_asking_github_too_often_is_answered_as_a_rest_not_as_a_missing_skill():
+    """저쪽이 쉬라고 한 것은 없는 것이 아니다 — 사람이 할 일이 다르므로 다른 자리로 답한다."""
+
+    def gets(request: FetchRequest) -> Fetched:
+        return Fetched(403, "") if "api.github.com" in request.url else Fetched(404, "")
+
+    answer = a_client(gets).get(
+        "/skills/fetch", params={"url": "https://skills.sh/acme/kit/plain-answer"}
+    )
+
+    assert answer.status_code == 429
+    assert answer.json()["detail"] == "skill.fetch.ratelimited"

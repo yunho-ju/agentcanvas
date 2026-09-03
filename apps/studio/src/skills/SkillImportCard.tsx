@@ -8,10 +8,11 @@ import { useT } from "../i18n/useT";
 import { STARTER_SKILLS } from "../registry/starterSkills";
 import { useEditor } from "../store/editor";
 import { docSkills } from "../store/skillSlice";
-import type { SkillSourceKind } from "../store/skillImportSlice";
+import type { SkillImportKind, SkillSourceKind } from "../store/skillImportSlice";
 import { skillImportReplaces } from "../store/skillImportSlice";
 import { skillMakeReferences } from "../store/skillMakeSlice";
 import { SkillBody } from "./SkillBody";
+import { SkillFindView } from "./SkillFindView";
 import { skillDescriptionProblem, skillNameProblem, sourceCaption } from "./skillWords";
 
 /** 미리보기에서 먼저 보여 주는 줄 수 — 나머지는 눌러서 편다. */
@@ -40,7 +41,7 @@ const APPROVAL: Record<
 
 /** 어디서 가져오는가 — 종류가 늘면 여기 한 줄이다 (분기 대신 표). */
 const SOURCE_KINDS: {
-  kind: SkillSourceKind;
+  kind: SkillImportKind;
   name: MessageKey;
   label: MessageKey;
   placeholder: MessageKey;
@@ -57,26 +58,19 @@ const SOURCE_KINDS: {
     label: "skillImport.source.url",
     placeholder: "skillImport.placeholder.url",
   },
+  {
+    kind: "find",
+    name: "skillImport.kind.find",
+    label: "skillFind.label",
+    placeholder: "skillFind.placeholder",
+  },
 ];
 
 function Asking() {
   const kind = useEditor((state) => state.skillImportKind);
-  const source = useEditor((state) => state.skillImportSource);
   const loading = useEditor((state) => state.skillImportLoading);
-  const error = useEditor((state) => state.skillImportError);
-  const issues = useEditor((state) => state.skillImportIssues);
   const setKind = useEditor((state) => state.setSkillImportKind);
-  const setSource = useEditor((state) => state.setSkillImportSource);
-  const read = useEditor((state) => state.readSkillImport);
-  const close = useEditor((state) => state.closeSkillImport);
-  const pickStarter = useEditor((state) => state.pickStarterSkill);
-  const box = useRef<HTMLTextAreaElement>(null);
   const t = useT();
-  const chosen = SOURCE_KINDS.find((option) => option.kind === kind) ?? SOURCE_KINDS[0];
-  const empty = source.trim() === "";
-
-  // 열리면 손은 적을 자리에 놓인다.
-  useEffect(() => box.current?.focus(), []);
 
   return (
     <>
@@ -99,6 +93,31 @@ function Asking() {
           </button>
         ))}
       </div>
+      {kind === "find" ? <SkillFindView /> : <Giving kind={kind} />}
+    </>
+  );
+}
+
+/** 붙여 넣은 글이나 주소를 받는 자리 — 모델을 부르지 않고 파서가 그 자리에서 읽는다. */
+function Giving({ kind }: { kind: SkillSourceKind }) {
+  const source = useEditor((state) => state.skillImportSource);
+  const loading = useEditor((state) => state.skillImportLoading);
+  const error = useEditor((state) => state.skillImportError);
+  const issues = useEditor((state) => state.skillImportIssues);
+  const setSource = useEditor((state) => state.setSkillImportSource);
+  const read = useEditor((state) => state.readSkillImport);
+  const close = useEditor((state) => state.closeSkillImport);
+  const pickStarter = useEditor((state) => state.pickStarterSkill);
+  const box = useRef<HTMLTextAreaElement>(null);
+  const t = useT();
+  const chosen = SOURCE_KINDS.find((option) => option.kind === kind) ?? SOURCE_KINDS[0];
+  const empty = source.trim() === "";
+
+  // 열리면 손은 적을 자리에 놓인다.
+  useEffect(() => box.current?.focus(), []);
+
+  return (
+    <>
       <label className="skill-import-card__label" htmlFor="skill-import-source">
         {t(chosen.label)}
       </label>

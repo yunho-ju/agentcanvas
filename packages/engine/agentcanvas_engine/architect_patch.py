@@ -17,6 +17,7 @@ from agentcanvas_contracts.architect_patch import (
     AddEdgeOperation,
     AddNodeOperation,
     AddResourceOperation,
+    AddSkillOperation,
     AgentSpecPatch,
     RemoveEdgeOperation,
     RemoveNodeOperation,
@@ -24,6 +25,7 @@ from agentcanvas_contracts.architect_patch import (
     ReplaceNodeConfigOperation,
     ReplaceResourceOperation,
 )
+from agentcanvas_contracts.skill_def import SkillDef
 
 type PatchApplyReason = Literal[
     "invalid_base_revision",
@@ -35,6 +37,7 @@ type PatchApplyReason = Literal[
     "unknown_edge",
     "duplicate_resource",
     "unknown_resource",
+    "duplicate_skill",
 ]
 
 
@@ -70,6 +73,13 @@ def _resource_index(resources: list[ResourceBinding], resource_id: str) -> int |
     return None
 
 
+def _skill_index(skills: list[SkillDef], ref: str) -> int | None:
+    for index, skill in enumerate(skills):
+        if skill.ref == ref:
+            return index
+    return None
+
+
 def apply_patch(base: AgentSpec, patch: AgentSpecPatch) -> AgentSpec:
     """작업을 적힌 순서대로 적용해 새 draft를 만든다.
 
@@ -91,6 +101,7 @@ def apply_patch(base: AgentSpec, patch: AgentSpecPatch) -> AgentSpec:
     nodes = [node.model_copy(deep=True) for node in base.nodes]
     edges = [edge.model_copy(deep=True) for edge in base.edges]
     resources = [resource.model_copy(deep=True) for resource in base.resources]
+    skills = [skill.model_copy(deep=True) for skill in base.skills]
 
     for operation in patch.operations:
         if isinstance(operation, AddNodeOperation):
@@ -179,6 +190,17 @@ def apply_patch(base: AgentSpec, patch: AgentSpecPatch) -> AgentSpec:
             resources[index] = operation.resource.model_copy(deep=True)
             continue
 
+        if isinstance(operation, AddSkillOperation):
+            if _skill_index(skills, operation.skill.ref) is not None:
+                raise PatchApplyError(
+                    reason="duplicate_skill",
+                    message=(
+                        f"skill {operation.skill.name!r} is already in the document"
+                    ),
+                )
+            skills.append(operation.skill.model_copy(deep=True))
+            continue
+
         if isinstance(operation, RemoveResourceOperation):
             index = _resource_index(resources, operation.resource_id)
             if index is None:
@@ -196,6 +218,7 @@ def apply_patch(base: AgentSpec, patch: AgentSpecPatch) -> AgentSpec:
             "nodes": nodes,
             "edges": edges,
             "resources": resources,
+            "skills": skills,
             "version": base.version + 1,
             "status": AgentStatus.DRAFT,
         },

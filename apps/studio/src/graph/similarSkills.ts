@@ -19,7 +19,10 @@ const EVERYDAY_WORDS = new Set([
   "your",
 ]);
 
-const WORD = /[a-z0-9]+/g;
+/** 낱말 하나 — 로마자·숫자가 이어진 토막, 또는 한글이 이어진 토막(U+AC00–U+D7A3).
+ *  Python `skill_similarity._WORD`와 글자 하나까지 같아야 두 언어가 같은 줄을 고른다.
+ *  한글은 코드포인트로 적는다 — 이 파일은 사전이 아니라서 화면 글자를 두지 않는다. */
+const WORD = /[a-z0-9]+|[\uac00-\ud7a3]+/g;
 
 /** 지금 만들고 있는 skill — 아직 문서의 것이 아니라 SkillDef가 아니다. */
 export interface SkillQuery {
@@ -37,7 +40,7 @@ export function referenceCandidates(held: SkillDef[], starters: SkillDef[]): Ski
   return [...held, ...starters.filter((starter) => !inTheDocument.has(starter.ref))];
 }
 
-/** 글 하나가 쓴 낱말들 — 대소문자·구두점은 셈에 들지 않는다. */
+/** 글 하나가 쓴 낱말들 — 대소문자·구두점은 셈에 들지 않는다(한글도 낱말이다). */
 function wordsIn(text: string): Set<string> {
   const found = text.toLowerCase().match(WORD) ?? [];
   return new Set(found.filter((word) => !EVERYDAY_WORDS.has(word)));

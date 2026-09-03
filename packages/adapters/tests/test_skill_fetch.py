@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+
 from agentcanvas_adapters.skill_fetch import (
     ALLOWED_HOSTS,
     MAX_BYTES,
+    MAX_TREE_BYTES,
     TIMEOUT_S,
     Fetched,
     FetchFailed,
@@ -223,3 +226,205 @@ class TestTheNetItActuallyRides:
         assert got.reason == "toolarge"
         # 다 받아 본 뒤에 재지 않는다 — 넘는 순간 그만둔다.
         assert len(drawn) == 2
+
+
+# ── 저장소 안 깊은 자리에 사는 skill 찾아내기 (SK-4 실브라우저 지적) ────────────
+REPO_API = "https://api.github.com/repos/acme/kit"
+
+
+def tree_api(branch: str = "main") -> str:
+    return f"https://api.github.com/repos/acme/kit/git/trees/{branch}?recursive=1"
+
+
+def a_tree(*paths: str, truncated: bool = False) -> str:
+    return json.dumps(
+        {
+            "truncated": truncated,
+            "tree": [{"path": path, "type": "blob"} for path in paths],
+        }
+    )
+
+
+def a_repo(branch: str = "main") -> str:
+    return json.dumps({"default_branch": branch})
+
+
+def test_a_skill_that_lives_deep_in_the_repository_is_still_found():
+    """흔한 자리에 없다고 없는 것이 아니다 — 저장소가 어디에 두었는지 물어본다."""
+    asked: list[str] = []
+    deep = "plugins/knowledge/skills/policy-lookup/SKILL.md"
+    raw = f"https://raw.githubusercontent.com/acme/kit/main/{deep}"
+
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/policy-lookup",
+        gets=answers(
+            {
+                REPO_API: a_repo(),
+                tree_api(): a_tree("README.md", deep),
+                raw: SKILL,
+            },
+            asked,
+        ),
+    )
+
+    assert isinstance(got, SkillFetched)
+    assert got.url == raw
+    # 흔한 자리를 먼저 다 물어본 뒤에야 목록을 청한다 (남의 문을 아껴 두드린다).
+    assert asked.index(REPO_API) > 0
+
+
+def test_the_shortest_place_wins_when_a_repository_keeps_several():
+    """둘 다 진짜로 있을 때 고르는 자리 — 대표 자리를 곁가지보다 앞에 둔다."""
+    short = "plugins/skills/policy-lookup/SKILL.md"
+    long_one = "plugins/knowledge/deep/skills/policy-lookup/SKILL.md"
+    here = "https://raw.githubusercontent.com/acme/kit/main"
+
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/policy-lookup",
+        # 흔한 자리에는 없고, 목록의 두 자리에는 둘 다 글이 있다.
+        gets=answers(
+            {
+                REPO_API: a_repo(),
+                # 목록의 차례는 얕은 자리를 뒤에 둔다 — 차례가 아니라 깊이로 고른다.
+                tree_api(): a_tree(long_one, short),
+                f"{here}/{long_one}": SKILL,
+                f"{here}/{short}": SKILL,
+            }
+        ),
+    )
+
+    assert isinstance(got, SkillFetched)
+    assert got.url == f"{here}/{short}"
+
+
+def test_a_folder_that_only_ends_with_the_name_is_not_that_skill():
+    """`old-policy-lookup/SKILL.md`는 `policy-lookup`이 아니다 — 이름은 자리 하나와 같아야 한다."""
+    near = "skills/old-policy-lookup/SKILL.md"
+
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/policy-lookup",
+        # 그 자리에는 진짜로 글이 있다 — 그래도 우리가 찾던 skill이 아니다.
+        gets=answers(
+            {
+                REPO_API: a_repo(),
+                tree_api(): a_tree(near),
+                f"https://raw.githubusercontent.com/acme/kit/main/{near}": SKILL,
+            }
+        ),
+    )
+
+    assert got == SkillFetchFailed(code="skill.fetch.notfound")
+
+
+def test_a_list_too_long_to_read_is_not_a_place_we_found():
+    """다 읽지 못한 목록에서 고른 자리는 답이 아니다 — 거기 글이 있어도 그렇다."""
+    deep = "plugins/x/skills/policy-lookup/SKILL.md"
+
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/policy-lookup",
+        gets=answers(
+            {
+                REPO_API: a_repo(),
+                tree_api(): a_tree(deep, truncated=True),
+                f"https://raw.githubusercontent.com/acme/kit/main/{deep}": SKILL,
+            }
+        ),
+    )
+
+    assert got == SkillFetchFailed(code="skill.fetch.notfound")
+
+
+def test_asking_too_often_is_said_as_a_rest_not_as_a_missing_skill():
+    def gets(request: FetchRequest) -> Fetched:
+        return Fetched(403, "") if request.url == REPO_API else Fetched(404, "")
+
+    got = fetch_skill_markdown("https://skills.sh/acme/kit/policy-lookup", gets=gets)
+
+    assert got == SkillFetchFailed(code="skill.fetch.ratelimited")
+
+
+def test_the_branch_the_repository_calls_its_own_is_the_one_we_read():
+    asked: list[str] = []
+    raw = "https://raw.githubusercontent.com/acme/kit/master/skills/policy-lookup/SKILL.md"
+
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/policy-lookup",
+        gets=answers({REPO_API: a_repo("master"), raw: SKILL}, asked),
+    )
+
+    assert isinstance(got, SkillFetched)
+    assert got.url == raw
+    # 판 이름을 알고 나서 흔한 자리를 다시 본다 — 목록까지 청할 일이 아니다.
+    assert tree_api("master") not in asked
+
+
+def test_a_skill_at_a_common_place_never_costs_a_question_to_github():
+    asked: list[str] = []
+    raw = "https://raw.githubusercontent.com/acme/kit/main/skills/plain/SKILL.md"
+
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/plain", gets=answers({raw: SKILL}, asked)
+    )
+
+    assert isinstance(got, SkillFetched)
+    assert not any(url.startswith("https://api.github.com") for url in asked)
+
+
+def test_a_closed_door_at_a_file_is_not_a_rest_it_is_just_not_there():
+    """403은 저장소에게 물었을 때만 '쉬라'는 말이다 — 원문 자리의 것은 다음 자리를 본다."""
+    found = "https://raw.githubusercontent.com/acme/kit/main/plain/SKILL.md"
+
+    def gets(request: FetchRequest) -> Fetched:
+        if request.url == found:
+            return Fetched(200, SKILL)
+        return (
+            Fetched(403, "")
+            if request.url.startswith("https://raw.")
+            else Fetched(404, "")
+        )
+
+    got = fetch_skill_markdown("https://skills.sh/acme/kit/plain", gets=gets)
+
+    assert isinstance(got, SkillFetched)
+    assert got.url == found
+
+
+def test_a_list_bigger_than_we_read_is_not_a_place_we_found():
+    """다 싣지 못할 만큼 큰 목록도 '여기 없다'이다 — 파일이 큰 것과 다른 일을 말하지 않는다."""
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/policy-lookup",
+        gets=answers({REPO_API: a_repo(), tree_api(): "x" * (MAX_TREE_BYTES + 1)}),
+    )
+
+    assert got == SkillFetchFailed(code="skill.fetch.notfound")
+
+
+def answers_within_the_cap(pages: dict[str, str]):
+    """진짜 전송처럼 **부탁에 적힌 한계**까지만 실어 오는 그물."""
+
+    def gets(request: FetchRequest) -> Fetched | FetchFailed:
+        text = pages.get(request.url)
+        if text is None:
+            return Fetched(404, "")
+        if len(text.encode("utf-8")) > request.max_bytes:
+            return FetchFailed(reason="toolarge", message="bigger than we carry")
+        return Fetched(200, text)
+
+    return gets
+
+
+def test_a_repository_list_longer_than_one_file_is_still_read():
+    """자리 목록은 파일 하나보다 크다 — 파일의 한계로 목록을 물리면 있는 skill을 못 찾는다."""
+    deep = "plugins/knowledge/skills/policy-lookup/SKILL.md"
+    raw = f"https://raw.githubusercontent.com/acme/kit/main/{deep}"
+    padding = [f"plugins/{index}/README.md" for index in range(6000)]
+    tree = a_tree(*padding, deep)
+    assert MAX_BYTES < len(tree.encode("utf-8")) < MAX_TREE_BYTES
+
+    got = fetch_skill_markdown(
+        "https://skills.sh/acme/kit/policy-lookup",
+        gets=answers_within_the_cap({REPO_API: a_repo(), tree_api(): tree, raw: SKILL}),
+    )
+
+    assert isinstance(got, SkillFetched)
+    assert got.url == raw

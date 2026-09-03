@@ -359,6 +359,12 @@ button:disabled {
 .architect-panel__to-fill { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); font-size: var(--text-caption); color: var(--ink-soft); }
 .architect-panel__to-fill[data-tone="warn"] { padding: var(--space-1) var(--space-2); border-radius: var(--radius-control); background: var(--warn-soft); color: var(--warn-ink); }
 .architect-panel__to-fill-hint { color: inherit; }
+/* 초안의 단계가 무엇을 따르는가 (DESIGN §7 guided-architect-card 보강, SK-4). */
+.architect-panel__steps { margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); list-style: none; }
+.architect-panel__step { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.architect-panel__step-name { font-size: var(--text-label); color: var(--ink); }
+.architect-panel__step-skills { font-size: var(--text-caption); color: var(--ink-soft); }
+.architect-panel__dropped { margin: 0; font-size: var(--text-caption); color: var(--warn-ink); }
 .architect-panel__checks { display: flex; flex-direction: column; gap: var(--space-1); }
 .architect-panel__check { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--danger-ink); }
 .architect-panel__check[data-passed="true"] { color: var(--success-ink); }
@@ -5572,6 +5578,16 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+/* 찾은 줄들 — 카드 안에서만 구른다 (DESIGN §7 skill-find).
+   줄 자체는 시작 skill 줄의 문법(.skill-import-card__starter)을 그대로 쓴다. */
+.skill-import-card__results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: var(--open-list-height);
+  overflow-y: auto;
 }
 
 .skill-import-card__starters-title {

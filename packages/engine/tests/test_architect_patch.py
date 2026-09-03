@@ -431,3 +431,64 @@ def test_a_document_saved_before_skills_existed_is_still_a_valid_patch_anchor():
         ),
     )
     assert patched.revision == patched.computed_revision()
+
+
+def a_skill(name: str = "plain-answer") -> dict:
+    return {
+        "ref": f"skill://{name}@1",
+        "name": name,
+        "description": "Use when the answer is read by someone who is not an expert.",
+        "body": "Say it plainly.\n",
+    }
+
+
+def test_a_skill_can_be_added_and_the_revision_moves_with_it():
+    base = a_spec()
+    patch = a_patch(base, {"op": "add_skill", "skill": a_skill()})
+
+    candidate = apply_patch(base, patch)
+
+    assert [skill.ref for skill in candidate.skills] == ["skill://plain-answer@1"]
+    assert candidate.revision == candidate.computed_revision()
+    assert candidate.revision != base.revision
+    assert base.skills == []
+
+
+def test_a_skill_the_document_already_holds_is_never_silently_overwritten():
+    base = a_spec()
+    held = apply_patch(base, a_patch(base, {"op": "add_skill", "skill": a_skill()}))
+
+    with pytest.raises(PatchApplyError) as caught:
+        apply_patch(held, a_patch(held, {"op": "add_skill", "skill": a_skill()}))
+
+    assert caught.value.reason == "duplicate_skill"
+
+
+def test_a_step_can_be_added_wearing_the_skill_the_same_patch_brings():
+    """한 patch가 skill을 들이고 그 단계가 그것을 입는다 — 적용 한 번에 둘 다다."""
+    base = a_spec()
+    patch = a_patch(
+        base,
+        {"op": "add_skill", "skill": a_skill()},
+        {
+            "op": "add_node",
+            "node": {
+                "id": "worker",
+                "type": "llm.agent",
+                "position": {"x": 120, "y": 0},
+                "config": {
+                    "model_ref": "model://openai",
+                    "instruction": "answer",
+                    "skill_refs": ["skill://plain-answer@1"],
+                },
+            },
+        },
+    )
+
+    candidate = apply_patch(base, patch)
+
+    assert [skill.ref for skill in candidate.skills] == ["skill://plain-answer@1"]
+    # 없는 skill을 입은 단계는 검증이 잡는다 — 함께 들어왔으므로 잡을 것이 없다.
+    assert [issue.code for issue in validate_graph(candidate)].count(
+        "skill.missing"
+    ) == 0

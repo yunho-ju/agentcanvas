@@ -9,6 +9,7 @@ from agentcanvas_adapters.architect import (
     ArchitectRequest,
     ArchitectSaid,
     architect_from,
+    with_skills_made_real,
 )
 from agentcanvas_adapters.openai_model import OPENAI_API_KEY_REF, openai_from
 from agentcanvas_adapters.scripted import (
@@ -25,8 +26,14 @@ from agentcanvas_contracts.agent_spec import (
     Position,
     ResourceBinding,
 )
+from agentcanvas_contracts.architect_patch import (
+    MAX_PATCH_OPERATIONS,
+    AgentSpecPatch,
+)
 from agentcanvas_contracts.model_catalog import ModelDef
 from agentcanvas_contracts.node_registry import DEFAULT_NODE_TYPES
+from agentcanvas_contracts.skill_def import SkillDef
+from agentcanvas_contracts.starter_skills import starter_skills
 from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
 
 OPENAI_KEY = "sk-test-openai-key"
@@ -254,7 +261,7 @@ def test_the_prompt_says_connected_ports_must_agree_on_the_value_type():
 
 def test_the_ask_carries_the_version_of_the_prompt_this_adapter_sends():
     """지시문 본문이 바뀌면 이름표의 판(@n)도 오른다 — 증거의 지문이 이 이름을 센다."""
-    assert ask_for(a_request()).prompt_ref == "prompt://architect@3"
+    assert ask_for(a_request()).prompt_ref == "prompt://architect@4"
 
 
 def test_the_prompt_names_the_model_the_nodes_it_adds_should_call():
@@ -366,3 +373,268 @@ def test_provider_failure_stays_a_safe_value():
     assert result == ArchitectBalked(
         reason="provider_error", message="the model could not be reached"
     )
+
+
+DOC_SKILL_LABEL = "Skills the document holds (JSON: ref, name, description):"
+STARTER_SKILL_LABEL = "Starter skills you may add (JSON: ref, name, description):"
+
+
+def a_skill(name: str = "house-style") -> dict:
+    return {
+        "ref": f"skill://{name}@1",
+        "name": name,
+        "description": "Use when the answer goes out under our name.",
+        "body": "Keep the house style.\n",
+    }
+
+
+def test_the_prompt_lists_the_skills_the_document_already_holds():
+    base = a_spec().model_copy(update={"skills": [SkillDef.model_validate(a_skill())]})
+    asked = ArchitectRequest(
+        base_spec=base.model_copy(update={"revision": base.computed_revision()}),
+        request="add a writer node",
+        model_ref="model://architect",
+    )
+
+    held = json_block_after(prompt_for(asked), DOC_SKILL_LABEL)
+
+    assert held == [
+        {
+            "ref": "skill://house-style@1",
+            "name": "house-style",
+            "description": "Use when the answer goes out under our name.",
+        }
+    ]
+
+
+def test_the_prompt_lists_the_starter_skills_a_step_may_be_given():
+    offered = json_block_after(prompt_for(a_request()), STARTER_SKILL_LABEL)
+
+    assert {entry["ref"] for entry in offered} == set(starter_skills())
+    # 본문은 싣지 않는다 — 고르는 데 필요한 것은 이름과 쓰임새뿐이고, 본문은 서버가 넣는다.
+    assert all(set(entry) == {"ref", "name", "description"} for entry in offered)
+
+
+def test_the_prompt_says_a_step_may_only_wear_the_skills_it_was_shown():
+    prompt = prompt_for(a_request()).lower()
+
+    assert "skill_refs" in prompt
+    assert "do not invent skills" in prompt
+
+
+def a_patch_wearing(*refs: str) -> AgentSpecPatch:
+    return AgentSpecPatch.model_validate(
+        {
+            "schema_version": "agent.patch/v1",
+            "base_revision": "sha256:" + "0" * 64,
+            "operations": [
+                {
+                    "op": "add_node",
+                    "node": {
+                        "id": "writer",
+                        "type": "llm.agent",
+                        "position": {"x": 160, "y": 0},
+                        "config": {"skill_refs": list(refs)},
+                    },
+                }
+            ],
+        }
+    )
+
+
+def wears(patch: AgentSpecPatch) -> list[str]:
+    return patch.operations[-1].node.config["skill_refs"]
+
+
+def test_a_starter_skill_the_draft_chose_comes_with_its_body_from_the_catalog():
+    chosen = "skill://plain-answer@1"
+
+    made = with_skills_made_real(
+        a_patch_wearing(chosen), held=(), starters=starter_skills()
+    )
+
+    assert made.dropped == ()
+    # 본문은 카탈로그의 원문 그대로다 — 모델이 지은 글이 문서에 들어오지 않는다.
+    assert made.patch.operations[0].op == "add_skill"
+    assert made.patch.operations[0].skill == starter_skills()[chosen]
+    assert wears(made.patch) == [chosen]
+
+
+def test_a_skill_the_document_already_holds_is_not_brought_in_again():
+    held = SkillDef.model_validate(a_skill())
+
+    made = with_skills_made_real(
+        a_patch_wearing(held.ref), held=(held,), starters=starter_skills()
+    )
+
+    assert [operation.op for operation in made.patch.operations] == ["add_node"]
+    assert wears(made.patch) == [held.ref]
+
+
+def test_the_same_starter_chosen_by_two_steps_is_brought_in_once():
+    chosen = "skill://plain-answer@1"
+    patch = AgentSpecPatch.model_validate(
+        {
+            "schema_version": "agent.patch/v1",
+            "base_revision": "sha256:" + "0" * 64,
+            "operations": [
+                {
+                    "op": "add_node",
+                    "node": {
+                        "id": "writer",
+                        "type": "llm.agent",
+                        "position": {"x": 160, "y": 0},
+                        "config": {"skill_refs": [chosen]},
+                    },
+                },
+                {
+                    "op": "replace_node_config",
+                    "node_id": "reader",
+                    "config": {"skill_refs": [chosen]},
+                },
+            ],
+        }
+    )
+
+    made = with_skills_made_real(patch, held=(), starters=starter_skills())
+
+    assert [operation.op for operation in made.patch.operations] == [
+        "add_skill",
+        "add_node",
+        "replace_node_config",
+    ]
+
+
+def test_a_skill_nobody_knows_is_dropped_and_said_out_loud():
+    made = with_skills_made_real(
+        a_patch_wearing("skill://made-up@1", "skill://plain-answer@1"),
+        held=(),
+        starters=starter_skills(),
+    )
+
+    assert made.dropped == ("skill://made-up@1",)
+    # 없는 것을 입은 채로 두지 않는다 — 검증이 잡기 전에 여기서 뺀다.
+    assert wears(made.patch) == ["skill://plain-answer@1"]
+
+
+def test_a_patch_that_wears_nothing_is_left_exactly_as_it_came():
+    patch = a_patch_wearing()
+
+    made = with_skills_made_real(patch, held=(), starters=starter_skills())
+
+    assert made.patch == patch
+    assert made.dropped == ()
+
+
+def an_invented_skill(ref: str = "skill://made-up@1") -> dict:
+    return {
+        "op": "add_skill",
+        "skill": {
+            "ref": ref,
+            "name": ref.removeprefix("skill://").removesuffix("@1"),
+            "description": "Whatever the model felt like writing.",
+            "body": "Do whatever you like.\n",
+        },
+    }
+
+
+def a_patch_with(*operations: dict) -> AgentSpecPatch:
+    return AgentSpecPatch.model_validate(
+        {
+            "schema_version": "agent.patch/v1",
+            "base_revision": "sha256:" + "0" * 64,
+            "operations": list(operations),
+        }
+    )
+
+
+def test_a_skill_the_model_wrote_itself_never_reaches_the_document():
+    """본문을 짓는 자리는 카탈로그뿐이다 — 모델이 적어 보낸 글은 문서에 닿지 않는다."""
+    patch = a_patch_with(
+        an_invented_skill(),
+        {
+            "op": "replace_node_config",
+            "node_id": "writer",
+            "config": {"skill_refs": ["skill://made-up@1"]},
+        },
+    )
+
+    made = with_skills_made_real(patch, held=(), starters=starter_skills())
+
+    assert [operation.op for operation in made.patch.operations] == [
+        "replace_node_config"
+    ]
+    assert made.dropped == ("skill://made-up@1",)
+    assert made.patch.operations[0].config["skill_refs"] == []
+
+
+def test_a_starter_the_model_rewrote_comes_back_as_the_catalog_wrote_it():
+    chosen = "skill://plain-answer@1"
+    patch = a_patch_with(
+        an_invented_skill(chosen),
+        {
+            "op": "replace_node_config",
+            "node_id": "writer",
+            "config": {"skill_refs": [chosen]},
+        },
+    )
+
+    made = with_skills_made_real(patch, held=(), starters=starter_skills())
+
+    assert [operation.op for operation in made.patch.operations] == [
+        "add_skill",
+        "replace_node_config",
+    ]
+    # 이름표는 아는 것이었으니 사람에게서 빼앗은 것은 없다 — 본문만 카탈로그의 것이 된다.
+    assert made.dropped == ()
+    assert made.patch.operations[0].skill == starter_skills()[chosen]
+
+
+def filling_operations(how_many: int, wearing: str) -> list[dict]:
+    """자리를 꽉 채운 작업들 — 마지막 하나가 skill을 입는다."""
+    return [
+        {"op": "remove_node", "node_id": f"node-{index}"}
+        for index in range(how_many - 1)
+    ] + [
+        {
+            "op": "replace_node_config",
+            "node_id": "writer",
+            "config": {"skill_refs": [wearing]},
+        }
+    ]
+
+
+def test_a_patch_already_at_the_limit_stays_a_patch_the_contract_accepts():
+    chosen = "skill://plain-answer@1"
+    patch = a_patch_with(*filling_operations(MAX_PATCH_OPERATIONS, chosen))
+
+    made = with_skills_made_real(patch, held=(), starters=starter_skills())
+
+    # 계약이 받는 patch로 남는다 — 자리가 없으면 skill이 아니라 patch를 지킨다.
+    assert len(made.patch.operations) == MAX_PATCH_OPERATIONS
+    assert all(operation.op != "add_skill" for operation in made.patch.operations)
+    # 조용히 빼지 않는다 — 검토 카드가 말할 수 있게 적어 둔다.
+    assert made.dropped == (chosen,)
+    assert made.patch.operations[-1].config["skill_refs"] == []
+
+
+def test_one_place_left_is_enough_for_the_skill_that_step_wears():
+    chosen = "skill://plain-answer@1"
+    patch = a_patch_with(*filling_operations(MAX_PATCH_OPERATIONS - 1, chosen))
+
+    made = with_skills_made_real(patch, held=(), starters=starter_skills())
+
+    assert len(made.patch.operations) == MAX_PATCH_OPERATIONS
+    assert made.patch.operations[0].op == "add_skill"
+    assert made.dropped == ()
+    assert made.patch.operations[-1].config["skill_refs"] == [chosen]
+
+
+def test_a_patch_of_nothing_but_written_skills_is_no_patch_at_all():
+    """모두 걷어 내고 나면 할 일이 없다 — 없는 일을 patch라 부르지 않는다."""
+    made = with_skills_made_real(
+        a_patch_with(an_invented_skill()), held=(), starters=starter_skills()
+    )
+
+    assert made.patch is None
+    assert made.dropped == ("skill://made-up@1",)

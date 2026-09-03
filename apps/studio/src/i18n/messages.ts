@@ -655,6 +655,55 @@ const TEXTS = {
     en: "Getting the text from that address",
   },
   "skillImport.starter": { ko: "시작 skill에서 고르기", en: "Or pick a starter skill" },
+  "skillImport.kind.find": { ko: "찾아보기", en: "Search for one" },
+  "architect.stepSkills": {
+    ko: "따르는 skill: {skills}",
+    en: "Follows these skills: {skills}",
+  },
+  "architect.skillsDropped": {
+    ko: "알 수 없는 skill을 뺐어요 — 이 단계들은 그것 없이 서요",
+    en: "We took out a skill nobody knows — these steps stand without it",
+  },
+  "skillFind.label": {
+    ko: "무엇을 잘하게 하고 싶나요",
+    en: "What should it get good at?",
+  },
+  "skillFind.placeholder": {
+    ko: "예: 표로 정리하기",
+    en: "For example: laying things out as a table",
+  },
+  "skillFind.search": { ko: "찾기", en: "Search" },
+  "skillFind.search.hint": {
+    ko: "이 문서와 시작 skill, 그리고 바깥 목록에서 찾아 봐요",
+    en: "Looks in this document, the starter skills and the outside list",
+  },
+  "skillFind.search.disabled": {
+    ko: "먼저 무엇을 찾을지 적어 주세요",
+    en: "Write what to look for first",
+  },
+  "skillFind.loading": { ko: "찾는 중이에요", en: "Looking for skills" },
+  "skillFind.results": { ko: "찾은 skill", en: "Skills we found" },
+  "skillFind.origin.document": { ko: "이 문서에 있어요", en: "In this document" },
+  "skillFind.origin.starter": { ko: "시작 skill", en: "Starter skill" },
+  "skillFind.origin.remote": { ko: "skills.sh의 {where}", en: "{where} on skills.sh" },
+  "skillFind.installs": { ko: "설치 {count}번", en: "{count} installs" },
+  "skillFind.already": { ko: "이미 있어요", en: "You already have it" },
+  "skillFind.read.hint": {
+    ko: "이 skill의 글을 여기서 읽어요",
+    en: "Reads this skill right here",
+  },
+  "skillFind.bring.hint": {
+    ko: "이 skill의 글을 먼저 보여 줘요 — 넣을지는 그 다음에 정해요",
+    en: "Shows you the writing first — you decide after reading it",
+  },
+  "skillFind.unreachable": {
+    ko: "바깥 목록은 지금 닿지 않았어요 — 이 문서와 시작 skill에서만 찾았어요",
+    en: "We could not reach the outside list — we looked only here and in the starter skills",
+  },
+  "skillFind.empty": {
+    ko: "찾은 skill이 없어요 — 직접 만들거나(지시문 칸의 [skill로 저장]) 글을 붙여 넣을 수 있어요",
+    en: "We found none — you can make one ([Save as a skill] in the instruction box) or paste the writing",
+  },
   "skillImport.review.title": { ko: "이 skill을 넣을까요", en: "Add this skill?" },
   "skillImport.more": { ko: "더 보기", en: "Show more" },
   "skillImport.license": { ko: "라이선스: {license}", en: "License: {license}" },
@@ -732,6 +781,10 @@ const TEXTS = {
   "skillImport.error.tooLarge": {
     ko: "글이 너무 커서 가져오지 못했어요 — 필요한 부분만 붙여 넣어 보세요",
     en: "The text was too big to bring in — try pasting just the part you need",
+  },
+  "skillImport.error.rateLimited": {
+    ko: "바깥 목록을 너무 자주 물어봐서 잠시 쉬어야 해요 — 조금 뒤에 다시 해보세요",
+    en: "We asked the outside list too often — take a short break and try again",
   },
   "skillImport.error.timeout": {
     ko: "그 주소가 제때 답하지 않았어요 — 잠시 뒤 다시 해보세요",

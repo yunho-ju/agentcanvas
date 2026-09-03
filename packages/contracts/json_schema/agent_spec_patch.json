@@ -57,6 +57,26 @@
       "title": "AddResourceOperation",
       "type": "object"
     },
+    "AddSkillOperation": {
+      "additionalProperties": false,
+      "description": "문서가 따를 skill 한 장을 들인다 — 본문은 카탈로그의 원문 그대로다.\n\n모델이 본문을 지어내는 자리가 아니다: 서버가 고른 카탈로그의 SkillDef를 그대로 싣는다\n(제안이 skill을 고르면 그 skill이 함께 들어와야 단계가 없는 것을 입지 않는다).",
+      "properties": {
+        "op": {
+          "const": "add_skill",
+          "title": "Op",
+          "type": "string"
+        },
+        "skill": {
+          "$ref": "#/$defs/SkillDef"
+        }
+      },
+      "required": [
+        "op",
+        "skill"
+      ],
+      "title": "AddSkillOperation",
+      "type": "object"
+    },
     "ApprovalPolicy": {
       "description": "연결이 도구를 부르기 전에 사람에게 물어보는가.\n\n값은 둘뿐이다: 바로 부르거나(read_only_auto, 기본), 부를 때마다 사람의 확인을\n기다린다(ask_first). \"무엇을 쓸 수 있나\"는 allowed_tools가 이미 정하므로,\n\"부르지 마라\" 같은 세 번째 값은 두지 않는다.",
       "enum": [
@@ -354,6 +374,7 @@
           "add_edge": "#/$defs/AddEdgeOperation",
           "add_node": "#/$defs/AddNodeOperation",
           "add_resource": "#/$defs/AddResourceOperation",
+          "add_skill": "#/$defs/AddSkillOperation",
           "remove_edge": "#/$defs/RemoveEdgeOperation",
           "remove_node": "#/$defs/RemoveNodeOperation",
           "remove_resource": "#/$defs/RemoveResourceOperation",
@@ -386,6 +407,9 @@
         },
         {
           "$ref": "#/$defs/RemoveResourceOperation"
+        },
+        {
+          "$ref": "#/$defs/AddSkillOperation"
         }
       ]
     },
@@ -615,6 +639,154 @@
         "section_param"
       ],
       "title": "SectionsResult",
+      "type": "object"
+    },
+    "SkillDef": {
+      "additionalProperties": false,
+      "description": "표준 SKILL.md 하나 — 노드는 `skill_refs`에 이 `ref`를 적어 입는다.",
+      "properties": {
+        "body": {
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "compatibility": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compatibility"
+        },
+        "description": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "ref": {
+          "pattern": "^skill://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "$ref": "#/$defs/SkillReference"
+          },
+          "title": "References",
+          "type": "array"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "ref",
+        "name",
+        "description",
+        "body"
+      ],
+      "title": "SkillDef",
+      "type": "object"
+    },
+    "SkillReference": {
+      "additionalProperties": false,
+      "description": "skill 곁의 읽을 문서 하나 — 점진 공개의 셋째 단계에서 사람이 펼쳐 본다.",
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "text"
+      ],
+      "title": "SkillReference",
+      "type": "object"
+    },
+    "SkillSource": {
+      "additionalProperties": false,
+      "description": "이 skill이 어디서 왔는가 — 나중에 새 판이 나왔는지 확인하는 데 쓴다.",
+      "properties": {
+        "fetched_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fetched At"
+        },
+        "fetched_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fetched Revision"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "SkillSource",
       "type": "object"
     },
     "ToolDef": {

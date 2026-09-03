@@ -80,3 +80,55 @@ export async function draftWithAnEmptySettingFixture(
     },
   };
 }
+
+/** 초안이 skill을 고른 경우 — 서버가 그 skill을 문서에 함께 넣어 보낸다 (SK-4). */
+export async function draftWearingASkillFixture(
+  request: string,
+  draftId: string,
+): Promise<ArchitectDraftOutcome> {
+  const outcome = await providerDraftFixture(request, draftId);
+  if (!outcome.draft) return outcome;
+  return {
+    ...outcome,
+    droppedSkillRefs: ["skill://made-up@1"],
+    draft: {
+      ...outcome.draft,
+      skills: [
+        {
+          ref: "skill://plain-answer@1",
+          name: "plain-answer",
+          description: "Use when the reader is not an expert.",
+          body: "Say it plainly.\n",
+          license: null,
+          compatibility: null,
+          metadata: {},
+          references: [],
+          source: null,
+        },
+      ],
+      nodes: outcome.draft.nodes.map((node) =>
+        node.id === "llm-agent"
+          ? { ...node, config: { ...node.config, skill_refs: ["skill://plain-answer@1"] } }
+          : node,
+      ),
+    },
+  };
+}
+
+/** 두 단계가 저마다 skill을 따르는 초안 — 줄이 어느 단계의 것인지 말할 수 있어야 한다. */
+export async function draftWithTwoStepsWearingSkillsFixture(
+  request: string,
+  draftId: string,
+): Promise<ArchitectDraftOutcome> {
+  const outcome = await draftWearingASkillFixture(request, draftId);
+  if (!outcome.draft) return outcome;
+  const wearing = outcome.draft.nodes.find((node) => node.id === "llm-agent");
+  if (!wearing) return outcome;
+  return {
+    ...outcome,
+    draft: {
+      ...outcome.draft,
+      nodes: [...outcome.draft.nodes, { ...wearing, id: "llm-checker" }],
+    },
+  };
+}

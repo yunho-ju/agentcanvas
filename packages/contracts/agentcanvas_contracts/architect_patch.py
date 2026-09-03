@@ -8,6 +8,11 @@ from pydantic import Field
 
 from .agent_spec import ContractModel, Edge, Node, ResourceBinding
 from .revision import REVISION_PATTERN
+from .skill_def import SkillDef
+
+#: 한 patch가 담을 수 있는 작업 수 — 제안 하나가 문서를 통째로 갈아엎지 못하게 하는 한계.
+#: 서버가 카탈로그의 skill을 앞에 들일 때도 이 수를 넘지 않는다(계약이 한 자리에서 정한다).
+MAX_PATCH_OPERATIONS = 32
 
 
 class AddNodeOperation(ContractModel):
@@ -53,6 +58,17 @@ class RemoveResourceOperation(ContractModel):
     resource_id: str = Field(min_length=1)
 
 
+class AddSkillOperation(ContractModel):
+    """문서가 따를 skill 한 장을 들인다 — 본문은 카탈로그의 원문 그대로다.
+
+    모델이 본문을 지어내는 자리가 아니다: 서버가 고른 카탈로그의 SkillDef를 그대로 싣는다
+    (제안이 skill을 고르면 그 skill이 함께 들어와야 단계가 없는 것을 입지 않는다).
+    """
+
+    op: Literal["add_skill"]
+    skill: SkillDef
+
+
 type PatchOperation = Annotated[
     AddNodeOperation
     | RemoveNodeOperation
@@ -61,7 +77,8 @@ type PatchOperation = Annotated[
     | RemoveEdgeOperation
     | AddResourceOperation
     | ReplaceResourceOperation
-    | RemoveResourceOperation,
+    | RemoveResourceOperation
+    | AddSkillOperation,
     Field(discriminator="op"),
 ]
 
@@ -71,13 +88,17 @@ class AgentSpecPatch(ContractModel):
 
     schema_version: Literal["agent.patch/v1"]
     base_revision: str = Field(pattern=REVISION_PATTERN)
-    operations: list[PatchOperation] = Field(min_length=1, max_length=32)
+    operations: list[PatchOperation] = Field(
+        min_length=1, max_length=MAX_PATCH_OPERATIONS
+    )
 
 
 __all__ = [
+    "MAX_PATCH_OPERATIONS",
     "AddEdgeOperation",
     "AddNodeOperation",
     "AddResourceOperation",
+    "AddSkillOperation",
     "AgentSpecPatch",
     "PatchOperation",
     "RemoveEdgeOperation",

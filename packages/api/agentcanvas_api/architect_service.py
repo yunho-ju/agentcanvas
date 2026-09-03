@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from agentcanvas_adapters.architect import (
     ARCHITECT_PROMPT_REF,
+    INVALID_PATCH_MESSAGE,
     ArchitectBalked,
     ArchitectRequest,
     ArchitectSaid,
     architect_from,
+    with_skills_made_real,
 )
 from agentcanvas_contracts.agent_spec import AgentSpec, Node, Position
 from agentcanvas_contracts.architect_patch import (
@@ -21,6 +23,7 @@ from agentcanvas_contracts.architect_patch import (
     ReplaceNodeConfigOperation,
 )
 from agentcanvas_contracts.chat import CHAT_SAID_BINDING
+from agentcanvas_contracts.starter_skills import starter_skills
 from agentcanvas_engine.architect_patch import PatchApplyError, apply_patch
 from agentcanvas_engine.model_call import ModelCall, ModelEvidence
 from agentcanvas_engine.validator import Severity, ValidationIssue, validate_graph
@@ -47,6 +50,8 @@ class ArchitectPreview:
     input_tokens: int
     output_tokens: int
     evidence: ModelEvidence | None = None
+    #: 아무도 모르는 이름표라 단계에서 빼낸 skill들 — 검토 카드가 그 사실을 말한다.
+    dropped_skill_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -217,7 +222,27 @@ class ArchitectService:
             request=request,
             model_ref=model_ref,
         )
-        return preview_of(base_spec, self._architect(asked), model_ref=model_ref)
+        said = self._architect(asked)
+        if isinstance(said, ArchitectBalked):
+            return preview_of(base_spec, said, model_ref=model_ref)
+        # 모델은 skill을 **고르기만** 한다 — 본문은 카탈로그에서 서버가 넣고, 아무도
+        # 모르는 이름표는 여기서 빠진다(없는 것을 입은 단계가 검증까지 가지 않게).
+        made = with_skills_made_real(
+            said.patch, held=base_spec.skills, starters=starter_skills()
+        )
+        if made.patch is None:
+            # 걷어 내고 나니 할 일이 없는 답은 쓸 수 없는 답이다 — 깨진 답과 같은 자리로 돌린다.
+            return preview_of(
+                base_spec,
+                ArchitectBalked(reason="invalid_patch", message=INVALID_PATCH_MESSAGE),
+                model_ref=model_ref,
+            )
+        outcome = preview_of(
+            base_spec, replace(said, patch=made.patch), model_ref=model_ref
+        )
+        if isinstance(outcome, ArchitectPreviewRefused):
+            return outcome
+        return replace(outcome, dropped_skill_refs=made.dropped)
 
     def preview_new(
         self, draft_id: str, request: str, model_ref: str

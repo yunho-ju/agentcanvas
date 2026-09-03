@@ -3,7 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
 import { useEditor } from "../src/store/editor";
-import { draftWithAnEmptySettingFixture, providerDraftFixture } from "./architect-fixtures";
+import {
+  draftWearingASkillFixture,
+  draftWithTwoStepsWearingSkillsFixture,
+  draftWithAnEmptySettingFixture,
+  providerDraftFixture,
+} from "./architect-fixtures";
 
 beforeEach(() => useEditor.setState({ spec: null, nodes: [], edges: [], architectMode: "guided", architectRequest: "", architectDraft: null, architectReview: null, architectError: null, architectLoading: false, requestArchitectDraft: providerDraftFixture, firstStepsDismissed: false }));
 
@@ -62,5 +67,52 @@ describe("ArchitectPanel", () => {
     expect(screen.queryByRole("heading", { name: "초안 확인" })).not.toBeInTheDocument();
     expect(useEditor.getState().architectMode).toBe("closed");
     expect(useEditor.getState().nodes).toHaveLength(4);
+  });
+});
+
+describe("초안이 고른 skill (DESIGN §7 guided-architect-card 보강)", () => {
+  async function review() {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByRole("textbox", { name: "무엇을 만들까요" }), "make an answer");
+    await user.click(screen.getByRole("button", { name: "초안 만들기" }));
+    await screen.findByRole("heading", { name: "초안 확인" });
+  }
+
+  it("어느 단계가 무엇을 따르는지 이름으로 말한다", async () => {
+    useEditor.setState({ requestArchitectDraft: draftWearingASkillFixture });
+
+    await review();
+
+    expect(screen.getByText("따르는 skill: plain-answer")).toBeInTheDocument();
+    // 이름표도 코드도 화면에 나가지 않는다.
+    expect(document.body.textContent).not.toContain("skill://");
+  });
+
+  it("알 수 없는 이름을 빼냈으면 그 사실을 말한다", async () => {
+    useEditor.setState({ requestArchitectDraft: draftWearingASkillFixture });
+
+    await review();
+
+    expect(screen.getByText(/알 수 없는 skill을 뺐어요/)).toBeInTheDocument();
+  });
+
+  it("줄마다 어느 단계의 것인지 그 단계의 이름으로 말한다", async () => {
+    useEditor.setState({ requestArchitectDraft: draftWithTwoStepsWearingSkillsFixture });
+
+    await review();
+
+    for (const step of ["llm-agent", "llm-checker"]) {
+      expect(screen.getByText(step)).toBeInTheDocument();
+    }
+    // 같은 종류의 두 단계를 한 이름으로 부르지 않는다.
+    expect(screen.getAllByText("따르는 skill: plain-answer")).toHaveLength(2);
+  });
+
+  it("skill을 아무도 따르지 않는 초안에는 그 줄이 없다", async () => {
+    await review();
+
+    expect(screen.queryByText(/따르는 skill/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/알 수 없는 skill/)).not.toBeInTheDocument();
   });
 });

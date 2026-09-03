@@ -8,6 +8,7 @@ from agentcanvas_contracts.agent_spec import (
     ResourceBinding,
 )
 from agentcanvas_contracts.architect_patch import AgentSpecPatch
+from agentcanvas_contracts.skill_def import SkillDef
 from pydantic import ValidationError
 
 
@@ -130,3 +131,27 @@ def test_a_binding_that_breaks_its_own_rules_is_not_a_valid_operation():
 
     with pytest.raises(ValidationError, match="unique"):
         a_patch({"op": "add_resource", "resource": duplicated_tool})
+
+
+def a_skill(name: str = "plain-answer") -> dict:
+    return {
+        "ref": f"skill://{name}@1",
+        "name": name,
+        "description": "Use when the answer is read by someone who is not an expert.",
+        "body": "Say it plainly.\n",
+    }
+
+
+def test_a_skill_can_be_added_by_the_same_discriminated_list():
+    patch = a_patch({"op": "add_skill", "skill": a_skill()})
+
+    assert patch.operations[0].op == "add_skill"
+    assert isinstance(patch.operations[0].skill, SkillDef)
+
+
+def test_a_skill_that_breaks_its_own_rules_is_not_a_valid_operation():
+    broken = a_skill()
+    broken["name"] = "Plain Answer"
+
+    with pytest.raises(ValidationError):
+        a_patch({"op": "add_skill", "skill": broken})

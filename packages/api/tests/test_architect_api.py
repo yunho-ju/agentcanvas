@@ -12,6 +12,7 @@ from agentcanvas_api.memory_run_store import InMemoryRunStore
 from agentcanvas_api.memory_store import InMemorySpecStore
 from agentcanvas_contracts.agent_spec import AgentSpec, Node, Position
 from agentcanvas_contracts.chat import CHAT_SAID_BINDING
+from agentcanvas_contracts.starter_skills import starter_skills
 from agentcanvas_engine.model_call import ModelBalked, ModelEvidence, ModelSaid
 from fastapi.testclient import TestClient
 
@@ -661,3 +662,145 @@ def test_a_connection_a_patch_adds_arrives_in_the_previewed_candidate():
         "clinical-reference",
         "drug-database",
     ]
+
+
+def wearing_answer(base_revision: str, *refs: str) -> str:
+    """지금 있는 단계 하나가 이 skill들을 따르게 하는 제안."""
+    return patch_answer(
+        base_revision,
+        {
+            "op": "replace_node_config",
+            "node_id": "clinical-agent",
+            "config": {
+                "model_ref": "model://default",
+                "prompt_ref": "prompt://clinical@7",
+                "toolset_refs": ["clinical-reference"],
+                "max_turns": 4,
+                "skill_refs": list(refs),
+            },
+        },
+    )
+
+
+def test_a_starter_skill_the_draft_chose_comes_into_the_document_with_it():
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=wearing_answer(base["revision"], "skill://plain-answer@1"),
+            prompt="safe prompt",
+        )
+    )
+
+    response = client.post("/architect/patch", json=request_body(base))
+
+    assert response.status_code == 200
+    body = response.json()
+    candidate = AgentSpec.model_validate(body["candidate"])
+    # 카탈로그의 원문 그대로 — 모델은 본문을 짓지 않는다.
+    assert [skill.ref for skill in candidate.skills] == ["skill://plain-answer@1"]
+    assert candidate.skills[0].body == starter_skills()["skill://plain-answer@1"].body
+    assert body["dropped_skill_refs"] == []
+    # 적용 한 번에 skill과 그것을 입은 단계가 함께 선다.
+    worn = next(node for node in candidate.nodes if node.id == "clinical-agent")
+    assert worn.config["skill_refs"] == ["skill://plain-answer@1"]
+
+
+def test_a_skill_nobody_knows_is_taken_out_and_the_review_is_told():
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=wearing_answer(base["revision"], "skill://made-up@1"),
+            prompt="safe prompt",
+        )
+    )
+
+    response = client.post("/architect/patch", json=request_body(base))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["dropped_skill_refs"] == ["skill://made-up@1"]
+    candidate = AgentSpec.model_validate(body["candidate"])
+    assert candidate.skills == []
+    worn = next(node for node in candidate.nodes if node.id == "clinical-agent")
+    assert worn.config["skill_refs"] == []
+
+
+def test_a_skill_body_the_model_wrote_itself_never_reaches_the_document():
+    """모델이 지은 글은 문서에 닿지 않는다 — 걷어 내고, 검토 카드가 그 사실을 말한다."""
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=json.dumps(
+                {
+                    "schema_version": "agent.patch/v1",
+                    "base_revision": base["revision"],
+                    "operations": [
+                        {
+                            "op": "add_skill",
+                            "skill": {
+                                "ref": "skill://made-up@1",
+                                "name": "made-up",
+                                "description": "Whatever the model felt like writing.",
+                                "body": "Do whatever you like.\n",
+                            },
+                        },
+                        json.loads(
+                            wearing_answer(base["revision"], "skill://made-up@1")
+                        )["operations"][0],
+                    ],
+                }
+            ),
+            prompt="safe prompt",
+        )
+    )
+
+    response = client.post("/architect/patch", json=request_body(base))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [operation["op"] for operation in body["patch"]["operations"]] == [
+        "replace_node_config"
+    ]
+    assert body["dropped_skill_refs"] == ["skill://made-up@1"]
+    candidate = AgentSpec.model_validate(body["candidate"])
+    assert candidate.skills == []
+
+
+def test_a_patch_that_is_only_skills_the_model_wrote_is_not_a_patch():
+    """걷어 내고 나니 할 일이 하나도 없는 제안은 쓸 수 없는 답이다 — 500이 아니라 422다."""
+    base = spec_payload()
+    client = a_client(
+        ModelSaid(
+            input_tokens=1,
+            output_tokens=1,
+            text=json.dumps(
+                {
+                    "schema_version": "agent.patch/v1",
+                    "base_revision": base["revision"],
+                    "operations": [
+                        {
+                            "op": "add_skill",
+                            "skill": {
+                                "ref": "skill://made-up@1",
+                                "name": "made-up",
+                                "description": "Whatever the model felt like writing.",
+                                "body": "Do whatever you like.\n",
+                            },
+                        }
+                    ],
+                }
+            ),
+            prompt="safe prompt",
+        )
+    )
+
+    response = client.post("/architect/patch", json=request_body(base))
+
+    assert response.status_code == 422
+    assert "made-up" not in response.text
