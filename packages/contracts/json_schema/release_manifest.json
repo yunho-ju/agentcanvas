@@ -109,6 +109,13 @@
       "title": "Release Id",
       "type": "string"
     },
+    "skill_snapshot": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Skill Snapshot",
+      "type": "object"
+    },
     "tool_registry_snapshot": {
       "minLength": 1,
       "title": "Tool Registry Snapshot",

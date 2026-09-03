@@ -1,7 +1,13 @@
+import hashlib
 from datetime import UTC, datetime
 
 import pytest
-from agentcanvas_contracts.release import ModelSnapshot, ReleaseManifest
+from agentcanvas_contracts.agent_spec import AgentSpec
+from agentcanvas_contracts.release import (
+    ModelSnapshot,
+    ReleaseManifest,
+    skill_snapshot_of,
+)
 from pydantic import ValidationError
 
 CLOUD_RELEASE = {
@@ -83,3 +89,56 @@ def test_approval_requires_utc_timestamp():
             }
         )
     assert exc.value.errors()[0]["loc"] == ("approval", "approved_at")
+
+
+def a_spec_holding(*names: str) -> AgentSpec:
+    return AgentSpec.model_validate(
+        {
+            "schema_version": "agent.spec/v1",
+            "id": "released",
+            "version": 1,
+            "revision": "sha256:" + "0" * 64,
+            "status": "draft",
+            "input_schema": {"type": "object"},
+            "state_schema": {"type": "object"},
+            "nodes": [],
+            "edges": [],
+            "skills": [
+                {
+                    "ref": f"skill://{name}@1",
+                    "name": name,
+                    "description": f"Use when {name} is what the answer needs.",
+                    "body": f"Do what {name} asks.\n",
+                }
+                for name in names
+            ],
+        }
+    )
+
+
+def test_a_release_that_says_nothing_about_skills_stays_the_release_it_was():
+    """옛 manifest는 skill을 몰랐다 — 그 문서가 그대로 읽히고 그대로 다시 적힌다."""
+    manifest = ReleaseManifest.model_validate(CLOUD_RELEASE)
+
+    assert manifest.skill_snapshot == {}
+    assert manifest.model_dump(mode="json", exclude_defaults=True) == CLOUD_RELEASE
+
+
+def test_the_snapshot_pins_the_body_of_every_skill_the_document_holds():
+    snapshot = skill_snapshot_of(a_spec_holding("plain-answer"))
+    body = "Do what plain-answer asks.\n"
+
+    assert snapshot == {
+        "skill://plain-answer@1": "sha256:"
+        + hashlib.sha256(body.encode("utf-8")).hexdigest()
+    }
+
+
+def test_a_document_holding_no_skill_pins_nothing():
+    assert skill_snapshot_of(a_spec_holding()) == {}
+
+
+def test_two_skills_that_say_different_things_are_pinned_differently():
+    snapshot = skill_snapshot_of(a_spec_holding("first", "second"))
+
+    assert len(set(snapshot.values())) == 2

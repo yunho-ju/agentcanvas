@@ -14,6 +14,8 @@ from agentcanvas_contracts.agent_spec import AgentSpec, Edge, Node
 from agentcanvas_contracts.run import ApprovalAnswer
 from agentcanvas_contracts.run_events import EventType, RunEvent
 
+from .skill_wear import followed_skills, skills_worn_by
+
 #: 이벤트 사이의 간격. 가짜 실행은 일정한 박자로 흐른다.
 EVENT_STEP_MS = 400
 
@@ -32,8 +34,8 @@ class _Emission:
     node_id: str | None = None
 
 
-#: 노드가 일하는 동안 무슨 일이 일어나는가.
-_Work = Callable[[Node], list[_Emission]]
+#: 노드가 일하는 동안 무슨 일이 일어나는가 — 문서를 함께 받는다(입은 skill은 문서에 있다).
+_Work = Callable[[Node, AgentSpec], list[_Emission]]
 
 
 def _ref_of(node: Node, key: str, fallback: str) -> str:
@@ -41,10 +43,15 @@ def _ref_of(node: Node, key: str, fallback: str) -> str:
     return value if isinstance(value, str) else fallback
 
 
-def _asks_a_model(node: Node) -> list[_Emission]:
-    """모델에게 물어보는 노드: 프롬프트를 만들고, 물어보고, 답을 받는다."""
+def _asks_a_model(node: Node, spec: AgentSpec) -> list[_Emission]:
+    """모델에게 물어보는 노드: 프롬프트를 만들고, 물어보고, 답을 받는다.
+
+    진짜로 묻지 않아도 무엇을 입고 물었을지는 진짜 실행과 똑같이 적는다 — 화면이 두 실행을
+    다르게 그리지 않게 한다.
+    """
     prompt_ref = _ref_of(node, "prompt_ref", f"prompt://{node.id}@1")
     model_ref = _ref_of(node, "model_ref", "model://default")
+    worn = skills_worn_by(spec, node)
     return [
         _Emission(
             EventType.PROMPT_COMPILED,
@@ -60,7 +67,13 @@ def _asks_a_model(node: Node) -> list[_Emission]:
                 "total_tokens": FAKE_PROMPT_TOKENS,
             },
         ),
-        _Emission(EventType.LLM_REQUESTED, {"model_ref": model_ref}),
+        _Emission(
+            EventType.LLM_REQUESTED,
+            {
+                "model_ref": model_ref,
+                **followed_skills([brief.ref for brief in worn.briefs]),
+            },
+        ),
         _Emission(
             EventType.LLM_COMPLETED,
             {"model_ref": model_ref, "output_tokens": FAKE_ANSWER_TOKENS},
@@ -68,7 +81,7 @@ def _asks_a_model(node: Node) -> list[_Emission]:
     ]
 
 
-def _waits_for_a_person(node: Node) -> list[_Emission]:
+def _waits_for_a_person(node: Node, spec: AgentSpec) -> list[_Emission]:
     """사람에게 물어보는 노드: 확인을 청하고 흐름을 멈춘다.
 
     멈춤과 재개 사이에서 시퀀스가 끊긴다 — 뒤 이벤트는 사람이 답한 뒤에야 생긴다 (설계 §11).
@@ -96,8 +109,8 @@ WORK_BY_NODE_TYPE: dict[str, _Work] = {
 }
 
 
-def _work_of(node: Node) -> list[_Emission]:
-    return WORK_BY_NODE_TYPE.get(node.type, lambda _: [])(node)
+def _work_of(node: Node, spec: AgentSpec) -> list[_Emission]:
+    return WORK_BY_NODE_TYPE.get(node.type, lambda _node, _spec: [])(node, spec)
 
 
 def _state_patch(edge: Edge) -> _Emission:
@@ -131,7 +144,7 @@ def _node_emissions(node: Node, spec: AgentSpec) -> list[_Emission]:
     own = [
         _Emission(EventType.NODE_QUEUED, {"node_type": node.type}),
         _Emission(EventType.NODE_STARTED, {"node_type": node.type}),
-        *_work_of(node),
+        *_work_of(node, spec),
         _Emission(EventType.NODE_COMPLETED, {"node_type": node.type}),
     ]
     kept = _state_keys(spec)

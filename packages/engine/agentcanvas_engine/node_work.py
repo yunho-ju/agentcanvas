@@ -18,6 +18,7 @@ from agentcanvas_contracts.run_events import EventType
 from .graph_walk import _ways_from
 from .model_call import ModelAsk, ModelBalked, ModelSaid
 from .run_log import _answer_payload, _Emission
+from .skill_wear import followed_skills
 from .tool_call import ToolBalked
 
 #: 갈림길 판단을 맡는 노드의 타입.
@@ -89,7 +90,13 @@ def _heard(ask: ModelAsk, said: ModelSaid) -> list[_Emission]:
         completed["text"] = said.text
     return [
         _Emission(EventType.PROMPT_COMPILED, compiled),
-        _Emission(EventType.LLM_REQUESTED, {"model_ref": ask.model_ref}),
+        _Emission(
+            EventType.LLM_REQUESTED,
+            {
+                "model_ref": ask.model_ref,
+                **followed_skills([brief.ref for brief in ask.skills]),
+            },
+        ),
         _Emission(EventType.LLM_COMPLETED, completed),
     ]
 

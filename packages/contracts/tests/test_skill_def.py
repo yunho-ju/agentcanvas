@@ -6,7 +6,11 @@ from pathlib import Path
 
 import jsonschema
 import pytest
-from agentcanvas_contracts.skill_def import SkillDef, skill_name_issue
+from agentcanvas_contracts.skill_def import (
+    SkillDef,
+    name_in_skill_ref,
+    skill_name_issue,
+)
 from pydantic import ValidationError
 
 VALID = {
@@ -135,3 +139,17 @@ def test_the_exported_name_pattern_accepts_exactly_what_the_model_accepts(name: 
 def test_a_name_with_a_newline_after_it_is_not_the_name(name: str):
     """`$`는 뒤따르는 개행을 봐준다 — 이름 규칙은 글자 전체를 본다."""
     assert skill_name_issue(name) is not None
+
+
+@pytest.mark.parametrize(
+    ("ref", "name"),
+    [
+        ("skill://plain-answer@1", "plain-answer"),
+        ("skill://plain-answer", "plain-answer"),
+        ("skill://", None),
+        ("tool://plain-answer@1", None),
+    ],
+)
+def test_the_name_a_ref_points_at(ref: str, name: str | None):
+    """studio(TS)의 `nameInSkillRef`와 같은 케이스에 같은 답을 낸다 — 미러 정합성."""
+    assert name_in_skill_ref(ref) == name

@@ -27,6 +27,7 @@ from agentcanvas_engine.model_call import (
     ModelEvidence,
     ModelSaid,
 )
+from agentcanvas_engine.skill_wear import skills_worn_by
 from agentcanvas_engine.tool_work import is_allowed
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -198,6 +199,36 @@ def _tool_lines(spec: AgentSpec) -> list[str]:
     ]
 
 
+def _skills_a_run_follows(spec: AgentSpec) -> list[dict[str, object]]:
+    """실행이 따르는 skill들 — 어느 단계가 입었고 문서가 실제로 가진 것만 (실행기와 같은 판정).
+
+    같은 skill을 두 단계가 입어도 한 번만 싣는다. 본문은 싣지 않는다: 시험을 짓는 데 필요한
+    것은 "무엇을 따르기로 했는가"이지 그 지시문 전체가 아니다.
+    """
+    followed: dict[str, dict[str, object]] = {}
+    for node in spec.nodes:
+        for brief in skills_worn_by(spec, node).briefs:
+            followed.setdefault(
+                brief.ref, {"name": brief.name, "description": brief.description}
+            )
+    return list(followed.values())
+
+
+def _skill_lines(spec: AgentSpec) -> list[str]:
+    """skill 절 — 따르는 skill이 없는 그래프에는 절 자체를 두지 않는다(빈 절은 소음이다)."""
+    skills = _skills_a_run_follows(spec)
+    if not skills:
+        return []
+    return [
+        (
+            "Cover every skill listed below: each one should show up in at least one "
+            "case whose input would make the agent follow it."
+        ),
+        "The skills the agent follows (JSON):",
+        _as_json(skills),
+    ]
+
+
 def _suggestion_prompt(asked: CaseSuggestionRequest) -> str:
     """모델에게 보내는 입력 — 그래프가 무엇을 하기로 했는지 읽고 시험을 짓게 한다."""
     lines = [
@@ -232,6 +263,7 @@ def _suggestion_prompt(asked: CaseSuggestionRequest) -> str:
             "The values a run is given (JSON):",
             _as_json(_values_a_run_is_given(asked.spec)),
             *_tool_lines(asked.spec),
+            *_skill_lines(asked.spec),
             "Titles already written (JSON):",
             _as_json(list(asked.existing_titles)),
         ]

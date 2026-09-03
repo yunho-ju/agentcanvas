@@ -288,3 +288,61 @@ describe("도구가 일한 실행을 읽는 목록", () => {
     expect(line).not.toContain("waited too long");
   });
 });
+
+// 입은 skill이 실행에서 실제로 따라졌는지 사람이 읽는다 (SK-2 — 결과를 볼 수 있는가).
+describe("그 걸음이 따른 skill", () => {
+  function askedWith(payload: Record<string, unknown>) {
+    return [
+      {
+        run_id: "run_skills",
+        seq: 0,
+        event_type: "llm.requested",
+        timestamp: "2026-08-01T12:30:00.000Z",
+        spec_revision: example.revision,
+        node_id: "triage",
+        payload,
+      },
+    ];
+  }
+
+  function watching(events: unknown[]) {
+    act(() => {
+      useEditor.setState({
+        runEvents: events as never,
+        activeRunId: "run_skills",
+        runOffsetMs: 0,
+      });
+    });
+    return render(<EventList />);
+  }
+
+  const FOLLOWED = ["skill://plain-answer@1", "skill://cite-sources@1"];
+
+  it("따른 skill이 있으면 그 이름을 쉬운 말 한 줄로 읽는다", () => {
+    watching(askedWith({ model_ref: "model://default", skill_refs: FOLLOWED }));
+
+    // 처음 나오는 낱말에는 뜻풀이가 함께 온다 (쉬운 말 원칙).
+    expect(
+      screen.getByText(
+        "따르는 skill(일하는 방법을 적어 둔 글): plain-answer, cite-sources",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("쉬운 말로 말한 것을 원문 이름표로 또 말하지 않는다", () => {
+    const { container } = watching(
+      askedWith({ model_ref: "model://default", skill_refs: FOLLOWED }),
+    );
+
+    const detail = container.querySelector(".event-list__payload")?.textContent ?? "";
+    expect(detail).not.toContain("skill://");
+    // 나머지 원문은 그대로 남는다 — 이 줄만 대신 말해진 것이다.
+    expect(detail).toContain('model_ref: "model://default"');
+  });
+
+  it("따른 skill이 없는 걸음에는 그 줄이 아예 없다", () => {
+    watching(askedWith({ model_ref: "model://default" }));
+
+    expect(screen.queryByText(/따르는 skill/)).not.toBeInTheDocument();
+  });
+});

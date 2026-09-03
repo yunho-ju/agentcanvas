@@ -59,6 +59,15 @@ export function skillRefFor(name: string, revision = "1"): string {
   return `skill://${name}@${revision}`;
 }
 
+/**
+ * ref가 가리키는 이름 부분 — skill의 이름표가 아니면 없다고 말한다.
+ * (Python `name_in_skill_ref`의 미러 — 이름과 ref를 잇는 자리는 이 파일 하나다.)
+ */
+export function nameInSkillRef(ref: string): string | undefined {
+  const found = /^skill:\/\/([^@]+)/.exec(ref);
+  return found ? found[1] : undefined;
+}
+
 interface Frontmatter {
   lines: string[] | null;
   remainder: string;

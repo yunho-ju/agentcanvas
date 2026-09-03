@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import skillDefSchema from "../../../packages/contracts/json_schema/skill_def.json";
 import cases from "../../../examples/skill-markdown/cases.json";
 import {
+  nameInSkillRef,
   SKILL_DESCRIPTION_MAX_LENGTH,
   SKILL_NAME_MAX_LENGTH,
   SKILL_NAME_PATTERN,
@@ -121,4 +122,16 @@ describe("이름·길이 규칙", () => {
       expect(skillNameIssue(name)).toBeDefined();
     },
   );
+});
+
+// 이름표에서 이름을 읽는 자리 — 파이썬 `name_in_skill_ref`와 같은 케이스에 같은 답을 낸다.
+describe("이름표가 가리키는 이름", () => {
+  it.each([
+    ["skill://plain-answer@1", "plain-answer"],
+    ["skill://plain-answer", "plain-answer"],
+    ["skill://", undefined],
+    ["tool://plain-answer@1", undefined],
+  ])("%j 이 가리키는 이름은 %j 이다", (ref, name) => {
+    expect(nameInSkillRef(ref)).toBe(name);
+  });
 });

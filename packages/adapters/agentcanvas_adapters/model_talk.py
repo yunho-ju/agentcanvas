@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
+from agentcanvas_engine.skill_wear import SkillBrief
 
 #: 무엇을 하는 자리인지 모델에게 먼저 일러 주는 말.
 SPEAKING_SYSTEM = (
@@ -67,15 +68,39 @@ def system_for(ask: ModelAsk) -> str:
     return PICKING_SYSTEM if ask.ways else SPEAKING_SYSTEM
 
 
+#: 입은 skill이 지시문 뒤에 붙는 절의 첫 줄.
+SKILLS_HEADING = "skills you follow:"
+
+
+def _skill_lines(skills: Sequence[SkillBrief]) -> list[str]:
+    """입은 skill이 모델의 글에 실리는 모습 — 입은 것이 없으면 절 자체가 없다(빈 절은 소음이다).
+
+    본문이 실리지 못한 skill도 이름과 설명은 말한다: 무엇을 따르기로 했는지는 그대로 남는다.
+    """
+    if not skills:
+        return []
+    written = [SKILLS_HEADING]
+    for skill in skills:
+        written.append(f"## {skill.name} — {skill.description}")
+        if skill.body is not None:
+            written.append(skill.body)
+    return written
+
+
 def instruction(ask: ModelAsk) -> str:
     """모델이 읽을 지시문 — 어느 노드가, 무슨 지시로, 무엇을 보고 있는가.
 
     사람이 직접 적은 말이 있으면 그것이 지시다. 없으면 이름표(prompt_ref)라도 보낸다 —
     지어낸 이름이 대개 뜻을 담고 있어, 아무 말도 없는 것보다 낫다.
+
+    이 걸음이 입은 skill은 지시 바로 다음에 절 하나로 온다 — 무엇을 하라는 말 뒤에 어떻게
+    일하는가가 붙고, 그다음이 흘러 들어온 것이다. 어느 skill을 어떤 차례로 입었는지는 엔진이
+    이미 풀어 건넸다(여기서 문서를 뒤지지 않는다).
     """
     written = [
         f"step: {ask.node.id} ({ask.node.type})",
         f"instruction: {ask.instruction or ask.prompt_ref}",
+        *_skill_lines(ask.skills),
         "what has flowed in so far:",
         what_flowed_in(ask.state),
     ]

@@ -14,6 +14,7 @@ from typing import Literal
 from agentcanvas_contracts.agent_spec import Node
 
 from .fake_runtime import FAKE_ANSWER_TOKENS, FAKE_PROMPT_TOKENS
+from .skill_wear import SkillBrief
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,8 @@ class ModelAsk:
     response_schema: Mapping[str, object] | None = None
     #: provider가 structured response를 기록할 때 사용할 이름.
     response_name: str | None = None
+    #: 이 노드가 입은 skill — 문서에서 푸는 일은 엔진이 끝냈다 (묻는 쪽은 spec을 뒤지지 않는다).
+    skills: tuple[SkillBrief, ...] = ()
 
 
 @dataclass(frozen=True)

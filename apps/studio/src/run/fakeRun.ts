@@ -5,6 +5,7 @@
 import type { AgentSpec, Edge as SpecEdge, Node1 as SpecNode } from "../generated/agent_spec";
 import type { EventType, RunEvent } from "../generated/run_event";
 import { flowOrder } from "../graph/order";
+import { nodeTypes, skillRefs } from "../registry/registry";
 
 export interface FakeRunOptions {
   /** 이 실행을 가리키는 이름 */
@@ -28,18 +29,35 @@ interface Emission {
   nodeId?: string;
 }
 
-/** 노드가 일하는 동안 무슨 일이 일어나는가. */
-type Work = (node: SpecNode) => Emission[];
+/** 노드가 일하는 동안 무슨 일이 일어나는가 — 문서를 함께 받는다(입은 skill은 문서에 있다). */
+type Work = (node: SpecNode, spec: AgentSpec) => Emission[];
 
 function refOf(node: SpecNode, key: string, fallback: string): string {
   const value = node.config?.[key];
   return typeof value === "string" ? value : fallback;
 }
 
+/**
+ * 이 걸음이 실제로 따르는 skill의 이름표 — 입은 순서 그대로, 문서가 가진 것만, 한 벌씩만.
+ * 문서에 없는 이름표는 따를 수 없으므로 적지 않는다 (파이썬 `skills_worn_by`와 같은 판정).
+ */
+function skillsFollowedBy(node: SpecNode, spec: AgentSpec): string[] {
+  const nodeType = nodeTypes[node.type];
+  if (!nodeType) return [];
+  const held = new Set((spec.skills ?? []).map((skill) => skill.ref));
+  return [...new Set(skillRefs(node, nodeType))].filter((ref) => held.has(ref));
+}
+
+/** 따른 skill이 사건에 적히는 모습 — 따른 것이 없으면 그 자리도 없다(옛 기록과 같은 모양). */
+function followedSkills(refs: string[]): Record<string, unknown> {
+  return refs.length === 0 ? {} : { skill_refs: refs };
+}
+
 /** 모델에게 물어보는 노드: 프롬프트를 만들고, 물어보고, 답을 받는다. */
-const asksAModel: Work = (node) => {
+const asksAModel: Work = (node, spec) => {
   const promptRef = refOf(node, "prompt_ref", `prompt://${node.id}@1`);
   const modelRef = refOf(node, "model_ref", "model://default");
+  const followed = followedSkills(skillsFollowedBy(node, spec));
   return [
     {
       event_type: "prompt.compiled",
@@ -49,7 +67,7 @@ const asksAModel: Work = (node) => {
         total_tokens: FAKE_PROMPT_TOKENS,
       },
     },
-    { event_type: "llm.requested", payload: { model_ref: modelRef } },
+    { event_type: "llm.requested", payload: { model_ref: modelRef, ...followed } },
     {
       event_type: "llm.completed",
       payload: { model_ref: modelRef, output_tokens: FAKE_ANSWER_TOKENS },
@@ -82,8 +100,8 @@ const WORK_BY_NODE_TYPE: Record<string, Work> = {
   "control.human_gate": waitsForAPerson,
 };
 
-function workOf(node: SpecNode): Emission[] {
-  return (WORK_BY_NODE_TYPE[node.type] ?? (() => []))(node);
+function workOf(node: SpecNode, spec: AgentSpec): Emission[] {
+  return (WORK_BY_NODE_TYPE[node.type] ?? (() => []))(node, spec);
 }
 
 /**
@@ -127,7 +145,7 @@ function nodeEmissions(node: SpecNode, spec: AgentSpec): Emission[] {
   const own: Emission[] = [
     { event_type: "node.queued", payload: { node_type: node.type } },
     { event_type: "node.started", payload: { node_type: node.type } },
-    ...workOf(node),
+    ...workOf(node, spec),
     { event_type: "node.completed", payload: { node_type: node.type } },
   ];
   const kept = stateKeys(spec);

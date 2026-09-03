@@ -3,6 +3,7 @@
 // 문장 자체는 messages.ts가 들고 있다 — 여기서는 어느 문장에 무엇을 채울지만 정한다.
 import { type Message, type MessageKey, msg } from "../i18n/messages";
 import type { EventType, RunEvent } from "../generated/run_event";
+import { nameInSkillRef } from "../graph/skillMarkdown";
 import { toolFellShortIn, turnedDown } from "./player";
 
 function nodeName(event: RunEvent): Message | string {
@@ -176,6 +177,22 @@ export function eventSummary(event: RunEvent, run: RunEvent[] = []): Message {
   return SENTENCE[event.event_type](event, run);
 }
 
+/** 그 걸음이 따른 skill이 적히는 payload의 자리 (파이썬 `FOLLOWED_SKILLS`와 같은 이름). */
+const FOLLOWED_SKILLS = "skill_refs";
+
+/**
+ * 이 걸음이 따른 skill을 사람이 읽을 한 줄로 — 따른 것이 없으면 할 말도 없다.
+ * 이름표(skill://이름@판)가 아니라 사람이 부르는 이름으로 말한다: 판 번호는 여기서 읽을 것이 아니다.
+ */
+export function skillsFollowed(event: RunEvent): Message | null {
+  const refs = event.payload[FOLLOWED_SKILLS];
+  if (!Array.isArray(refs)) return null;
+  const names = refs
+    .filter((ref): ref is string => typeof ref === "string")
+    .map((ref) => nameInSkillRef(ref) ?? ref);
+  return names.length === 0 ? null : msg("event.skillsFollowed", { skills: names.join(", ") });
+}
+
 /** 한 줄에 담을 수 있는 길이 — 넘치면 잘라서 뒤에 …를 붙인다. */
 const LINE_LIMIT = 80;
 
@@ -187,7 +204,11 @@ function shortened(value: unknown): string {
 /**
  * 이벤트가 무엇을 들고 왔는지 있는 그대로 보여준다 — 쉬운 말 요약 옆에 붙는 보조 표기다.
  * payload는 계약이 자유롭게 열어 둔 자리이므로 원문 이름을 그대로 쓴다.
+ * 다만 이미 쉬운 말 한 줄로 말한 것은 여기서 또 말하지 않는다 (같은 사실을 두 번 읽히지 않는다).
  */
 export function payloadLines(event: RunEvent): string[] {
-  return Object.entries(event.payload).map(([key, value]) => `${key}: ${shortened(value)}`);
+  const saidInPlainWords = skillsFollowed(event) === null ? [] : [FOLLOWED_SKILLS];
+  return Object.entries(event.payload)
+    .filter(([key]) => !saidInPlainWords.includes(key))
+    .map(([key, value]) => `${key}: ${shortened(value)}`);
 }

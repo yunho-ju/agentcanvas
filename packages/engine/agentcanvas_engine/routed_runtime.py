@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -56,6 +57,7 @@ from .run_log import (
     _state_from,
     _tells_of_another_graph,
 )
+from .skill_wear import WornSkills, skills_worn_by
 from .tool_call import (
     FLOWS_OUT_OF_THE_ERROR_PORT,
     CallsATool,
@@ -76,6 +78,29 @@ from .tool_work import (
     stopped,
     wants_approval,
 )
+
+#: 실행을 세우지는 않지만 사람이 알아야 하는 일을 적어 두는 곳 (사건으로 남길 자리가 없는 것들).
+_LOG = logging.getLogger(__name__)
+
+
+def _tells_of_skills_it_could_not_wear(node: Node, worn: WornSkills) -> None:
+    """온전히 입지 못한 skill은 조용히 사라지지 않는다 — 실행은 계속하되 그 사실을 적어 둔다.
+
+    두 가지 일이 같은 자리에서 말해진다: 문서에 없어 아예 못 입은 것과, 본문이 이번 물음의
+    예산에 들어가지 못해 설명만 간 것. 사람이 고칠 자리는 둘 다 문서이고(validator가
+    `skill.missing`으로 이미 말한다), 실행은 이 일을 사건으로 남길 자리가 없으므로 기록에만 적는다.
+    """
+    said = (
+        (worn.missing, "which this agent does not have — skipping it"),
+        (
+            worn.over_budget,
+            "whose body did not fit this question — sending its description alone",
+        ),
+    )
+    for refs, why in said:
+        for ref in refs:
+            _LOG.warning("step %r wears the skill %r, %s", node.id, ref, why)
+
 
 #: 사람의 답이 흘러나가는 두 포트 — 답에 따라 그중 한쪽의 연결만 흐른다.
 PORT_BY_ANSWER = {True: "approved", False: "rejected"}
@@ -230,6 +255,8 @@ class _Flow:
         # 공백 한 칸은 적은 것이 아니다 — 지시가 없으면 이름표 폴백이 살아 있어야 한다.
         told = node.config.get("instruction")
         written = told if isinstance(told, str) and told.strip() else None
+        worn = skills_worn_by(self._spec, node)
+        _tells_of_skills_it_could_not_wear(node, worn)
         ask = ModelAsk(
             node=node,
             state=dict(self._state),
@@ -237,6 +264,7 @@ class _Flow:
             model_ref=_ref_of(node, "model_ref", "model://default"),
             prompt_ref=_ref_of(node, "prompt_ref", f"prompt://{node.id}@1"),
             instruction=written if isinstance(written, str) else None,
+            skills=worn.briefs,
         )
         heard = self._model(ask)
         if isinstance(heard, ModelBalked):

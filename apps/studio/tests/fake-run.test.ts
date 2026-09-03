@@ -139,3 +139,79 @@ describe("the events a fake run produces", () => {
     expect(run()).toEqual(run());
   });
 });
+
+// 가짜 실행도 무엇을 입고 물었는지 말한다 — 화면이 두 실행기를 다르게 그리지 않게
+// (파이썬 `agentcanvas_engine.fake_runtime`와 같은 규칙).
+describe("입은 skill을 흉내 실행도 그대로 적는다", () => {
+  function skill(name: string) {
+    return {
+      ref: `skill://${name}@1`,
+      name,
+      description: `Use when ${name} is what the answer needs.`,
+      body: `Do what ${name} asks.\n`,
+    };
+  }
+
+  function specWearing(held: string[], worn: string[]): AgentSpec {
+    return {
+      ...example,
+      skills: held.map(skill),
+      nodes: example.nodes.map((node) =>
+        // skill을 입을 수 있는 단계는 llm.agent다 (registry의 x-skill-ref 자리).
+        node.id === "clinical-agent"
+          ? { ...node, config: { ...node.config, skill_refs: worn } }
+          : node,
+      ),
+    } as AgentSpec;
+  }
+
+  function refsAskedFor(spec: AgentSpec): unknown[] {
+    return run(spec)
+      .filter(
+        (event) =>
+          event.event_type === "llm.requested" && event.node_id === "clinical-agent",
+      )
+      .map((event) => event.payload.skill_refs);
+  }
+
+  it("입은 skill의 이름표가 그 걸음의 사건에 남는다", () => {
+    const refs = refsAskedFor(specWearing(["plain-answer"], ["skill://plain-answer@1"]));
+
+    expect(refs[0]).toEqual(["skill://plain-answer@1"]);
+  });
+
+  it("문서에 없는 이름표는 따르지 않은 것이라 적히지 않는다", () => {
+    const refs = refsAskedFor(specWearing([], ["skill://nowhere@1"]));
+
+    expect(refs[0]).toBeUndefined();
+  });
+
+  it("두 벌을 입으면 입은 차례 그대로 적힌다", () => {
+    const refs = refsAskedFor(
+      specWearing(
+        ["plain-answer", "cite-sources"],
+        ["skill://cite-sources@1", "skill://plain-answer@1"],
+      ),
+    );
+
+    expect(refs[0]).toEqual(["skill://cite-sources@1", "skill://plain-answer@1"]);
+  });
+
+  it("같은 이름표를 두 번 적어도 한 번만 적힌다", () => {
+    const refs = refsAskedFor(
+      specWearing(
+        ["plain-answer"],
+        ["skill://plain-answer@1", "skill://plain-answer@1"],
+      ),
+    );
+
+    expect(refs[0]).toEqual(["skill://plain-answer@1"]);
+  });
+
+  it("아무것도 입지 않은 실행의 기록은 예전 그대로다", () => {
+    const asked = run(example).filter((event) => event.event_type === "llm.requested");
+
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every((event) => !("skill_refs" in event.payload))).toBe(true);
+  });
+});

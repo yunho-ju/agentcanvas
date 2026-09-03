@@ -1247,6 +1247,11 @@ const TEXTS = {
     ko: "'{node}' 노드가 인공지능에게 물어봤다",
     en: "The '{node}' node asked the AI",
   },
+  // 그 걸음이 실제로 따른 skill — 이름표(skill://이름@판)가 아니라 사람이 부르는 이름으로 읽는다.
+  "event.skillsFollowed": {
+    ko: "따르는 skill(일하는 방법을 적어 둔 글): {skills}",
+    en: "Follows these skills (written ways of working): {skills}",
+  },
   "event.llm.completed": {
     ko: "'{node}' 노드가 인공지능의 답을 받았다",
     en: "The '{node}' node got the AI's answer back",

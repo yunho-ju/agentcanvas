@@ -20,6 +20,7 @@ from agentcanvas_contracts.agent_spec import (
     ResourceBinding,
 )
 from agentcanvas_contracts.model_catalog import ModelDef
+from agentcanvas_contracts.skill_def import SkillDef
 from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
 
 INSTRUCTION_LABEL = "The instructions being tested (JSON):"
@@ -429,3 +430,57 @@ def test_a_tool_two_steps_point_at_is_listed_once():
     tools = json_block_after(prompt_for(request_for(spec)), TOOL_LABEL)
 
     assert [tool["name"] for tool in tools] == ["search_article"]
+
+
+SKILL_LABEL = "The skills the agent follows (JSON):"
+SKILL_HINT = "every skill listed"
+
+
+def a_skill(name: str) -> dict:
+    return {
+        "ref": f"skill://{name}@1",
+        "name": name,
+        "description": f"Use when {name} is what the answer needs.",
+        "body": f"Do what {name} asks.\n",
+    }
+
+
+def spec_wearing(*names: str, worn: tuple[str, ...]) -> AgentSpec:
+    """writer 단계가 `worn`에 적힌 skill만 입은 그래프."""
+    draft = a_spec()
+    writer = next(node for node in draft.nodes if node.id == "writer")
+    writer.config["skill_refs"] = [f"skill://{name}@1" for name in worn]
+    return draft.model_copy(
+        update={"skills": [SkillDef.model_validate(a_skill(name)) for name in names]},
+    )
+
+
+def test_the_prompt_carries_the_skills_the_agent_follows():
+    prompt = prompt_for(
+        request_for(spec_wearing("plain-answer", worn=("plain-answer",)))
+    )
+
+    assert json_block_after(prompt, SKILL_LABEL) == [
+        {
+            "name": "plain-answer",
+            "description": "Use when plain-answer is what the answer needs.",
+        }
+    ]
+    assert SKILL_HINT in prompt
+
+
+def test_a_graph_that_follows_no_skill_has_no_skill_section_at_all():
+    prompt = prompt_for(a_request())
+
+    assert SKILL_LABEL not in prompt
+    assert SKILL_HINT not in prompt
+
+
+def test_a_skill_no_step_wears_stays_out_of_the_prompt():
+    prompt = prompt_for(
+        request_for(spec_wearing("worn-one", "nobody-wears-me", worn=("worn-one",)))
+    )
+
+    assert [skill["name"] for skill in json_block_after(prompt, SKILL_LABEL)] == [
+        "worn-one"
+    ]

@@ -5,7 +5,7 @@ import type { RunEvent } from "../generated/run_event";
 import { type Translate, useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 import { currentSeq } from "../store/runSlice";
-import { eventSummary, payloadLines } from "./eventWords";
+import { eventSummary, payloadLines, skillsFollowed } from "./eventWords";
 
 /**
  * 사건 한 줄. 재생 위치가 한 칸 움직일 때 목록 전체를 다시 그릴 이유는 없다 —
@@ -25,6 +25,7 @@ const EventRow = memo(function EventRow({
   onPick: (seq: number) => void;
   t: Translate;
 }) {
+  const followed = skillsFollowed(event);
   return (
     <li className="event-list__row">
       <button
@@ -39,6 +40,8 @@ const EventRow = memo(function EventRow({
       {/* 지금 보고 있는 사건만 무엇을 들고 왔는지 펼친다 — 목록이 읽히지 않으면 소용이 없다. */}
       {shown ? (
         <dl className="event-list__payload">
+          {/* 그 걸음이 무엇을 따랐는지는 원문 이름표보다 먼저, 사람의 말로 읽힌다. */}
+          {followed ? <dd>{t(followed)}</dd> : null}
           {payloadLines(event).map((line) => (
             <dd key={line}>{line}</dd>
           ))}
