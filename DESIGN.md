@@ -347,6 +347,26 @@ tool-wrap-card (붙여 넣으면 도구가 된다 — API 문서/curl/산문 →
 - 문구 전부 사전 경유(ko/en 쉬운 말), 4상태는 기존 .control·button 문법 재사용
 - 재-import 모드(P2c): resources-panel의 [다시 가져오기]로 열리면 **대상 연결 하나가 고정**된 채 같은 입력 3종을 받는다(제목이 그 연결 이름을 말한다). review는 diff로 말한다 — [새 도구 / 바뀐 도구 / 빠지는 도구] 세 묶음, **빠지는 것을 침묵하지 않는다**(§9 — P2b에서 조용한 삭제가 blocker였던 바로 그 지점). 승인은 그 연결 하나만 갈아 끼우고(다른 연결·그래프 불변) 1 undo 걸음
 
+skill-wear (이 단계가 따를 skill을 고른다 — config_schema가 `x-skill-ref`로 표시한 필드, SK-3)
+- 용어: 화면에서 skill은 '**skill (일하는 방법을 적어 둔 글)**'이라 부른다 — 첫 등장마다 괄호 설명이 붙는다(용어 원칙). 기술 이름 `skill_refs`·`SKILL.md`는 화면에 쓰지 않는다
+- 옵션 출처는 **지금 이 문서의 skill 목록**(spec.skills)이다. 형태는 셀렉트가 아니라 **체크 목록**(한 단계가 여러 skill을 입는다): 줄 = [checkbox][skill 이름 --text-label][description 한 줄 --text-caption, ink-soft]. 체크 1회 = undo 1걸음. 4상태는 기존 `.control` checkbox 그대로
+- 목록 아래 [skill 가져오기… button-ghost] — skill-import-card를 연다. 문서에 skill이 하나도 없으면 체크 목록 대신 캡션 한 줄 '이 문서에는 아직 skill이 없어요 — 가져오면 이 단계가 따를 수 있어요'(빈 목록을 말없이 던지지 않는다)
+- 문서에 없는 ref가 이미 저장돼 있으면 그 줄을 체크된 채 '문서에 없는 skill' 캡션(warn-ink)으로 보여 준다 — 판정은 필드 오류·노드 뱃지(validator `skill.missing`)가 한다(같은 말 두 번 금지). 체크를 풀면 그 줄은 사라진다
+- 실행을 보는 동안은 inspector 잠금 규칙 그대로
+
+skills-panel (문서의 skill을 보는 독 패널 — SK-3)
+- resources-panel 문법 그대로(dock-panel, `DOCK_TOOLS` 표에 한 줄). 아래는 **다른 점만**
+- 내용: 이 문서의 skill 목록. 한 줄 = [이름 --text-label][description --text-caption][출처 캡션: 가져온 곳(skills.sh 주소면 그 이름) 또는 '이 문서에서 만듦'][입은 단계: 노드 이름 칩, 없으면 '아직 아무 단계도 안 따라요'(validator `skill.unused` INFO와 같은 사실)]
+- 줄의 행동: [읽기](button-ghost — 본문을 같은 패널 안 접힘 영역으로 편다, 마크다운을 읽기용으로 렌더, 새 레이어 금지) · [지우기](inspector-card 지우기 문법, 확인 대화 없음, 1 undo 걸음, 입고 있던 노드는 뱃지·필드 오류가 후속 상태를 말한다 — resources-panel 지우기와 같은 규칙)
+- 빈 상태: '이 문서에는 아직 skill이 없어요' + [skill 가져오기 primary]
+
+skill-import-card (붙여 넣거나 주소를 주면 skill이 된다 — SK-3)
+- 표면·원칙은 tool-wrap-card를 물려받는다(중앙 모달, 한 시점에 하나만 묻는다, **승인 전 spec 불변**, 실패는 쉬운 말). 아래는 **다른 점만**
+- 입력 상태: 제목 'skill을 가져올까요' + 설명 한 줄('일하는 방법을 적어 둔 글을 붙여 넣거나, skills.sh 주소를 주세요') + 입력 종류 세그먼트 2종(글 붙여넣기 / 주소) + textarea. 모델을 부르지 않는다 — 파서(순수)가 그 자리에서 읽는다. 읽지 못하면 issue를 쉬운 말로(예: '이름은 소문자·숫자·하이픈만 쓸 수 있어요'), 원문 issue 코드 노출 금지
+- review 상태: [이름 --text-label][description --text-body][본문 미리보기: 처음 12줄 + '더 보기'][캡션: 출처·라이선스·길이(줄 수)]. 본문이 500줄을 넘으면 warn 캡션 '긴 글이에요 — 모델이 다 읽지 못할 수 있어요'. `scripts/`가 있었으면 캡션 '이 skill의 실행 파일은 가져오지 않아요 — 글만 따라요'(놀라움 없음)
+- 버튼 행: [문서에 넣기 primary][다시 적기 ghost]. 승인 1회 = undo 1걸음. 같은 이름의 skill이 이미 있으면 primary 대신 [바꿔 넣기](이전 판과 무엇이 달라지는지 줄 수로 말한다) — 조용히 덮지 않는다. 승인 즉시 skills-panel과 skill-wear 목록에 나타난다
+- 어디서 열리는가: skill-wear의 [skill 가져오기…], skills-panel의 [skill 가져오기]. 두 입구, 한 카드
+
 run-input-card (실행에 넣을 값 — '실행해 보기'가 물을 것이 있을 때)
 - 언제: 실행 버튼을 눌렀고 그래프의 입력 노드가 받는 값 이름(bindings)이 하나라도 있을 때. 물을 것이 없으면 카드 없이 바로 실행(지금과 동일 — 빈 카드를 띄우지 않는다)
 - 위치: `.layer-top-right` 실행 버튼 아래 var(--space-2) 세로 스택. glass + 1px hairline + shadow-float + radius-card, 폭 var(--panel-inspector)
