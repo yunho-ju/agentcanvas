@@ -737,6 +737,117 @@ const TEXTS = {
     ko: "그 주소가 제때 답하지 않았어요 — 잠시 뒤 다시 해보세요",
     en: "That address did not answer in time — try again in a moment",
   },
+  // 지시문을 skill로 만드는 카드 (DESIGN §7 skill-make-card)
+  "skillMake.entry": { ko: "skill로 저장", en: "Save as a skill" },
+  "skillMake.entry.hint": {
+    ko: "이 지시문을 skill(일하는 방법을 적어 둔 글)로 만들어 이 단계가 따르게 해요",
+    en: "Turns what you wrote into a skill — a written way of working this step follows",
+  },
+  "skillMake.entry.disabled": {
+    ko: "지시문을 먼저 적어야 skill로 만들 수 있어요",
+    en: "Write the instruction first, then it can become a skill",
+  },
+  "skillMake.title": {
+    ko: "이 지시문을 skill로 만들까요",
+    en: "Turn this instruction into a skill?",
+  },
+  "skillMake.explain": {
+    ko: "skill은 일하는 방법을 적어 둔 글이에요 — 만들면 이 단계가 그 글을 따라요",
+    en: "A skill is a written way of working — once you make one, this step follows it",
+  },
+  "skillMake.instruction.label": {
+    ko: "이 단계에 적혀 있는 지시문",
+    en: "What this step says now",
+  },
+  "skillMake.name.label": { ko: "이름", en: "Name" },
+  "skillMake.name.placeholder": {
+    ko: "예: plain-answer (소문자·숫자·하이픈)",
+    en: "e.g. plain-answer (lowercase, digits, hyphens)",
+  },
+  "skillMake.name.empty": {
+    ko: "이름을 적어 주세요 — 소문자·숫자·하이픈만 쓸 수 있어요",
+    en: "Write a name — lowercase letters, digits and hyphens only",
+  },
+  "skillMake.description.label": { ko: "언제 쓰나요", en: "When to use it" },
+  "skillMake.description.placeholder": {
+    ko: "예: 사람에게 답할 때, 쉽게 읽혀야 할 때",
+    en: "e.g. when you answer a person and it must be easy to read",
+  },
+  "skillMake.description.empty": {
+    ko: "언제 쓰는 글인지 한 줄로 적어 주세요",
+    en: "Write one line saying when to use it",
+  },
+  "skillMake.description.long": {
+    ko: "'언제 쓰나요'는 {max}자까지예요 — 한 줄로 짧게 적어 주세요",
+    en: "'When to use it' can hold up to {max} characters — keep it to one short line",
+  },
+  "skillMake.references": { ko: "비슷한 skill 참고하기", en: "Similar skills to look at" },
+  "skillMake.references.hint": {
+    ko: "고르는 것이 아니라 참고예요 — 눌러서 본문을 읽어 볼 수 있어요",
+    en: "These are just for reference, not a choice — open one to read it",
+  },
+  "skillMake.draft": { ko: "초안 만들기", en: "Make a first draft" },
+  "skillMake.draft.hint": {
+    ko: "적은 것으로 초안을 지어 먼저 보여 줘요 — 문서는 아직 그대로예요",
+    en: "Writes a draft from what you wrote and shows it first — the document stays as it is",
+  },
+  "skillMake.loading": {
+    ko: "초안을 짓는 중이에요",
+    en: "Writing the first draft",
+  },
+  "skillMake.error.offline": {
+    ko: "서버에 닿지 못했어요 — 서버가 켜져 있는지 확인하고 다시 해보세요",
+    en: "Could not reach the server — check that it is running and try again",
+  },
+  "skillMake.error.refused": {
+    ko: "적은 이름이나 '언제 쓰나요'를 서버가 받지 못했어요 — 이름은 소문자·숫자·하이픈으로, 쓰임새는 한 줄로 고쳐 주세요",
+    en: "The server would not take the name or the 'when to use it' — write the name in lowercase letters, digits and hyphens, and keep the use to one line",
+  },
+  "skillMake.error.strange": {
+    ko: "초안을 받지 못했어요 — 잠시 뒤 다시 해보세요",
+    en: "No draft came back — try again in a moment",
+  },
+  "skillMake.review.title": {
+    ko: "이 skill을 넣고 따르게 할까요",
+    en: "Add this skill and follow it?",
+  },
+  "skillMake.review.caption": {
+    ko: "넣으면 이 단계가 바로 따르게 돼요",
+    en: "Add it and this step starts following it right away",
+  },
+  "skillMake.scaffold": {
+    ko: "부를 모델이 없어 틀만 잡았어요 — 본문은 지시문 그대로예요",
+    en: "There was no model to ask, so this is just the frame — the text is your instruction as it was",
+  },
+  "skillMake.apply": { ko: "문서에 넣고 따르기", en: "Add it and follow it" },
+  "skillMake.apply.hint": {
+    ko: "문서에 넣고 이 단계가 따르게 해요 — 되돌리기 한 번으로 둘 다 되돌아가요",
+    en: "Adds it and makes this step follow it — one undo takes both back",
+  },
+  "skillMake.replace": { ko: "바꿔 넣고 따르기", en: "Replace it and follow it" },
+  "skillMake.replace.hint": {
+    ko: "같은 이름의 skill을 이 판으로 갈아 끼우고 이 단계가 따르게 해요 — 되돌리기로 이전 판이 돌아와요",
+    en: "Swaps the skill of that name for this one and follows it — undo brings the old one back",
+  },
+  "skillMake.again": { ko: "다시 만들기", en: "Make it again" },
+  "skillMake.again.hint": {
+    ko: "적던 자리로 돌아가 다시 지어 봐요",
+    en: "Go back to what you wrote and draft it again",
+  },
+  "skillMake.made.kept": {
+    ko: "지시문은 그대로 두었어요 — skill이 같은 내용을 담으니 지시문을 줄여도 돼요",
+    en: "Your instruction is untouched — the skill holds the same words, so you can shorten it",
+  },
+  "skillMake.made.test": {
+    ko: "시험해 보기에서 이 skill을 시험할 케이스를 지어 볼 수 있어요",
+    en: "In Testing you can have cases written that try this skill out",
+  },
+  "skillMake.made.testAction": { ko: "시험 짓기", en: "Write tests for it" },
+  "skillMake.made.testAction.hint": {
+    ko: "시험해 보기로 가서 지어 달라고 청하는 자리에 손을 놓아요",
+    en: "Goes to Testing and puts your hand where you ask for cases",
+  },
+  "skillMake.made.dismiss": { ko: "닫기", en: "Close" },
   "control.skillWear.explain": {
     ko: "skill은 일하는 방법을 적어 둔 글이에요 — 고른 글을 이 단계가 따라요",
     en: "A skill is a written way of working — this step follows the ones you tick",
@@ -858,6 +969,10 @@ const TEXTS = {
   },
   "edit.takeInSkill": { ko: "skill 들이기", en: "Taking in a skill" },
   "edit.swapSkill": { ko: "skill 바꿔 넣기", en: "Replacing a skill" },
+  "edit.takeInSkillAndWear": {
+    ko: "skill 만들어 입히기",
+    en: "Making a skill and following it",
+  },
   "edit.dropSkill": { ko: "skill 지우기", en: "Deleting a skill" },
   "edit.dropSkill.notice": {
     ko: "'{name}' skill을 지웠다 — {nodes} 노드가 따르던 글이라 다시 골라야 한다",

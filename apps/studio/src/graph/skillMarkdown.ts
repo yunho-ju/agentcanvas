@@ -23,7 +23,19 @@ export const REFERENCES_PREFIX = "references/";
 
 const KNOWN_KEYS = ["name", "description", "license", "compatibility"];
 const METADATA_KEY = "metadata";
-const VALUE_STARTS_A_STRUCTURE = ["|", ">", "-", "[", "{", "&", "*"];
+const VALUE_STARTS_A_STRUCTURE = ["|", ">", "-", "[", "{", "&", "*", "'"];
+
+// 그냥 적으면 다시 읽을 수 없는 값들 — 이 모양이면 따옴표로 감싸 적는다.
+// 읽는 규칙과 쓰는 규칙은 한 쌍이다: 우리가 쓴 글을 우리가 못 읽으면 그것은 형식이 아니다.
+const VALUE_NEEDS_QUOTES_START = [
+  ...VALUE_STARTS_A_STRUCTURE,
+  "#",
+  '"',
+  "!",
+  "%",
+  "@",
+  "`",
+];
 const NAME_RULE = new RegExp(SKILL_NAME_PATTERN);
 
 // 본문 끝에서 떼어 내는 글자 — 두 언어가 똑같이 이 넉 자만 뗀다 (`bodyOf` 참고).
@@ -87,20 +99,81 @@ function splitFrontmatter(text: string): Frontmatter {
   return { lines: null, remainder: text };
 }
 
-function scalarIssue(key: string, value: string): SkillIssue | undefined {
-  if (value === "") {
-    return issueOf(
-      "skill.frontmatter",
-      `"${key}" has no value — this file's front matter must be written as 'key: value' on one line`,
-    );
-  }
-  if (VALUE_STARTS_A_STRUCTURE.some((start) => value.startsWith(start))) {
-    return issueOf(
-      "skill.frontmatter",
-      `"${key}" holds a value we do not read — we read only plain one-line values and a one-level 'metadata:' map`,
-    );
+/**
+ * 맨 위 칸에 적을 값 하나 — 그냥 두면 다시 읽지 못할 값만 따옴표로 감싼다.
+ * 쓰는 규칙은 읽는 규칙(`scalarOf`)의 짝이다: 여기서 감싼 것은 저기서 그대로 풀린다.
+ */
+export function quoteScalar(value: string): string {
+  if (!needsQuotes(value)) return value;
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function needsQuotes(value: string): boolean {
+  if (value === "" || value !== value.trim()) return true;
+  if (VALUE_NEEDS_QUOTES_START.some((start) => value.startsWith(start))) return true;
+  return value.includes(": ") || value.includes(" #");
+}
+
+/** 따옴표로 감싼 값 하나를 푼다 — 우리가 쓴 모양이 아니면 없다고 답한다. */
+function unquoted(value: string): string | undefined {
+  if (value.length < 2 || !value.endsWith('"')) return undefined;
+  let read = "";
+  let index = 1;
+  while (index < value.length) {
+    const char = value[index];
+    if (char === "\\") {
+      if (index + 1 >= value.length) return undefined;
+      const following = value[index + 1];
+      read += following === '"' || following === "\\" ? following : char + following;
+      index += 2;
+      continue;
+    }
+    if (char === '"') {
+      // 닫는 따옴표는 맨 끝에만 온다 — 그 앞에 서 있으면 우리가 쓴 모양이 아니다.
+      return index === value.length - 1 ? read : undefined;
+    }
+    read += char;
+    index += 1;
   }
   return undefined;
+}
+
+interface ScalarRead {
+  value?: string;
+  issue?: SkillIssue;
+}
+
+/** 적힌 한 줄에서 읽어 낸 값 — 읽지 못하면 값 대신 까닭을 돌려준다. */
+function scalarOf(key: string, value: string): ScalarRead {
+  if (value === "") {
+    return {
+      issue: issueOf(
+        "skill.frontmatter",
+        `"${key}" has no value — this file's front matter must be written as 'key: value' on one line`,
+      ),
+    };
+  }
+  if (value.startsWith('"')) {
+    const read = unquoted(value);
+    if (read === undefined) {
+      return {
+        issue: issueOf(
+          "skill.frontmatter",
+          `"${key}" opens a quote it never closes — a quoted value ends with the same " and writes \\" for a quote inside it`,
+        ),
+      };
+    }
+    return { value: read };
+  }
+  if (VALUE_STARTS_A_STRUCTURE.some((start) => value.startsWith(start))) {
+    return {
+      issue: issueOf(
+        "skill.frontmatter",
+        `"${key}" holds a value we do not read — write a plain one-line value, or wrap it in double quotes ("...") to keep it as it is`,
+      ),
+    };
+  }
+  return { value };
 }
 
 function unreadableLine(line: string, why: string): SkillIssue {
@@ -135,13 +208,12 @@ function readFrontmatter(lines: string[]): ReadFrontmatter {
         continue;
       }
       const key = indented.slice(0, separator).trim();
-      const value = indented.slice(separator + 1).trim();
-      const problem = scalarIssue(key, value);
-      if (problem) {
-        issues.push(problem);
+      const read = scalarOf(key, indented.slice(separator + 1).trim());
+      if (read.value === undefined) {
+        if (read.issue) issues.push(read.issue);
         continue;
       }
-      metadata[key] = value;
+      metadata[key] = read.value;
       continue;
     }
 
@@ -157,15 +229,15 @@ function readFrontmatter(lines: string[]): ReadFrontmatter {
       inMetadata = true;
       continue;
     }
-    const problem = scalarIssue(key, value);
-    if (problem) {
-      issues.push(problem);
+    const read = scalarOf(key, value);
+    if (read.value === undefined) {
+      if (read.issue) issues.push(read.issue);
       continue;
     }
     if (KNOWN_KEYS.includes(key)) {
-      fields[key] = value;
+      fields[key] = read.value;
     } else {
-      metadata[key] = value;
+      metadata[key] = read.value;
     }
   }
 
@@ -293,18 +365,21 @@ export function parseSkillMarkdown(
 
 /** skill 하나를 표준 SKILL.md로 다시 쓴다 — 읽어 들이면 같은 skill이 된다. */
 export function renderSkillMarkdown(skill: SkillDef): string {
-  const front = [`name: ${skill.name}`, `description: ${skill.description}`];
+  const front = [
+    `name: ${quoteScalar(skill.name)}`,
+    `description: ${quoteScalar(skill.description)}`,
+  ];
   if (skill.license !== null && skill.license !== undefined) {
-    front.push(`license: ${skill.license}`);
+    front.push(`license: ${quoteScalar(skill.license)}`);
   }
   if (skill.compatibility !== null && skill.compatibility !== undefined) {
-    front.push(`compatibility: ${skill.compatibility}`);
+    front.push(`compatibility: ${quoteScalar(skill.compatibility)}`);
   }
   const metadata = skill.metadata ?? {};
   const keys = Object.keys(metadata).sort();
   if (keys.length > 0) {
     front.push(`${METADATA_KEY}:`);
-    front.push(...keys.map((key) => `  ${key}: ${metadata[key]}`));
+    front.push(...keys.map((key) => `  ${key}: ${quoteScalar(metadata[key])}`));
   }
   return `${FRONTMATTER_FENCE}\n${front.join("\n")}\n${FRONTMATTER_FENCE}\n\n${skill.body}`;
 }

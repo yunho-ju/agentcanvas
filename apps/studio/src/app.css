@@ -5641,6 +5641,86 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* 지시문을 skill로 만드는 카드의 참고 줄 — 누르면 그 자리에서 본문이 펼쳐진다
+   (DESIGN §7 skill-make-card. 줄 자체는 시작 skill 줄의 문법을 그대로 쓴다). */
+.skill-import-card__reference {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* 시작 글 고르기와 [skill로 저장]이 나란히 서는 줄 (DESIGN §7 skill-make-card 입구). */
+.control__preset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.control__preset-row .control {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 지시문 칸의 [skill로 저장]과, 만들고 난 자리에 남는 말 (DESIGN §7 skill-make-card).
+   두 자리의 ghost 손잡이는 같은 한 벌을 쓴다 — 같은 문법을 두 번 적지 않는다. */
+.control__make-skill,
+.control__made-actions .button-ghost {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.control__make-skill:hover:not(:disabled),
+.control__made-actions .button-ghost:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.control__make-skill:active:not(:disabled),
+.control__made-actions .button-ghost:active:not(:disabled) {
+  background: var(--surface-active);
+  transform: scale(0.98);
+}
+
+.control__make-skill:focus-visible,
+.control__made-actions .button-ghost:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.control__make-skill:disabled,
+.control__made-actions .button-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.control__made-skill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+
+.control__made-line {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}
+
+.control__made-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 /* 입는 skill 칸 — 셀렉트가 아니라 체크 목록이다 (DESIGN §7 skill-wear). */
 .skill-wear {
   display: flex;

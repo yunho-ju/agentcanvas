@@ -1,6 +1,7 @@
 // 주소 하나를 서버에 묻는 문 — 서버가 대는 까닭은 화면에서 쉬운 말 한 줄이 된다.
 import { describe, expect, it } from "vitest";
 import type { HttpResponse } from "../src/api/http";
+import { draftSkillOnServer } from "../src/api/skillDraft";
 import { fetchSkillOnServer } from "../src/api/skills";
 import { translate } from "../src/i18n/messages";
 
@@ -64,5 +65,53 @@ describe("skill 원문을 가져오는 문", () => {
     const outcome = await fetchSkillOnServer("https://skills.sh/a/b/c", { fetch });
 
     expect(translate("ko", outcome.failure!)).toMatch(/서버에 닿지 못했어요/);
+  });
+});
+
+describe("skill 초안을 청하는 문", () => {
+  const ask = {
+    instruction: "Answer plainly.",
+    name: "plain-answer",
+    description: "Use when you answer a person",
+    references: [],
+  };
+
+  it("적은 것과 참고를 실어 묻고, 무엇이 지었는지까지 읽는다", async () => {
+    const calls: { url: string; body?: string }[] = [];
+    const fetch = async (url: string, init: { method: string; body?: string }) => {
+      calls.push({ url, body: init.body });
+      return response(200, { text: "---\n", drafted_by: "scaffold", issues: [] });
+    };
+
+    const outcome = await draftSkillOnServer(ask, { baseUrl: "http://here", fetch });
+
+    expect(calls[0].url).toBe("http://here/skills/draft");
+    expect(JSON.parse(calls[0].body!)).toMatchObject({
+      instruction: "Answer plainly.",
+      name: "plain-answer",
+      description: "Use when you answer a person",
+    });
+    expect(outcome).toEqual({ text: "---\n", draftedBy: "scaffold" });
+  });
+
+  // 서버가 적은 것을 물린 것과 서버가 잠시 흔들린 것은 다른 일이고, 사람이 할 일도 다르다.
+  it("적은 것을 서버가 물리면 다시 해보라는 말 대신 무엇을 고칠지 말한다", async () => {
+    const fetch = async () => response(422, { detail: [{ loc: ["body", "name"] }] });
+
+    const outcome = await draftSkillOnServer(ask, { fetch });
+
+    const line = translate("ko", outcome.failure!);
+    expect(line).toMatch(/이름이나 '언제 쓰나요'/);
+    expect(line).not.toMatch(/잠시 뒤 다시/);
+  });
+
+  it("그 밖의 흔들림은 잠시 뒤 다시 해보라고 말한다", async () => {
+    const fetch = async () => response(503, { detail: "provider is down" });
+
+    const outcome = await draftSkillOnServer(ask, { fetch });
+
+    const line = translate("ko", outcome.failure!);
+    expect(line).toMatch(/잠시 뒤 다시/);
+    expect(line).not.toContain("provider is down");
   });
 });

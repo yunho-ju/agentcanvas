@@ -1,0 +1,95 @@
+[
+  {
+    "name": "쓰임새가 겹치는 skill이 앞선다",
+    "query": {
+      "name": "short-replies",
+      "description": "Use when the reply must be easy for a person to read.",
+      "body": "Write short sentences.\n"
+    },
+    "candidates": [
+      {
+        "name": "ask-before-acting",
+        "description": "Use when a step would change something outside this document.",
+        "body": "Ask first. Say what will change.\n"
+      },
+      {
+        "name": "plain-answer",
+        "description": "Use when you answer a person and the answer must be easy to read.",
+        "body": "Write short sentences. Leave out jargon.\n"
+      },
+      {
+        "name": "cite-sources",
+        "description": "Use when an answer leans on documents the reader must be able to check.",
+        "body": "Name the document. Quote the line you leaned on.\n"
+      }
+    ],
+    "howMany": 3,
+    "expect": ["plain-answer"]
+  },
+  {
+    "name": "겹치는 말이 하나도 없으면 목록에 들지 않는다",
+    "query": {
+      "name": "invoice-totals",
+      "description": "Rechnungen summieren.",
+      "body": "Zahlen addieren.\n"
+    },
+    "candidates": [
+      {
+        "name": "plain-answer",
+        "description": "Use when you answer a person and the answer must be easy to read.",
+        "body": "Write short sentences. Leave out jargon.\n"
+      }
+    ],
+    "howMany": 3,
+    "expect": []
+  },
+  {
+    "name": "청한 개수보다 많이 주지 않는다",
+    "query": {
+      "name": "",
+      "description": "Use when you answer a person.",
+      "body": "Answer the person.\n"
+    },
+    "candidates": [
+      {
+        "name": "plain-answer",
+        "description": "Use when you answer a person and the answer must be easy to read.",
+        "body": "Write short sentences.\n"
+      },
+      {
+        "name": "answer-in-order",
+        "description": "Use when you answer a person who asked several things at once.",
+        "body": "Answer each question in the order it was asked.\n"
+      },
+      {
+        "name": "cite-sources",
+        "description": "Use when an answer leans on documents the reader must be able to check.",
+        "body": "Name the document you leaned on.\n"
+      }
+    ],
+    "howMany": 2,
+    "expect": ["plain-answer", "answer-in-order"]
+  },
+  {
+    "name": "점수가 같으면 이름 차례로 — 두 언어가 같은 줄을 고른다",
+    "query": {
+      "name": "",
+      "description": "Use when you must be careful.",
+      "body": "Be careful.\n"
+    },
+    "candidates": [
+      {
+        "name": "second-thought",
+        "description": "Use when you must be careful.",
+        "body": "Be careful.\n"
+      },
+      {
+        "name": "first-thought",
+        "description": "Use when you must be careful.",
+        "body": "Be careful.\n"
+      }
+    ],
+    "howMany": 3,
+    "expect": ["first-thought", "second-thought"]
+  }
+]

@@ -1,6 +1,8 @@
 // 붙여 넣거나 주소를 준 글이 skill이 되기까지의 상태기계 (DESIGN §7 skill-import-card).
 // 한 시점에 하나만 묻고, 승인 전에는 문서를 건드리지 않는다 — 문서를 바꾸는 일은
 // skillSlice의 명령들이 한다 (읽는 일과 들이는 일은 서로 다른 바뀔 이유다).
+// 지시문을 skill로 **만드는** 길은 skillMakeSlice의 몫이다: 이 카드의 자리(모드·미리보기)를
+// 함께 쓰되, 무엇을 묻고 무엇을 짓는가는 그쪽의 바뀔 이유다.
 import type { StateCreator } from "zustand";
 import { type SkillFetchOutcome, fetchSkillOnServer } from "../api/skills";
 import type { SkillDef } from "../generated/skill_def";
@@ -46,8 +48,8 @@ export interface SkillImportSlice {
   applySkillImport: () => void;
 }
 
-/** 가져오기 카드가 들고 있는 것들 — 닫히면 이 자리는 통째로 처음으로 돌아간다. */
-type SkillImportState = Pick<
+/** 카드가 들고 있는 것들 — 닫히면 이 자리는 통째로 처음으로 돌아간다. */
+type SkillCardState = Pick<
   SkillImportSlice,
   | "skillImportMode"
   | "skillImportKind"
@@ -59,8 +61,16 @@ type SkillImportState = Pick<
   | "skillCandidateWarnings"
 >;
 
+/** 만들기 모드가 함께 비우는 자리 — 카드는 하나라 닫으면 둘 다 처음으로 돌아간다. */
+export interface SkillMakeCardState {
+  skillMake: { nodeId: string; instruction: string } | null;
+  skillMakeName: string;
+  skillMakeDescription: string;
+  skillDraftedBy: "model" | "scaffold" | null;
+}
+
 /** 문서를 옮겨 가거나 승인을 마치면 이 자리는 처음으로 돌아간다. */
-export const CLOSED_SKILL_IMPORT: SkillImportState = {
+export const CLOSED_SKILL_IMPORT: SkillCardState & SkillMakeCardState = {
   skillImportMode: "closed",
   skillImportKind: "paste",
   skillImportSource: "",
@@ -69,7 +79,39 @@ export const CLOSED_SKILL_IMPORT: SkillImportState = {
   skillImportIssues: [],
   skillCandidate: null,
   skillCandidateWarnings: [],
+  skillMake: null,
+  skillMakeName: "",
+  skillMakeDescription: "",
+  skillDraftedBy: null,
 };
+
+/**
+ * 읽은 원문 하나가 카드에 남기는 자리 — 못 읽으면 적은 것을 그대로 두고 까닭만 말한다.
+ * 순수하다: 가져오기와 만들기가 **같은 이 규칙 하나**로 미리보기에 이른다.
+ */
+export function skillCardAfterReading(
+  text: string,
+  from?: string,
+): Partial<SkillCardState> {
+  const parsed = parseSkillMarkdown(text);
+  if (parsed.skill === null) {
+    return {
+      skillImportLoading: false,
+      skillImportMode: "input",
+      skillImportIssues: issueWords(parsed.issues),
+    };
+  }
+  // 어디서 왔는가는 사람이 적은 그 주소다 — 붙여 넣거나 지은 글에는 출처가 없다.
+  const source = from ? { url: from, fetched_revision: null, fetched_at: null } : null;
+  return {
+    skillImportLoading: false,
+    skillImportMode: "review",
+    skillImportIssues: [],
+    skillImportError: null,
+    skillCandidate: { ...parsed.skill, source },
+    skillCandidateWarnings: issueWords(parsed.issues),
+  };
+}
 
 /** 적은 것에서 SKILL.md 원문에 이르는 길 — 종류가 늘면 여기 한 줄이다. */
 type ReadsSource = (
@@ -89,28 +131,6 @@ export const createSkillImportSlice: StateCreator<
   SkillImportSlice
 > = (set, get) => {
   let askSequence = 0;
-
-  /** 읽은 원문 하나를 미리보기로 옮긴다 — 못 읽으면 적은 것을 그대로 두고 까닭만 말한다. */
-  const read = (text: string, from?: string) => {
-    const parsed = parseSkillMarkdown(text);
-    if (parsed.skill === null) {
-      set({
-        skillImportLoading: false,
-        skillImportMode: "input",
-        skillImportIssues: issueWords(parsed.issues),
-      });
-      return;
-    }
-    const source = from ? { url: from, fetched_revision: null, fetched_at: null } : null;
-    set({
-      skillImportLoading: false,
-      skillImportMode: "review",
-      skillImportIssues: [],
-      skillImportError: null,
-      skillCandidate: { ...parsed.skill, source },
-      skillCandidateWarnings: issueWords(parsed.issues),
-    });
-  };
 
   return {
     ...CLOSED_SKILL_IMPORT,
@@ -158,8 +178,12 @@ export const createSkillImportSlice: StateCreator<
         });
         return;
       }
-      // 어디서 왔는가는 사람이 적은 그 주소다 — 붙여 넣은 글에는 출처가 없다.
-      read(outcome.text, get().skillImportKind === "url" ? source : undefined);
+      set(
+        skillCardAfterReading(
+          outcome.text,
+          get().skillImportKind === "url" ? source : undefined,
+        ),
+      );
     },
 
     pickStarterSkill: (ref) => {
@@ -185,6 +209,12 @@ export const createSkillImportSlice: StateCreator<
         set({ skillImportError: LOCKED_HINT });
         return;
       }
+      askSequence += 1;
+      // 만들던 중이었다면 그 단계가 곧바로 따르게 하는 것까지가 한 걸음이다.
+      if (get().skillMake) {
+        get().applySkillMake(candidate);
+        return;
+      }
       const held = get().spec?.skills ?? [];
       // 같은 이름의 skill이 이미 있으면 갈아 끼운다 — 조용히 덮지 않는다는 말은
       // 카드가 [바꿔 넣기]로 이미 했다.
@@ -193,13 +223,12 @@ export const createSkillImportSlice: StateCreator<
       } else {
         get().addSkill(candidate);
       }
-      askSequence += 1;
       set(CLOSED_SKILL_IMPORT);
     },
   };
 };
 
-/** 지금 skill을 가져오는 카드가 떠 있는가 (Esc 체인이 묻는 자리). */
+/** 지금 skill을 가져오는(또는 만드는) 카드가 떠 있는가 (Esc 체인이 묻는 자리). */
 export function skillImportIsOpen(state: EditorState): boolean {
   return state.skillImportMode !== "closed";
 }

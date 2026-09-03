@@ -23,6 +23,7 @@ import {
   toNumber,
 } from "../values";
 import { InputRowsControl } from "./InputRowsControl";
+import { SkillMakeEntry, SkillMadeNote } from "./SkillMakeEntry";
 import { SkillWearControl } from "./SkillWearControl";
 import { StringMapControl } from "./StringMapControl";
 import type { ControlEntry, ControlProps } from "./types";
@@ -366,43 +367,49 @@ function InstructionTextControl(props: ControlProps) {
 
   return (
     <span className="control__preset-fill">
-      <select
-        className="control"
-        // 셀렉트도 이 필드의 것이다 — 필드의 이름과 같은 설명을 받는다.
-        aria-label={t("control.presetFill.name", { field: props.field.label })}
-        aria-describedby={props.describedBy}
-        // 고름은 행동이라 남지 않는다 — 채우고 나면 다시 쉬는 자리로 돌아온다.
-        value=""
-        onPointerDown={() => {
-          byPointer.current = true;
-        }}
-        // 키보드로 훑다가 Enter로 결정하면 그때 손이 상자로 간다.
-        onKeyDown={(event) => {
-          if (event.key === "Enter") box.current?.focus();
-        }}
-        onBlur={() => {
-          byPointer.current = false;
-        }}
-        onChange={(event) => {
-          fill(event.target.value);
-          byPointer.current = false;
-        }}
-      >
-        {/* 쉬는 자리는 고를 수 없다 — 아직 아무것도 고르지 않았다는 표시일 뿐이다. */}
-        <option value="" disabled>
-          {t("control.presetFill.placeholder")}
-        </option>
-        {Object.values(INSTRUCTION_CATALOG).map((preset) => (
-          <option key={preset.id} value={preset.id}>
-            {localized(preset.title, locale)}
+      {/* 시작 글 고르기와 skill로 저장은 한 줄에 나란히 선다 (DESIGN §7 skill-make-card 입구). */}
+      <span className="control__preset-row">
+        <select
+          className="control"
+          // 셀렉트도 이 필드의 것이다 — 필드의 이름과 같은 설명을 받는다.
+          aria-label={t("control.presetFill.name", { field: props.field.label })}
+          aria-describedby={props.describedBy}
+          // 고름은 행동이라 남지 않는다 — 채우고 나면 다시 쉬는 자리로 돌아온다.
+          value=""
+          onPointerDown={() => {
+            byPointer.current = true;
+          }}
+          // 키보드로 훑다가 Enter로 결정하면 그때 손이 상자로 간다.
+          onKeyDown={(event) => {
+            if (event.key === "Enter") box.current?.focus();
+          }}
+          onBlur={() => {
+            byPointer.current = false;
+          }}
+          onChange={(event) => {
+            fill(event.target.value);
+            byPointer.current = false;
+          }}
+        >
+          {/* 쉬는 자리는 고를 수 없다 — 아직 아무것도 고르지 않았다는 표시일 뿐이다. */}
+          <option value="" disabled>
+            {t("control.presetFill.placeholder")}
           </option>
-        ))}
-      </select>
+          {Object.values(INSTRUCTION_CATALOG).map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {localized(preset.title, locale)}
+            </option>
+          ))}
+        </select>
+        {/* 적어 둔 글은 그 단계만의 것이 아니어도 된다 — skill로 저장하면 문서의 것이 된다. */}
+        <SkillMakeEntry instruction={asText(props.value)} />
+      </span>
       <TextareaControl
         {...props}
         ref={box}
         placeholder={t("control.instruction.invite")}
       />
+      <SkillMadeNote />
     </span>
   );
 }

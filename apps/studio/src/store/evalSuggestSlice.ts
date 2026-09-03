@@ -34,6 +34,11 @@ export interface EvalSuggestSlice {
   suggestAskedFor: number;
   /** 담기로 고른 제안의 자리들 */
   suggestChosen: number[];
+  /**
+   * 청하는 줄로 손을 데려가 달라는 부탁 — 들어줄 때마다 하나씩 오른다 (viewSlice의 부탁과 같은 문법).
+   * 초점은 DOM의 일이라 store가 옮기지 않는다: 그 줄을 그리는 화면이 부탁을 보고 옮긴다.
+   */
+  suggestFocusRequest: number;
 
   fetchCaseSuggestions: FetchCaseSuggestions;
   setSuggestHowMany: (howMany: number | undefined) => void;
@@ -43,6 +48,10 @@ export interface EvalSuggestSlice {
   keepChosenSuggestions: () => Promise<void>;
   /** 지어 둔 제안을 놓는다 — 패널을 떠나거나 문서를 놓을 때도 같은 자리로 돌아간다 */
   discardSuggestions: () => void;
+  /** 청하는 줄로 손을 데려가 달라고 부탁한다 (skill을 만든 뒤의 [시험 짓기]) */
+  focusSuggestAsk: () => void;
+  /** 화면이 부탁을 들어주었다 — 한 부탁은 한 번만 손을 옮긴다 */
+  suggestFocusDone: () => void;
 }
 
 /** 아직 아무것도 지어 보지 않은 처음 모습 — 떠날 때도 이 자리로 돌아온다. */
@@ -62,6 +71,7 @@ export const createEvalSuggestSlice: StateCreator<EditorState, [], [], EvalSugge
   return {
     suggestHowMany: SUGGEST_DEFAULT,
     suggestEdgeCases: true,
+    suggestFocusRequest: 0,
     ...noSuggestions(),
 
     fetchCaseSuggestions: (spec, howMany, includeEdgeCases, existingTitles) =>
@@ -126,5 +136,10 @@ export const createEvalSuggestSlice: StateCreator<EditorState, [], [], EvalSugge
       asked += 1;
       set({ ...noSuggestions() });
     },
+
+    focusSuggestAsk: () =>
+      set({ suggestFocusRequest: get().suggestFocusRequest + 1 }),
+
+    suggestFocusDone: () => set({ suggestFocusRequest: 0 }),
   };
 };

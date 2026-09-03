@@ -1,0 +1,80 @@
+[
+  {
+    "name": "지시문 한 문단이 'How to do it' 아래로 그대로 간다",
+    "skillName": "plain-answer",
+    "description": "Use when you answer a person and the answer must be easy to read.",
+    "instruction": "Answer in short sentences and leave out jargon.",
+    "expect": [
+      "---",
+      "name: plain-answer",
+      "description: Use when you answer a person and the answer must be easy to read.",
+      "---",
+      "",
+      "# plain-answer",
+      "",
+      "Use when you answer a person and the answer must be easy to read.",
+      "",
+      "## How to do it",
+      "",
+      "Answer in short sentences and leave out jargon."
+    ]
+  },
+  {
+    "name": "여러 줄 지시문은 줄 그대로 옮기고, 앞뒤 빈 줄만 뗀다",
+    "skillName": "ask-before-acting",
+    "description": "Use when a step would change something outside this document.",
+    "instruction": "\n  Ask the person first.\n\n  Say what will change.\n\n\n",
+    "expect": [
+      "---",
+      "name: ask-before-acting",
+      "description: Use when a step would change something outside this document.",
+      "---",
+      "",
+      "# ask-before-acting",
+      "",
+      "Use when a step would change something outside this document.",
+      "",
+      "## How to do it",
+      "",
+      "  Ask the person first.",
+      "",
+      "  Say what will change."
+    ]
+  },
+  {
+    "name": "'-'로 시작하거나 ': '가 든 쓰임새는 따옴표로 감싼다 — 우리가 쓴 글을 우리가 못 읽으면 안 된다",
+    "skillName": "plain-answer",
+    "description": "- answer plainly, and say why: briefly",
+    "instruction": "Answer in short sentences.",
+    "expect": [
+      "---",
+      "name: plain-answer",
+      "description: \"- answer plainly, and say why: briefly\"",
+      "---",
+      "",
+      "# plain-answer",
+      "",
+      "- answer plainly, and say why: briefly",
+      "",
+      "## How to do it",
+      "",
+      "Answer in short sentences."
+    ]
+  },
+  {
+    "name": "적힌 지시문이 없으면 없는 절을 짓지 않는다",
+    "skillName": "cite-sources",
+    "description": "Use when an answer leans on documents the reader must be able to check.",
+    "instruction": "   \n\n",
+    "expect": [
+      "---",
+      "name: cite-sources",
+      "description: Use when an answer leans on documents the reader must be able to check.",
+      "---",
+      "",
+      "# cite-sources",
+      "",
+      "Use when an answer leans on documents the reader must be able to check."
+    ]
+  }
+]

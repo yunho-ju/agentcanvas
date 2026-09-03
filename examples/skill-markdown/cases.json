@@ -80,6 +80,32 @@
     }
   },
   {
+    "name": "a value in double quotes may hold what a plain value may not",
+    "file": "quoted-values.md",
+    "issues": [],
+    "expect": {
+      "ref": "skill://plain-answer@1",
+      "name": "plain-answer",
+      "description": "- Use when the answer must start with a dash: it happens.",
+      "license": "MIT",
+      "compatibility": null,
+      "metadata": {
+        "ko-title": "따옴표: 붙은 값",
+        "note": "a \"quoted\" word and a backslash \\"
+      },
+      "body": "Answer plainly.\n"
+    }
+  },
+  {
+    "name": "a value that starts a list without quotes is not a value we read",
+    "file": "dash-value.md",
+    "issues": [
+      "skill.frontmatter",
+      "skill.description"
+    ],
+    "expect": null
+  },
+  {
     "name": "a mark that is not a space stays at the end of the body",
     "file": "bom.md",
     "issues": [],

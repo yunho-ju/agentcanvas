@@ -1,6 +1,6 @@
 // AI가 지어 준 시험 제안 — 청하고, 고르고, 담는다 (DESIGN §7 eval-suggest-card, EVAL-2).
 // 담기 전에는 묶음이 바뀌지 않는다: 이 화면은 store의 제안 목록을 그리고 고른 자리만 알려 준다.
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { SUGGEST_MAX, SUGGEST_MIN, givenText, howManyIssue } from "./caseSuggestions";
 import { promptsUnderTest, writtenInstructions } from "./promptsUnderTest";
 import { type Message, msg } from "../i18n/messages";
@@ -27,7 +27,18 @@ export function EvalSuggestCards() {
   const toggle = useEditor((state) => state.toggleSuggestion);
   const keep = useEditor((state) => state.keepChosenSuggestions);
   const discard = useEditor((state) => state.discardSuggestions);
+  const focusRequest = useEditor((state) => state.suggestFocusRequest);
+  const focusDone = useEditor((state) => state.suggestFocusDone);
+  const count = useRef<HTMLInputElement>(null);
   const t = useT();
+
+  // "여기서 청하세요"라고 데려가는 길 — 초점은 이 줄을 그리는 이 화면이 옮긴다
+  // (skill을 만든 뒤의 [시험 짓기]. 새 표면을 만들지 않고 있던 자리로 데려간다).
+  useEffect(() => {
+    if (focusRequest === 0) return;
+    count.current?.focus();
+    focusDone();
+  }, [focusRequest, focusDone]);
 
   // 지어 줄 수 있는 근거는 지시문이 있느냐가 아니라 무엇이 적혀 있느냐다 — 빈 지시문으로는 시험을 지을 수 없다.
   const written = useMemo(
@@ -52,6 +63,7 @@ export function EvalSuggestCards() {
         </label>
         <input
           id="eval-suggest-count"
+          ref={count}
           className="control eval-suggest__count-input"
           type="number"
           min={SUGGEST_MIN}

@@ -41,6 +41,12 @@ from agentcanvas_contracts.optimization import OptimizationProposal
 from agentcanvas_contracts.publication import SpecPublication
 from agentcanvas_contracts.refs import EndUserRef, ModelRef
 from agentcanvas_contracts.run import ApprovalAnswer, Run
+from agentcanvas_contracts.skill_def import (
+    SKILL_DESCRIPTION_MAX_LENGTH,
+    SKILL_NAME_MAX_LENGTH,
+    SKILL_NAME_PATTERN,
+    SkillDef,
+)
 from agentcanvas_engine.model_call import ModelCall, says_the_first_way
 from agentcanvas_engine.routed_runtime import (
     resume_routed_run_stream,
@@ -126,6 +132,7 @@ from .service import (
     SpecService,
     utc_now,
 )
+from .skill_draft_service import DraftedBy, SkillDraftService
 from .sqlite_database import prepare_database
 from .sqlite_eval_batch_store import SqliteEvalBatchStore
 from .sqlite_eval_dataset_store import SqliteEvalDatasetStore
@@ -286,6 +293,34 @@ class SkillMarkdown(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     text: str
+
+
+class SkillDraftBody(BaseModel):
+    """이 지시문을 skill 한 장으로 지어 달라는 청 — 승인 전에는 문서를 건드리지 않는다.
+
+    이름·쓰임새는 사람이 적은 것이 이긴다. 참고 skill은 **예시로만** 실린다: 이 문서가
+    가진 skill을 서버는 알지 못하므로 화면이 고른 후보를 함께 보내고, 그중 무엇을 실을지는
+    두 언어가 함께 쓰는 규칙(skill_similarity)이 정한다.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_ref: ModelRef
+    instruction: NonEmptyText
+    # 이름 규칙은 계약의 것 그대로다 — 어긋난 이름은 아무에게도 묻기 전에 물린다.
+    name: str = Field(
+        min_length=1, max_length=SKILL_NAME_MAX_LENGTH, pattern=SKILL_NAME_PATTERN
+    )
+    description: str = Field(min_length=1, max_length=SKILL_DESCRIPTION_MAX_LENGTH)
+    references: list[SkillDef] = Field(default_factory=list)
+
+
+class SkillDraftResponse(BaseModel):
+    """지어 온 초안 한 장 — 무엇이 지었는지와, 그 사이에 있었던 일을 함께 말한다."""
+
+    text: str
+    drafted_by: DraftedBy
+    issues: list[str]
 
 
 class ToolWrapBody(BaseModel):
@@ -721,6 +756,11 @@ def create_app(
     )
     architect = ArchitectService(asks_a_model)
     tool_wrapper = ToolWrapperService(asks_a_model)
+    # 초안은 부를 모델이 없어도 답한다 — 물을 곳이 있는가만 조립 때 한 번 정해 둔다
+    # (심판 자리와 같은 갈림: 지어낸 판단은 모델이 지은 초안이 아니다).
+    skill_drafts = SkillDraftService(
+        asks_a_model, someone_to_ask=asks_a_model is not says_the_first_way
+    )
     case_suggestions = EvalCaseSuggestionService(asks_a_model)
     durable_jobs = job_store
     if durable_jobs is None and durability is not False:
@@ -999,6 +1039,26 @@ def create_app(
                 replacing=asked.replacing,
             ),
             guided=True,
+        )
+
+    @app.post("/skills/draft", response_model=SkillDraftResponse)
+    def draft_skill(asked: SkillDraftBody) -> SkillDraftResponse:
+        """지시문 하나 = 초안 한 장. 승인은 화면의 몫이고 여기서 저장하지 않는다.
+
+        부를 모델이 없어도 503이 아니다 — 틀 초안과 함께 그 사정을 사실대로 말한다
+        (guided 카드와 다른 자리: 여기에는 모델 없이도 정직하게 줄 수 있는 답이 있다).
+        """
+        drafted = skill_drafts.draft(
+            instruction=asked.instruction,
+            name=asked.name,
+            description=asked.description,
+            references=asked.references,
+            model_ref=asked.model_ref,
+        )
+        return SkillDraftResponse(
+            text=drafted.text,
+            drafted_by=drafted.drafted_by,
+            issues=drafted.issues,
         )
 
     @app.get("/skills/fetch", response_model=SkillMarkdown)

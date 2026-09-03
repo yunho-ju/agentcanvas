@@ -34,7 +34,19 @@ BODY_LINE_LIMIT = 500
 KNOWN_KEYS = ("name", "description", "license", "compatibility")
 METADATA_KEY = "metadata"
 
-_VALUE_STARTS_A_STRUCTURE = ("|", ">", "-", "[", "{", "&", "*")
+_VALUE_STARTS_A_STRUCTURE = ("|", ">", "-", "[", "{", "&", "*", "'")
+
+# 그냥 적으면 다시 읽을 수 없는 값들 — 이 모양이면 따옴표로 감싸 적는다.
+# 읽는 규칙과 쓰는 규칙은 한 쌍이다: 우리가 쓴 글을 우리가 못 읽으면 그것은 형식이 아니다.
+_VALUE_NEEDS_QUOTES_START = (
+    *_VALUE_STARTS_A_STRUCTURE,
+    "#",
+    '"',
+    "!",
+    "%",
+    "@",
+    "`",
+)
 
 # 본문 끝에서 떼어 내는 글자 — 두 언어가 똑같이 이 넉 자만 뗀다 (`_body_of` 참고).
 TRAILING_WHITESPACE = " \t\r\n"
@@ -69,20 +81,72 @@ def _split_frontmatter(text: str) -> tuple[list[str] | None, str]:
     return None, text
 
 
-def _scalar_issue(key: str, value: str) -> SkillIssue | None:
+def quote_scalar(value: str) -> str:
+    """맨 위 칸에 적을 값 하나 — 그냥 두면 다시 읽지 못할 값만 따옴표로 감싼다.
+
+    쓰는 규칙은 읽는 규칙(`_scalar`)의 짝이다: 여기서 감싼 것은 저기서 그대로 풀린다.
+    """
+    if not _needs_quotes(value):
+        return value
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _needs_quotes(value: str) -> bool:
+    if not value or value != value.strip():
+        return True
+    if value.startswith(_VALUE_NEEDS_QUOTES_START):
+        return True
+    return ": " in value or " #" in value
+
+
+def _unquoted(value: str) -> str | None:
+    """따옴표로 감싼 값 하나를 푼다 — 우리가 쓴 모양이 아니면 없다고 답한다."""
+    if len(value) < 2 or not value.endswith('"'):
+        return None
+    read: list[str] = []
+    index = 1
+    while index < len(value):
+        char = value[index]
+        if char == "\\":
+            if index + 1 >= len(value):
+                return None
+            following = value[index + 1]
+            read.append(following if following in ('"', "\\") else char + following)
+            index += 2
+            continue
+        if char == '"':
+            # 닫는 따옴표는 맨 끝에만 온다 — 그 앞에 서 있으면 우리가 쓴 모양이 아니다.
+            return "".join(read) if index == len(value) - 1 else None
+        read.append(char)
+        index += 1
+    return None
+
+
+def _scalar(key: str, value: str) -> tuple[str | None, SkillIssue | None]:
+    """적힌 한 줄에서 읽어 낸 값 — 읽지 못하면 값 대신 까닭을 돌려준다."""
     if not value:
-        return _issue(
+        return None, _issue(
             "skill.frontmatter",
             f"{key!r} has no value — this file's front matter must be written as "
             "'key: value' on one line",
         )
+    if value.startswith('"'):
+        read = _unquoted(value)
+        if read is None:
+            return None, _issue(
+                "skill.frontmatter",
+                f"{key!r} opens a quote it never closes — a quoted value ends with "
+                'the same " and writes \\" for a quote inside it',
+            )
+        return read, None
     if value.startswith(_VALUE_STARTS_A_STRUCTURE):
-        return _issue(
+        return None, _issue(
             "skill.frontmatter",
-            f"{key!r} holds a value we do not read — we read only plain one-line "
-            "values and a one-level 'metadata:' map",
+            f"{key!r} holds a value we do not read — write a plain one-line value, "
+            'or wrap it in double quotes ("...") to keep it as it is',
         )
-    return None
+    return value, None
 
 
 def _read_frontmatter(
@@ -118,11 +182,12 @@ def _read_frontmatter(
                     )
                 )
                 continue
-            problem = _scalar_issue(key, value)
-            if problem is not None:
-                issues.append(problem)
+            read, problem = _scalar(key, value)
+            if read is None:
+                if problem is not None:
+                    issues.append(problem)
                 continue
-            metadata[key] = value
+            metadata[key] = read
             continue
 
         in_metadata = False
@@ -140,14 +205,15 @@ def _read_frontmatter(
         if key == METADATA_KEY and not value:
             in_metadata = True
             continue
-        problem = _scalar_issue(key, value)
-        if problem is not None:
-            issues.append(problem)
+        read, problem = _scalar(key, value)
+        if read is None:
+            if problem is not None:
+                issues.append(problem)
             continue
         if key in KNOWN_KEYS:
-            fields[key] = value
+            fields[key] = read
         else:
-            metadata[key] = value
+            metadata[key] = read
 
     return fields, metadata, issues
 
@@ -270,15 +336,19 @@ def parse_skill_markdown(
 
 def render_skill_markdown(skill: SkillDef) -> str:
     """skill 하나를 표준 SKILL.md로 다시 쓴다 — 읽어 들이면 같은 skill이 된다."""
-    front = [f"name: {skill.name}", f"description: {skill.description}"]
+    front = [
+        f"name: {quote_scalar(skill.name)}",
+        f"description: {quote_scalar(skill.description)}",
+    ]
     if skill.license is not None:
-        front.append(f"license: {skill.license}")
+        front.append(f"license: {quote_scalar(skill.license)}")
     if skill.compatibility is not None:
-        front.append(f"compatibility: {skill.compatibility}")
+        front.append(f"compatibility: {quote_scalar(skill.compatibility)}")
     if skill.metadata:
         front.append(f"{METADATA_KEY}:")
         front.extend(
-            f"  {key}: {skill.metadata[key]}" for key in sorted(skill.metadata)
+            f"  {key}: {quote_scalar(skill.metadata[key])}"
+            for key in sorted(skill.metadata)
         )
     fence = FRONTMATTER_FENCE
     return f"{fence}\n" + "\n".join(front) + f"\n{fence}\n\n{skill.body}"
@@ -289,5 +359,6 @@ __all__ = [
     "SkillIssue",
     "SkillParse",
     "parse_skill_markdown",
+    "quote_scalar",
     "render_skill_markdown",
 ]
