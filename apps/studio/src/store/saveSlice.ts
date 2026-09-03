@@ -4,7 +4,9 @@ import type { StateCreator } from "zustand";
 import { type SaveOutcome, sendSpecToServer, thingsToFix } from "../api/specs";
 import type { AgentSpec } from "../generated/agent_spec";
 import { sameGraph } from "../graph/sameGraph";
-import { asCanvasWouldWriteIt } from "../graph/serialize";
+import { type CardName, cardName } from "../graph/cardName";
+import { saveIssueWords } from "../graph/saveIssueWords";
+import { asCanvasWouldWriteIt, type FlowNode } from "../graph/serialize";
 import { type Message, msg } from "../i18n/messages";
 import type { EditorState } from "./editor";
 import type { FeedbackNotice } from "./feedbackSlice";
@@ -94,13 +96,31 @@ function whyNotNow(state: EditorState): Message | null {
   return null;
 }
 
-function toldAbout(outcome: SaveOutcome): FeedbackNotice {
+function cardNameOf(nodes: FlowNode[]): (nodeId: string) => CardName | null {
+  return (nodeId) => {
+    const node = nodes.find((one) => one.id === nodeId);
+    return node ? cardName(node.data) : null;
+  };
+}
+
+function toldAbout(outcome: SaveOutcome, nodes: FlowNode[]): FeedbackNotice {
   if (outcome.failure) return { message: outcome.failure, tone: "danger" };
   const count = thingsToFix(outcome.issues);
   // 저장은 벌주지 않는다 — 손볼 곳이 남아도 저장은 됐다고 먼저 말한다.
-  return count === 0
-    ? { message: msg("save.ok"), tone: "ok" }
-    : { message: msg("save.ok.issues", { count }), tone: "warn" };
+  if (count === 0) return { message: msg("save.ok"), tone: "ok" };
+
+  // 세기만 하면 어디를 고칠지 알 길이 없다 — 첫 곳을 부를 말이 있으면 그 말로 한다.
+  const first = saveIssueWords(outcome.issues, cardNameOf(nodes));
+  if (!first) return { message: msg("save.ok.issues", { count }), tone: "warn" };
+  const message =
+    count === 1
+      ? msg("save.ok.issue", { issue: first.message })
+      : msg("save.ok.issue.more", { issue: first.message, more: count - 1 });
+  return {
+    message,
+    tone: "warn",
+    ...(first.nodeId ? { where: { nodeId: first.nodeId } } : {}),
+  };
 }
 
 export const createSaveSlice: StateCreator<EditorState, [], [], SaveSlice> = (
@@ -128,7 +148,7 @@ export const createSaveSlice: StateCreator<EditorState, [], [], SaveSlice> = (
     const saved = outcome.saved ? asCanvasWouldWriteIt(outcome.saved) : null;
     set({
       saving: false,
-      feedbackNotice: toldAbout(outcome),
+      feedbackNotice: toldAbout(outcome, get().nodes),
       ...(saved ? { savedSpec: saved, ...(stillTheSame ? { spec: saved } : {}) } : {}),
     });
     // 서버에 자리를 얻은 문서는 주소에도 남는다 — 새로고침하면 방금 저장한 것으로 돌아온다.

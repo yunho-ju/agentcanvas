@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { Handle, Position, useConnection, useUpdateNodeInternals } from "@xyflow/react";
 import type { PortSpec } from "../generated/node_type";
+import { cardTitle } from "../graph/cardName";
 import { checkConnection } from "../graph/connection";
 import { type SetupIssue, nodeSetupIssues } from "../graph/nodeSetupIssues";
 import type { AgentNodeData } from "../graph/serialize";
@@ -132,7 +133,7 @@ export function NodeCard({ id, data }: NodeCardProps) {
         ) : null}
         <NodeTypeChip type={data.spec.type} />
         <span className="node-card__title">
-          {localized(nodeType?.display_name, locale) || data.spec.type}
+          {cardTitle(data, locale)}
         </span>
         {issues.length > 0 ? (
           <button

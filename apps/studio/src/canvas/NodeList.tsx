@@ -1,7 +1,7 @@
 // 그래프를 그림이 아니라 목록으로 읽는 길 (설계 §13 접근성).
 // 캔버스를 보지 않고도 무엇이 있는지 알고, 고르고, 뺄 수 있다.
 // 여는 자리는 독의 아이콘이다 — 이 파일은 목록만 그린다.
-import { localized } from "../i18n/locale";
+import { cardTitle } from "../graph/cardName";
 import { useLocale, useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 
@@ -29,8 +29,7 @@ export function NodeList() {
               onDoubleClick={() => fitNodes([node.id])}
             >
               <span>
-                {localized(node.data.nodeType?.display_name, locale) ||
-                  node.data.spec.type}
+                {cardTitle(node.data, locale)}
               </span>
               <span className="node-list__id">{node.id}</span>
             </button>

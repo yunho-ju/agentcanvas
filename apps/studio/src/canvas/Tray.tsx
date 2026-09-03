@@ -1,5 +1,5 @@
 // 보관함 — 캔버스에서 뺀 노드가 설정을 그대로 지닌 채 기다리는 곳. 클릭하면 다시 꽂힌다.
-import { localized } from "../i18n/locale";
+import { cardTitle } from "../graph/cardName";
 import { useLocale, useT } from "../i18n/useT";
 import { LOCKED_HINT } from "../run/lockWords";
 import { useEditor } from "../store/editor";
@@ -29,8 +29,7 @@ export function Tray() {
                 onClick={() => restoreFromTray(node.id)}
               >
                 <span className="tray__name">
-                  {localized(node.data.nodeType?.display_name, locale) ||
-                    node.data.spec.type}
+                  {cardTitle(node.data, locale)}
                 </span>
                 <span className="tray__id">{node.id}</span>
               </button>

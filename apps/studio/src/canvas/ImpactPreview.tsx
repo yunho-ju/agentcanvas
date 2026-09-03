@@ -1,16 +1,15 @@
 // 노드를 빼기 전에 무엇이 망가지는지 보여주고 답을 받는다. 문장은 모두 쉬운 말이다.
 import { useEffect, useRef } from "react";
+import { cardTitle } from "../graph/cardName";
 import { analyzeDetach } from "../graph/impact";
 import { impactLines } from "../graph/impactWords";
 import type { FlowNode } from "../graph/serialize";
 import type { Locale } from "../i18n/locale";
-import { localized } from "../i18n/locale";
 import { useLocale, useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 
 function nodeLabel(node: FlowNode, locale: Locale): string {
-  const name = localized(node.data.nodeType?.display_name, locale);
-  return name ? `${name} (${node.id})` : node.id;
+  return `${cardTitle(node.data, locale)} (${node.id})`;
 }
 
 export function ImpactPreview({ nodeId }: { nodeId: string }) {

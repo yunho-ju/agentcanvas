@@ -184,6 +184,36 @@ const TEXTS = {
     ko: "저장했어요 — 손볼 곳 {count}곳",
     en: "Saved — {count} things still need a look",
   },
+  "save.ok.issue": { ko: "저장했어요 — {issue}", en: "Saved — {issue}" },
+  "save.ok.issue.more": {
+    ko: "저장했어요 — {issue} (+{more})",
+    en: "Saved — {issue} (+{more})",
+  },
+  "save.issue.unreachable": {
+    ko: "'{node}' 카드에 닿는 선이 없어요 — 입력에서부터 이어 주세요",
+    en: "Nothing leads to the '{node}' card — connect it from the input",
+  },
+  "save.issue.invalidConfig": {
+    ko: "'{node}' 카드에 빈 칸이 있어요",
+    en: "The '{node}' card has an empty box",
+  },
+  "save.issue.schemaMismatch": {
+    ko: "이어진 두 칸의 종류가 안 맞아요",
+    en: "Two connected boxes take different kinds of values",
+  },
+  "save.issue.cycle": {
+    ko: "선이 고리를 만들어요 — 한 방향으로만 흐르게 해 주세요",
+    en: "The links go round in a circle — make them flow one way",
+  },
+  "save.issue.skillMissing": {
+    ko: "'{node}' 카드가 따르는 skill이 없어요",
+    en: "A skill the '{node}' card follows is missing",
+  },
+  "save.issue.unknownBinding": {
+    ko: "'{node}' 카드가 없는 연결을 가리켜요",
+    en: "The '{node}' card points at a connection that is not there",
+  },
+  "save.issue.go": { ko: "보러 가기", en: "Show me" },
   "save.offline": {
     ko: "서버에 닿지 못했어요 — 고친 내용은 화면에 그대로 있어요",
     en: "Could not reach the server — your work is still here",

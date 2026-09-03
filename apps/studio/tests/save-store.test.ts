@@ -142,6 +142,59 @@ describe("저장하는 순간", () => {
     expect(savedVersion(store())).toBe(1);
   });
 
+  // 세기만 하는 문장은 어디를 고칠지 말해 주지 않는다 (DESIGN §7 GP-3).
+  it("아는 손볼 곳이면 몇 곳인지 대신 어디인지 말한다", async () => {
+    const issues = [
+      {
+        severity: "warning",
+        code: "graph.unreachable_node",
+        message: "node 'clinical-agent' cannot be reached",
+        node_id: "clinical-agent",
+      },
+    ];
+    useEditor.setState({ sendSpec: acceptingServer(1, issues).send });
+
+    await store().saveSpec();
+
+    expect(said()).toBe(
+      "저장했어요 — 'AI 에이전트' 카드에 닿는 선이 없어요 — 입력에서부터 이어 주세요",
+    );
+    expect(store().feedbackNotice?.tone).toBe("warn");
+  });
+
+  it("첫 곳을 말하고 남은 곳은 수로 덧붙인다", async () => {
+    const issues = [
+      {
+        severity: "error",
+        code: "node.invalid_config",
+        message: "model is empty",
+        node_id: "clinical-agent",
+      },
+      { severity: "warning", code: "graph.unreachable", message: "닿지 않아요" },
+    ];
+    useEditor.setState({ sendSpec: acceptingServer(1, issues).send });
+
+    await store().saveSpec();
+
+    expect(said()).toBe("저장했어요 — 'AI 에이전트' 카드에 빈 칸이 있어요 (+1)");
+  });
+
+  it("그 카드로 데려갈 길을 소식에 함께 담는다", async () => {
+    const issues = [
+      {
+        severity: "warning",
+        code: "graph.unreachable_node",
+        message: "node 'clinical-agent' cannot be reached",
+        node_id: "clinical-agent",
+      },
+    ];
+    useEditor.setState({ sendSpec: acceptingServer(1, issues).send });
+
+    await store().saveSpec();
+
+    expect(store().feedbackNotice?.where).toEqual({ nodeId: "clinical-agent" });
+  });
+
   it("알아 두면 좋은 이야기(info)는 손볼 곳으로 세지 않는다", async () => {
     // 아무도 안 입은 skill 같은 이야기는 잘못이 아니다 — 저장을 경고로 물들이지 않는다.
     const issues = [

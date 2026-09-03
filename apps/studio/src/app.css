@@ -3088,7 +3088,8 @@ button:disabled {
   background: var(--accent);
 }
 
-.status-bar__dismiss {
+.status-bar__dismiss,
+.status-bar__go {
   flex: none;
   border: none;
   white-space: nowrap;
@@ -3100,12 +3101,19 @@ button:disabled {
   cursor: pointer;
 }
 
-.status-bar__dismiss:hover {
+.status-bar__dismiss:hover,
+.status-bar__go:hover {
   background: var(--surface-hover);
 }
 
-.status-bar__dismiss:active {
+.status-bar__dismiss:active,
+.status-bar__go:active {
   transform: scale(0.96);
+}
+
+/* 데려가는 쪽이 닫는 쪽보다 앞선다 — 무게로만 갈라 놓는다. */
+.status-bar__go {
+  font-weight: var(--weight-medium);
 }
 
 /* ── 연결 안내 (안 되는 이유는 손이 있는 자리에서) ───────────────────────

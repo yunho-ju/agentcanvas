@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { StatusBar } from "../src/canvas/StatusBar";
+import { selectedNodeOf } from "../src/graph/selection";
+import { InspectorFocusProvider } from "../src/inspector/inspectorFocus";
 import { msg } from "../src/i18n/messages";
 import { useEditor } from "../src/store/editor";
 import { WANTS_BUNDLE, exampleWithTool } from "./exampleWithTool";
@@ -111,6 +113,67 @@ describe("저장 소식 토스트", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("서버에 닿지 못했어요");
     expect(container.querySelector('[data-tone="danger"]')).toBeInTheDocument();
+  });
+
+  // 경고만 하고 어디인지 말하지 않는 화면은 실수를 무섭게 만든다 (DESIGN §7 GP-3).
+  it("가리키는 카드가 있으면 그리로 데려간다", async () => {
+    useEditor.getState().loadSpec(exampleWithTool());
+    useEditor.setState({
+      feedbackNotice: {
+        message: msg("save.ok.issue", { issue: msg("save.issue.cycle") }),
+        tone: "warn",
+        where: { nodeId: "triage" },
+      },
+    });
+    const wentToInspector: true[] = [];
+    render(
+      <InspectorFocusProvider value={() => wentToInspector.push(true)}>
+        <StatusBar />
+      </InspectorFocusProvider>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "보러 가기" }));
+
+    expect(selectedNodeOf(useEditor.getState())?.id).toBe("triage");
+    expect(wentToInspector).toHaveLength(1);
+    expect(useEditor.getState().feedbackNotice).toBeNull();
+  });
+
+  // 소식은 저장하던 순간의 이야기지만 그래프는 그 뒤로도 바뀐다 — 없는 카드로 데려가지 않는다.
+  it("소식을 보는 사이에 그 카드가 사라지면 데려갈 손잡이도 사라진다", () => {
+    useEditor.getState().loadSpec(exampleWithTool());
+    useEditor.setState({
+      feedbackNotice: {
+        message: msg("save.ok.issue", { issue: msg("save.issue.cycle") }),
+        tone: "warn",
+        where: { nodeId: "triage" },
+      },
+    });
+    render(<StatusBar />);
+    expect(screen.getByRole("button", { name: "보러 가기" })).toBeInTheDocument();
+
+    act(() =>
+      useEditor.setState({
+        nodes: useEditor.getState().nodes.filter((node) => node.id !== "triage"),
+      }),
+    );
+
+    expect(screen.queryByRole("button", { name: "보러 가기" })).not.toBeInTheDocument();
+  });
+
+  it("가리키는 카드가 없으면 데려갈 손잡이도 없다", () => {
+    useEditor.setState({
+      feedbackNotice: { message: msg("save.ok.issues", { count: 2 }), tone: "warn" },
+    });
+    render(<StatusBar />);
+
+    expect(screen.queryByRole("button", { name: "보러 가기" })).not.toBeInTheDocument();
+  });
+
+  it("데려가는 손잡이는 닫기와 같은 ghost 문법을 쓴다", () => {
+    expect(cssBlock(".status-bar__go")).toContain("var(--radius-pill)");
+    expect(cssBlock(".status-bar__go:hover")).toContain("var(--surface-hover)");
+    expect(cssBlock(".status-bar__go:active")).toContain("scale(");
   });
 
   it("세 가지 세기를 색과 기호 둘로 나눈다 — 색만으로 말하지 않는다", () => {

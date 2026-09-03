@@ -12,22 +12,33 @@ import {
   reasonOf,
 } from "./http";
 
-/** 서버가 저장하며 본 것 하나 — 화면은 개수와 문장만 읽는다. */
+/**
+ * 서버가 저장하며 본 것 하나 — 화면은 severity·code·node_id로 제 말을 고른다.
+ * `message`는 서버의 말이라 화면에 내보이지 않는다 (DESIGN §9).
+ */
 export interface SaveIssue {
   severity: string;
   code: string;
   message: string;
+  /** 어느 카드의 이야기인가 — 화면이 그 카드로 데려가는 데 쓴다 */
+  node_id?: string;
+  edge_id?: string;
 }
 
 /** 알아 두면 좋은 이야기 — 잘못이 아니므로 "손볼 곳"에 들지 않는다 (engine Severity.INFO). */
 const JUST_SO_YOU_KNOW = "info";
+
+/** 이것은 정말 손봐야 하는 곳인가 — 세는 쪽과 첫 곳을 고르는 쪽이 같은 규칙을 본다. */
+export function needsAFix(issue: SaveIssue): boolean {
+  return issue.severity !== JUST_SO_YOU_KNOW;
+}
 
 /**
  * 정말 손봐야 하는 곳의 수 — 막는 것(error)과 살펴볼 것(warning)만 센다.
  * 세는 규칙이 화면 여기저기로 흩어지지 않게, 서버의 답을 읽는 이 자리에서만 센다.
  */
 export function thingsToFix(issues: SaveIssue[] = []): number {
-  return issues.filter((issue) => issue.severity !== JUST_SO_YOU_KNOW).length;
+  return issues.filter(needsAFix).length;
 }
 
 /** 저장의 결말 — 저장된 그래프이거나, 저장하지 못한 까닭이다. */

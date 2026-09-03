@@ -1,4 +1,5 @@
 // 선택된 노드의 설정. 폼은 registry의 config_schema가 그린다.
+import { cardTitle } from "../graph/cardName";
 import type { FlowNode } from "../graph/serialize";
 import { skillWearIssues } from "../graph/nodeSetupIssues";
 import { localized } from "../i18n/locale";
@@ -25,7 +26,7 @@ export function NodeInspector({ node }: { node: FlowNode }) {
   return (
     <>
       <h2 className="inspector__title" title={description}>
-        {localized(nodeType?.display_name, locale) || spec.type}
+        {cardTitle(node.data, locale)}
       </h2>
       <p className="inspector__id">{node.id}</p>
       {description ? <p className="inspector__hint">{description}</p> : null}

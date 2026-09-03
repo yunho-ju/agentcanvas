@@ -10,6 +10,8 @@ export type FeedbackTone = "ok" | "warn" | "danger";
 export interface FeedbackNotice {
   message: Message;
   tone: FeedbackTone;
+  /** 이 소식이 가리키는 카드 — 있으면 화면이 그리로 데려가는 손잡이를 낸다 */
+  where?: { nodeId: string };
 }
 
 export interface FeedbackSlice {
