@@ -18,7 +18,7 @@ import {
   runFinished,
   runLengthMs,
   endedInFailure,
-  seqAt,
+  shownSeq,
   steppedSeq,
   unansweredPause,
 } from "../run/player";
@@ -60,6 +60,11 @@ export interface RunSlice {
   runEvents: RunEvent[];
   /** 실행이 시작되고 흐른 시간(ms) — 재생 위치는 여기서 나온다 */
   runOffsetMs: number;
+  /**
+   * 사람이 목록에서 누른 사건의 순번 — 누른 줄이 현재 항목이다 (DESIGN §7 event-list).
+   * 재생·되감기·스크럽이 움직이면 놓는다: 그때부터는 다시 시각이 정한다.
+   */
+  pickedSeq: number | null;
   isPlaying: boolean;
   runSpeed: number;
   /** 이 자리에서 해 본 실행들 — 새 실행이 뒤에 쌓인다 (세션 동안만 남는다) */
@@ -138,7 +143,7 @@ export function isRunning(state: EditorState): boolean {
 
 /** 지금 화면이 보여주고 있는 이벤트의 순번. */
 export function currentSeq(state: EditorState): number {
-  return seqAt(state.runEvents, state.runOffsetMs);
+  return shownSeq(state.runEvents, state.runOffsetMs, state.pickedSeq);
 }
 
 /**
@@ -197,8 +202,13 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
   });
 
   /** 사용자가 재생을 넘겨받았다 — 손으로 옮기는 동안 시간은 저절로 흐르지 않는다. */
+  // 재생 머리를 손으로 옮기면 눌러 둔 줄은 놓는다 — 옮긴 자리가 곧 보고 있는 자리다.
   const moveTo = (seq: number) =>
-    set({ runOffsetMs: offsetOf(get().runEvents, seq), isPlaying: false });
+    set({
+      runOffsetMs: offsetOf(get().runEvents, seq),
+      isPlaying: false,
+      pickedSeq: null,
+    });
 
   const answerGate = (approved: boolean, values?: Record<string, unknown>) =>
     submitGateAnswer(approved, values, {
@@ -219,6 +229,7 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
   return {
     runEvents: [],
     runOffsetMs: 0,
+    pickedSeq: null,
     isPlaying: false,
     runSpeed: 1,
     runHistory: [],
@@ -265,6 +276,7 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
       set({
         runEvents: [],
         runOffsetMs: 0,
+        pickedSeq: null,
         isPlaying: true,
         runSpeed: 1,
         runHistory: [...get().runHistory, record],
@@ -295,6 +307,7 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
       set({
         runEvents: record.events,
         runOffsetMs: 0,
+        pickedSeq: null,
         isPlaying: true,
         runSpeed: 1,
         activeRunId: record.id,
@@ -305,7 +318,13 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
     // 기록은 남는다 — 닫는 것은 지금 보고 있던 화면과, 서버에 매달려 있던 스트림이다.
     stopRun: () => {
       stream.stopListening();
-      set({ runEvents: [], runOffsetMs: 0, isPlaying: false, activeRunId: null });
+      set({
+        runEvents: [],
+        runOffsetMs: 0,
+        pickedSeq: null,
+        isPlaying: false,
+        activeRunId: null,
+      });
       get().setGateCardOpen(false);
     },
 
@@ -339,12 +358,12 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
       );
       // 밸브를 만나면 재생은 거기 서서 사람을 기다린다 — 지나온 밸브에는 다시 걸리지 않는다.
       if (result.kind === "halt") {
-        set({ runOffsetMs: result.atMs, isPlaying: false });
+        set({ runOffsetMs: result.atMs, isPlaying: false, pickedSeq: null });
         if (result.reason === "gate") get().setGateCardOpen(true);
         else set({ notice: msg("breakpoint.notice", { id: result.nodeId ?? "" }) });
         return;
       }
-      set({ runOffsetMs: result.atMs, isPlaying: result.keepPlaying });
+      set({ runOffsetMs: result.atMs, isPlaying: result.keepPlaying, pickedSeq: null });
     },
 
     scrubToSeq: (seq) => moveTo(seq),
@@ -355,6 +374,8 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
 
     goToEvent: (seq) => {
       moveTo(seq);
+      // 누른 줄이 현재 항목이다 — 같은 시각의 사건이 여럿이어도 사람이 누른 그 줄이다.
+      set({ pickedSeq: seq });
       const nodeId = get().runEvents.find((event) => event.seq === seq)?.node_id;
       if (nodeId) get().select("node", nodeId);
     },

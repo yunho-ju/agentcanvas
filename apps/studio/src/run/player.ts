@@ -188,6 +188,20 @@ export function seqAt(events: RunEvent[], offsetMs: number): number {
 }
 
 /**
+ * 화면이 지금 보여주는 사건 — 두 손 중 나중 것이 정한다 (DESIGN §7 event-list).
+ * 사람이 누른 줄이 이 실행에 있으면 그 줄이고, 없으면 재생 시각이 정한다.
+ * 같은 시각의 사건이 여럿일 때 시각만으로는 누른 줄을 되찾을 수 없다.
+ */
+export function shownSeq(
+  events: RunEvent[],
+  offsetMs: number,
+  pickedSeq: number | null,
+): number {
+  const picked = events.some((event) => event.seq === pickedSeq);
+  return picked && pickedSeq !== null ? pickedSeq : seqAt(events, offsetMs);
+}
+
+/**
  * 아직 아무도 답하지 않은 멈춤 — 뒤에 다시 흐른 사건(run.resumed)이 없는 run.paused.
  * 답을 받은 밸브는 지나온 자리다: 되감아 다시 보더라도 거기서 다시 붙잡히지 않는다.
  */

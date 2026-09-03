@@ -121,6 +121,70 @@ describe("the list of what happened during the run", () => {
   });
 });
 
+// 누른 줄이 펼쳐진다 (DESIGN §7 event-list — 현재 항목은 두 손 중 나중 것이 정한다).
+// 1초 안에 끝난 실행은 사건들의 시각이 겹친다: 시각으로 되찾으면 누른 줄이 아닌 줄이 펼쳐진다.
+describe("같은 시각의 사건들 가운데 한 줄을 누르면", () => {
+  const at = "2026-08-01T12:30:00.000Z";
+
+  function tied(seq: number, event_type: string, node_id: string, payload = {}) {
+    return {
+      run_id: "run_tied",
+      seq,
+      event_type,
+      timestamp: at,
+      spec_revision: example.revision,
+      node_id,
+      payload,
+    };
+  }
+
+  const tiedEvents = [
+    tied(0, "node.started", "input"),
+    tied(1, "llm.requested", "triage", { model_ref: "model://default" }),
+    tied(2, "node.started", "triage"),
+  ];
+
+  function watchTied() {
+    act(() => {
+      useEditor.setState({
+        runEvents: tiedEvents as never,
+        activeRunId: "run_tied",
+        runOffsetMs: 0,
+      });
+    });
+    return render(<EventList />);
+  }
+
+  it("그 줄만 지금 보고 있는 줄이 된다", async () => {
+    watchTied();
+
+    await userEvent.click(
+      within(itemFor("'triage' 노드가 인공지능에게 물어봤다")).getByRole("button"),
+    );
+
+    const marked = screen
+      .getAllByRole("button")
+      .filter((button) => button.getAttribute("aria-current") === "true")
+      .map((button) => button.textContent ?? "");
+    expect(marked).toHaveLength(1);
+    expect(marked[0]).toContain("인공지능에게 물어봤다");
+  });
+
+  it("그 줄이 들고 온 것이 펼쳐진다", async () => {
+    watchTied();
+
+    await userEvent.click(
+      within(itemFor("'triage' 노드가 인공지능에게 물어봤다")).getByRole("button"),
+    );
+
+    expect(
+      within(itemFor("'triage' 노드가 인공지능에게 물어봤다")).getByText(
+        /model_ref: "model:\/\/default"/,
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
 // 도구가 진짜로 일한 실행을 사람이 목록에서 읽는다 (API_TOOLS P3a — 결과를 볼 수 있는가).
 describe("도구가 일한 실행을 읽는 목록", () => {
   const asked = {
