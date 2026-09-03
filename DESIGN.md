@@ -368,6 +368,15 @@ skill-import-card (붙여 넣거나 주소를 주면 skill이 된다 — SK-3)
 - 입력 상태 아래 '시작 skill에서 고르기': 번들 시작 skill 세 줄([이름 --text-label][description --text-caption]) — 줄을 누르면 곧장 review 상태로(붙여넣기와 같은 길, 값이 채워졌을 뿐). 처음 온 사람이 빈 칸 앞에서 멈추지 않게 한다(프리셋 우선 원칙)
 - 어디서 열리는가: skill-wear의 [skill 가져오기…], skills-panel의 [skill 가져오기]. 두 입구, 한 카드
 
+skill-make-card (지시문을 skill로 — skill-import-card의 '만들기' 모드, SK-5)
+- 표면·원칙은 skill-import-card를 물려받는다(한 카드, 두 모드). 아래는 **다른 점만**
+- 입구: agent inspector 지시문 칸의 프리셋 셀렉트 옆 [skill로 저장 button-ghost]. 지시문이 비어 있으면 disabled + title '지시문을 먼저 적어야 skill로 만들 수 있어요'(공백만은 적은 것이 아니다 — writtenInstructions와 같은 판정)
+- 입력 상태: 제목 '이 지시문을 skill로 만들까요' + 지시문 미리보기(읽기 전용, 처음 6줄 + '더 보기') + 이름 input(규칙은 그릴 때 막는다: 소문자·숫자·하이픈만 — 어긋나면 인라인 한 줄, primary disabled) + '언제 쓰나요' 한 줄 input(description — skill-creator 원칙: 무엇을·언제) + **비슷한 skill** 참고 목록(이 문서와 시작 skill에서 2~3개, [이름 --text-label][description --text-caption], 누르면 본문이 같은 카드 안 접힘 영역으로 열린다 — 참고일 뿐 고르는 것이 아니다) + [초안 만들기 primary][그만두기 ghost]
+- 초안은 서버 모델이 짓는다(참고 skill을 예시로 읽고 표준 구조 — 한 줄 요지 / How to do it / What good looks like / What to avoid). **부를 모델이 없으면 실패가 아니다**: 캡션 '부를 모델이 없어 틀만 잡았어요 — 본문은 지시문 그대로예요'와 함께 지시문을 그 구조에 옮긴 틀 초안을 보여 준다(모르는 것을 지어내지 않는다)
+- 기다림·실패는 guided 문법. 실패해도 적은 이름·설명은 보존
+- review 상태: skill-import-card review 그대로 + 캡션 한 줄 '넣으면 이 단계가 바로 따르게 돼요'. 버튼 [문서에 넣고 따르기 primary][다시 만들기 ghost]. 승인 1회 = undo 1걸음(문서에 skill 추가 + 그 단계의 입는 목록에 추가를 **한 걸음**에)
+- 승인 뒤(카드 닫힌 자리, inspector 지시문 칸 아래 캡션 두 줄): '지시문은 그대로 두었어요 — skill이 같은 내용을 담으니 지시문을 줄여도 돼요' / '시험해 보기에서 이 skill을 시험할 케이스를 지어 볼 수 있어요' + [시험 짓기 button-ghost] → Test 모드로 가 eval-suggest-card의 청하는 줄에 초점(새 표면 금지 — 지어 주는 모델은 이미 skill을 안다). 캡션은 다른 노드를 고르거나 닫기(×)로 사라진다
+
 run-input-card (실행에 넣을 값 — '실행해 보기'가 물을 것이 있을 때)
 - 언제: 실행 버튼을 눌렀고 그래프의 입력 노드가 받는 값 이름(bindings)이 하나라도 있을 때. 물을 것이 없으면 카드 없이 바로 실행(지금과 동일 — 빈 카드를 띄우지 않는다)
 - 위치: `.layer-top-right` 실행 버튼 아래 var(--space-2) 세로 스택. glass + 1px hairline + shadow-float + radius-card, 폭 var(--panel-inspector)
