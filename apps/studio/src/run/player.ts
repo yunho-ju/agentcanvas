@@ -271,7 +271,7 @@ export function haltBetween(
 }
 
 /** 실행이 닫히는 사건들 — 사람이 거절한 실행도 여기로 닫힌다(다른 결말이지 미완이 아니다). */
-const RUN_CLOSED: EventType[] = ["run.completed", "run.failed"];
+export const RUN_CLOSED: EventType[] = ["run.completed", "run.failed"];
 
 /**
  * 재생 위치(seq)까지 흘렀을 때 이 실행이 끝까지 갔는가.

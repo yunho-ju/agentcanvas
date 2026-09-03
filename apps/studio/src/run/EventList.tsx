@@ -6,6 +6,7 @@ import { type Translate, useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 import { currentSeq } from "../store/runSlice";
 import { eventSummary, payloadLines, skillsFollowed } from "./eventWords";
+import { runAnswer } from "./runAnswer";
 
 /**
  * 사건 한 줄. 재생 위치가 한 칸 움직일 때 목록 전체를 다시 그릴 이유는 없다 —
@@ -55,12 +56,24 @@ export function EventList() {
   const events = useEditor((state) => state.runEvents);
   const seq = useEditor(currentSeq);
   const goToEvent = useEditor((state) => state.goToEvent);
+  // 답은 이 실행이 실제로 돈 판으로만 읽는다 — 지금 화면의 그래프는 이 실행이 돌지 않았다.
+  const ranSpec = useEditor(
+    (state) => state.runHistory.find((record) => record.id === state.activeRunId)?.specSnapshot,
+  );
   const t = useT();
 
   if (events.length === 0) return null;
 
+  const answer = ranSpec === undefined ? null : runAnswer(ranSpec, events);
+
   return (
     <section className="event-list layer" aria-label={t("eventList.label")}>
+      {answer === null ? null : (
+        <div className="event-list__answer">
+          <p className="event-list__answer-label">{t("chat.said.answer")}</p>
+          <p className="chat-bubble chat-bubble--answer">{answer}</p>
+        </div>
+      )}
       <ol className="event-list__items">
         {events.map((event) => (
           <EventRow
