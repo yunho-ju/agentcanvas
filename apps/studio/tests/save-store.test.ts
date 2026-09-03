@@ -142,6 +142,31 @@ describe("저장하는 순간", () => {
     expect(savedVersion(store())).toBe(1);
   });
 
+  it("알아 두면 좋은 이야기(info)는 손볼 곳으로 세지 않는다", async () => {
+    // 아무도 안 입은 skill 같은 이야기는 잘못이 아니다 — 저장을 경고로 물들이지 않는다.
+    const issues = [
+      { severity: "info", code: "skill.unused", message: "아무도 안 입었어요" },
+    ];
+    useEditor.setState({ sendSpec: acceptingServer(1, issues).send });
+
+    await store().saveSpec();
+
+    expect(said()).toBe("저장했어요");
+    expect(store().feedbackNotice?.tone).toBe("ok");
+  });
+
+  it("손볼 곳과 알아 둘 곳이 섞이면 손볼 곳만 센다", async () => {
+    const issues = [
+      { severity: "error", code: "node.unknown_type", message: "무슨 노드죠" },
+      { severity: "info", code: "skill.unused", message: "아무도 안 입었어요" },
+    ];
+    useEditor.setState({ sendSpec: acceptingServer(1, issues).send });
+
+    await store().saveSpec();
+
+    expect(said()).toBe("저장했어요 — 손볼 곳 1곳");
+  });
+
   it("서버가 꺼져 있으면 그 사실을 말하고, 편집한 것은 그대로 둔다", async () => {
     useEditor.setState({ sendSpec: sleepingServer });
     const before = store().nodes.length;

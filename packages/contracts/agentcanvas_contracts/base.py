@@ -6,9 +6,17 @@ AgentSpec뿐 아니라 LocalizedText·ToolDef처럼 spec에 실리는 조각들�
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 
 from .refs import no_raw_secrets
 
@@ -19,6 +27,15 @@ def _must_not_be_blank(value: str) -> str:
     if not value.strip():
         raise ValueError("must not be blank")
     return value
+
+
+def _must_be_utc(value: datetime) -> datetime:
+    if value.utcoffset() != timedelta(0):
+        raise ValueError("timestamp must be in UTC")
+    return value
+
+
+UtcDatetime = Annotated[AwareDatetime, AfterValidator(_must_be_utc)]
 
 
 # min_length는 JSON Schema에도 실린다 — 파이썬만 아는 규칙은 다른 언어에서 지켜지지 않는다.
@@ -37,4 +54,4 @@ class ContractModel(BaseModel):
         return self
 
 
-__all__ = ["ContractModel", "JsonSchema", "NonEmptyText"]
+__all__ = ["ContractModel", "JsonSchema", "NonEmptyText", "UtcDatetime"]

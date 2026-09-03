@@ -54,15 +54,32 @@ from .node_registry import (
     ResolvedPorts,
     config_issues,
     resolve_ports,
+    skill_refs,
 )
 from .optimization import OptimizationProposal, ProposalEvidence
 from .publication import SpecPublication
-from .refs import McpRef, ModelRef, PromptRef, SchemaRef, SecretRef, no_raw_secrets
+from .refs import (
+    McpRef,
+    ModelRef,
+    PromptRef,
+    SchemaRef,
+    SecretRef,
+    SkillRef,
+    no_raw_secrets,
+)
 from .release import Approval, ModelSnapshot, ReleaseManifest
 from .revision import canonical_json, compute_revision
 from .run import RUN_ENDINGS, ApprovalAnswer, Run, RunStatus, run_status
 from .run_events import EventType, RunEvent, assert_monotonic_seq
 from .schema_catalog import DEFAULT_SCHEMA_CATALOG, SchemaDef, resolve_schema
+from .skill_def import SkillDef, SkillReference, SkillSource
+from .skill_markdown import (
+    SkillIssue,
+    SkillParse,
+    parse_skill_markdown,
+    render_skill_markdown,
+)
+from .starter_skills import resolve_starter_skill, starter_skills
 from .tool_def import (
     ChunkRule,
     DigestResult,
@@ -147,6 +164,12 @@ __all__ = [
     "SchemaRef",
     "SecretRef",
     "SectionsResult",
+    "SkillDef",
+    "SkillIssue",
+    "SkillParse",
+    "SkillRef",
+    "SkillReference",
+    "SkillSource",
     "SpecPublication",
     "ToolCall",
     "ToolDef",
@@ -156,10 +179,15 @@ __all__ = [
     "compute_revision",
     "config_issues",
     "no_raw_secrets",
+    "parse_skill_markdown",
+    "render_skill_markdown",
     "resolve_evaluator",
     "resolve_instruction_preset",
     "resolve_model",
     "resolve_ports",
     "resolve_schema",
+    "resolve_starter_skill",
     "run_status",
+    "skill_refs",
+    "starter_skills",
 ]

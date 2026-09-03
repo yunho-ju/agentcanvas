@@ -290,3 +290,39 @@ def test_renaming_makes_a_different_revision():
     plain = AgentSpec.model_validate(MINIMAL_SPEC)
     named = AgentSpec.model_validate(spec_dict(name="임상 도우미"))
     assert named.computed_revision() != plain.computed_revision()
+
+
+SKILL = {
+    "ref": "skill://plain-answer@1",
+    "name": "plain-answer",
+    "description": "Use when the answer must be easy for anyone to read.",
+    "body": "Write short sentences.",
+}
+
+
+def test_a_document_without_skills_wears_none():
+    """옛 문서는 그대로 읽힌다 — skills를 적지 않은 문서도 계약을 지킨다."""
+    assert AgentSpec.model_validate(MINIMAL_SPEC).skills == []
+
+
+def test_a_document_keeps_the_skills_it_holds():
+    spec = AgentSpec.model_validate(spec_dict(skills=[SKILL]))
+    assert [skill.name for skill in spec.skills] == ["plain-answer"]
+
+
+def test_an_empty_skills_list_does_not_change_a_stored_revision():
+    """빈 skills는 없는 것과 같다 — 필드가 생겼다고 옛 문서의 판이 바뀌지 않는다."""
+    without = AgentSpec.model_validate(MINIMAL_SPEC)
+    assert without.computed_revision() == compute_revision(
+        {
+            key: value
+            for key, value in without.model_dump(mode="json").items()
+            if key != "skills"
+        }
+    )
+
+
+def test_wearing_one_skill_makes_it_a_different_document():
+    without = AgentSpec.model_validate(MINIMAL_SPEC)
+    with_one = AgentSpec.model_validate(spec_dict(skills=[SKILL]))
+    assert without.computed_revision() != with_one.computed_revision()

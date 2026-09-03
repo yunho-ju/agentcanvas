@@ -1,7 +1,7 @@
 // 서버에 맡긴 것과 아직 맡기지 않은 것 — 저장은 서버의 일이고, 여기는 그 결과만 안다.
 // revision과 판 번호는 서버가 매긴다: 화면은 절대 스스로 계산하지 않는다.
 import type { StateCreator } from "zustand";
-import { type SaveOutcome, sendSpecToServer } from "../api/specs";
+import { type SaveOutcome, sendSpecToServer, thingsToFix } from "../api/specs";
 import type { AgentSpec } from "../generated/agent_spec";
 import { sameGraph } from "../graph/sameGraph";
 import { asCanvasWouldWriteIt } from "../graph/serialize";
@@ -96,7 +96,7 @@ function whyNotNow(state: EditorState): Message | null {
 
 function toldAbout(outcome: SaveOutcome): FeedbackNotice {
   if (outcome.failure) return { message: outcome.failure, tone: "danger" };
-  const count = outcome.issues?.length ?? 0;
+  const count = thingsToFix(outcome.issues);
   // 저장은 벌주지 않는다 — 손볼 곳이 남아도 저장은 됐다고 먼저 말한다.
   return count === 0
     ? { message: msg("save.ok"), tone: "ok" }

@@ -197,6 +197,21 @@
             }
           }
         },
+        "skill_refs": {
+          "description": "Write the tag of each skill this agent should follow, one per line — the tag looks like skill://name@1 and is listed with the document's skills.",
+          "items": {
+            "type": "string",
+            "x-skill-ref": true
+          },
+          "title": "Skills it wears",
+          "type": "array",
+          "x-i18n": {
+            "ko": {
+              "description": "이 에이전트가 따를 skill의 이름표를 한 줄에 하나씩 적는다 — 이름표는 skill://이름@1 꼴이고 이 문서의 skill 목록에 적혀 있다.",
+              "title": "입는 skill"
+            }
+          }
+        },
         "toolset_refs": {
           "description": "Write the name of each connection whose tools this agent may use, one per line. Use the names from this agent's list of connections, not server addresses.",
           "items": {
@@ -222,6 +237,7 @@
         "model_ref",
         "max_turns",
         "toolset_refs",
+        "skill_refs",
         "prompt_ref"
       ]
     },

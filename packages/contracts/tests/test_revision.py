@@ -16,6 +16,23 @@ def test_canonical_json_is_utf8_literal():
     assert canonical_json({"name": "환자"}) == '{"name":"환자"}'
 
 
+def test_canonical_json_omits_an_empty_additive_field():
+    """빈 skills는 없는 것과 같다 — 필드가 나중에 생겨도 저장된 문서의 revision은 그대로다."""
+    assert canonical_json({"id": "agent", "skills": []}) == '{"id":"agent"}'
+
+
+def test_canonical_json_keeps_an_additive_field_that_holds_something():
+    """skill을 하나라도 입으면 다른 문서다 — 생략은 비어 있을 때만이다."""
+    assert canonical_json({"id": "agent", "skills": [{"name": "plain-answer"}]}) == (
+        '{"id":"agent","skills":[{"name":"plain-answer"}]}'
+    )
+
+
+def test_canonical_json_keeps_other_empty_lists():
+    """생략 규칙은 나중에 생긴 필드에만 있다 — 처음부터 있던 빈 목록은 문서의 일부다."""
+    assert canonical_json({"id": "agent", "nodes": []}) == '{"id":"agent","nodes":[]}'
+
+
 def test_compute_revision_is_deterministic():
     content = {"id": "agent", "nodes": [{"id": "input"}]}
     assert compute_revision(content) == compute_revision(

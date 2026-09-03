@@ -46,3 +46,20 @@ def test_every_patch_operation_is_reachable_from_the_package_root():
 
 def test_exported_names_exist():
     assert all(hasattr(contracts, name) for name in contracts.__all__)
+
+
+def test_the_whole_skill_contract_is_reachable_from_the_package_root():
+    """skill은 한 벌이다 — 모양만 내보내고 읽는 법을 숨기면 소비자가 반쪽 계약을 본다."""
+    assert {
+        "SkillDef",
+        "SkillIssue",
+        "SkillParse",
+        "SkillRef",
+        "SkillReference",
+        "SkillSource",
+        "parse_skill_markdown",
+        "render_skill_markdown",
+        "resolve_starter_skill",
+        "starter_skills",
+        "skill_refs",
+    } <= set(contracts.__all__)

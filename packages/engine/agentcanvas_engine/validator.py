@@ -13,6 +13,7 @@ from agentcanvas_contracts.node_registry import (
     binding_refs,
     config_issues,
     resolve_ports,
+    skill_refs,
 )
 from pydantic import BaseModel
 
@@ -20,6 +21,8 @@ from pydantic import BaseModel
 class Severity(str, Enum):
     ERROR = "error"
     WARNING = "warning"
+    # 잘못이 아니라 알아 두면 좋은 것 — 실행을 막지 않는다.
+    INFO = "info"
 
 
 class ValidationIssue(BaseModel):
@@ -44,6 +47,7 @@ def validate_graph(
     issues = _unknown_node_type_issues(spec.nodes, registry)
     issues.extend(_invalid_config_issues(spec.nodes, registry))
     issues.extend(_unknown_binding_issues(spec, registry))
+    issues.extend(_skill_issues(spec, registry))
     for edge in spec.edges:
         issues.extend(_edge_issues(edge, nodes, ports))
     issues.extend(_unreachable_issues(spec, nodes))
@@ -130,6 +134,57 @@ def _unknown_binding_issues(
         for ref in binding_refs(node, registry[node.type])
         if ref not in known
     ]
+
+
+def _worn_skill_refs(spec: AgentSpec, registry: dict[str, NodeType]) -> dict[str, str]:
+    """어느 노드가 어떤 skill을 입었는가 — ref 하나당 처음 입은 노드 하나를 기억한다."""
+    worn: dict[str, str] = {}
+    for node in spec.nodes:
+        if node.type not in registry:
+            continue
+        for ref in skill_refs(node, registry[node.type]):
+            worn.setdefault(ref, node.id)
+    return worn
+
+
+def _skill_issues(
+    spec: AgentSpec, registry: dict[str, NodeType]
+) -> list[ValidationIssue]:
+    """문서가 가진 skill과 노드가 입은 skill이 서로 맞는가."""
+    held = [skill.ref for skill in spec.skills]
+    worn = _worn_skill_refs(spec, registry)
+
+    issues = [
+        ValidationIssue(
+            severity=Severity.ERROR,
+            code="skill.duplicate",
+            message=f"this agent holds the skill {ref!r} more than once",
+        )
+        for ref in _duplicates(held)
+    ]
+    issues.extend(
+        ValidationIssue(
+            severity=Severity.ERROR,
+            code="skill.missing",
+            message=(
+                f"node {node_id!r} wears the skill {ref!r}, "
+                "which this agent does not have"
+            ),
+            node_id=node_id,
+        )
+        for ref, node_id in worn.items()
+        if ref not in held
+    )
+    issues.extend(
+        ValidationIssue(
+            severity=Severity.INFO,
+            code="skill.unused",
+            message=f"the skill {ref!r} is here, but no step wears it",
+        )
+        for ref in dict.fromkeys(held)
+        if ref not in worn
+    )
+    return issues
 
 
 def _unknown_node_type_issues(

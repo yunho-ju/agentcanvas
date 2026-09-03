@@ -472,6 +472,154 @@
       "title": "SectionsResult",
       "type": "object"
     },
+    "SkillDef": {
+      "additionalProperties": false,
+      "description": "표준 SKILL.md 하나 — 노드는 `skill_refs`에 이 `ref`를 적어 입는다.",
+      "properties": {
+        "body": {
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "compatibility": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compatibility"
+        },
+        "description": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "ref": {
+          "pattern": "^skill://[A-Za-z0-9._-]+(?:@[A-Za-z0-9._-]+)?$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "$ref": "#/$defs/SkillReference"
+          },
+          "title": "References",
+          "type": "array"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "ref",
+        "name",
+        "description",
+        "body"
+      ],
+      "title": "SkillDef",
+      "type": "object"
+    },
+    "SkillReference": {
+      "additionalProperties": false,
+      "description": "skill 곁의 읽을 문서 하나 — 점진 공개의 셋째 단계에서 사람이 펼쳐 본다.",
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "text"
+      ],
+      "title": "SkillReference",
+      "type": "object"
+    },
+    "SkillSource": {
+      "additionalProperties": false,
+      "description": "이 skill이 어디서 왔는가 — 나중에 새 판이 나왔는지 확인하는 데 쓴다.",
+      "properties": {
+        "fetched_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fetched At"
+        },
+        "fetched_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fetched Revision"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "SkillSource",
+      "type": "object"
+    },
     "ToolDef": {
       "additionalProperties": false,
       "description": "바인딩 하나가 들고 다니는 도구 한 개.",
@@ -622,6 +770,13 @@
       "const": "agent.spec/v1",
       "title": "Schema Version",
       "type": "string"
+    },
+    "skills": {
+      "items": {
+        "$ref": "#/$defs/SkillDef"
+      },
+      "title": "Skills",
+      "type": "array"
     },
     "state_schema": {
       "additionalProperties": true,

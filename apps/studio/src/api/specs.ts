@@ -19,6 +19,17 @@ export interface SaveIssue {
   message: string;
 }
 
+/** 알아 두면 좋은 이야기 — 잘못이 아니므로 "손볼 곳"에 들지 않는다 (engine Severity.INFO). */
+const JUST_SO_YOU_KNOW = "info";
+
+/**
+ * 정말 손봐야 하는 곳의 수 — 막는 것(error)과 살펴볼 것(warning)만 센다.
+ * 세는 규칙이 화면 여기저기로 흩어지지 않게, 서버의 답을 읽는 이 자리에서만 센다.
+ */
+export function thingsToFix(issues: SaveIssue[] = []): number {
+  return issues.filter((issue) => issue.severity !== JUST_SO_YOU_KNOW).length;
+}
+
 /** 저장의 결말 — 저장된 그래프이거나, 저장하지 못한 까닭이다. */
 export type SaveOutcome =
   | { saved: AgentSpec; issues: SaveIssue[]; failure?: undefined }

@@ -302,8 +302,9 @@ def test_ports_of_unknown_node_type_are_not_checked():
     assert "edge.unknown_port" not in codes(validate_graph(spec))
 
 
-def test_severity_values_are_error_and_warning():
-    assert [severity.value for severity in Severity] == ["error", "warning"]
+def test_severity_values_are_error_warning_and_info():
+    """세 층뿐이다 — 막는 것, 살펴볼 것, 알아 두면 좋은 것."""
+    assert [severity.value for severity in Severity] == ["error", "warning", "info"]
 
 
 @pytest.mark.parametrize(

@@ -24,6 +24,7 @@ describe("generated contract types", () => {
       "run",
       "run_event",
       "schema_def",
+      "skill_def",
       "spec_publication",
     ]);
   });

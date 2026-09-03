@@ -47,6 +47,10 @@ INPUT_NODE_TYPE = "core.input"
 # config_schema 확장 키워드 — 이 자리에 적는 값은 spec.resources 바인딩의 id다.
 BINDING_REF_MARKER = "x-binding-ref"
 
+# config_schema 확장 키워드 — 이 자리에 적는 값은 spec.skills가 가진 skill의 ref다.
+# 연결 표식과 갈라 둔다: 입은 skill이 끊긴 연결로 잘못 잡히면 안 된다.
+SKILL_REF_MARKER = "x-skill-ref"
+
 # config_schema 확장 키워드 — 이 노드의 포트는 config가 고른 도구(ToolDef)를 입는다.
 # 어느 자리에 도구 이름을 적고 어느 포트가 무엇을 입는지는 여기 적힌 대로다
 # (노드 타입 이름으로 분기하지 않는다).
@@ -117,10 +121,10 @@ def config_issues(node: Node, node_type: NodeType) -> list[str]:
     return issues
 
 
-def binding_refs(node: Node, node_type: NodeType) -> list[str]:
-    """config_schema가 바인딩 id라고 표시한(x-binding-ref) 자리에 실제로 적힌 이름들.
+def _marked_refs(node: Node, node_type: NodeType, marker: str) -> list[str]:
+    """config_schema가 이 표식을 붙인 자리에 실제로 적힌 이름들.
 
-    타입 이름으로 분기하지 않는다 — 마커를 붙인 노드 타입이면 무엇이든 대상이다.
+    타입 이름으로 분기하지 않는다 — 표식을 붙인 노드 타입이면 무엇이든 대상이다.
     """
     properties = node_type.config_schema.get("properties")
     if not isinstance(properties, dict):
@@ -131,16 +135,26 @@ def binding_refs(node: Node, node_type: NodeType) -> list[str]:
         if not isinstance(field_schema, dict):
             continue
         value = node.config.get(name)
-        if field_schema.get(BINDING_REF_MARKER) is True and isinstance(value, str):
+        if field_schema.get(marker) is True and isinstance(value, str):
             refs.append(value)
         items = field_schema.get("items")
         if (
             isinstance(items, dict)
-            and items.get(BINDING_REF_MARKER) is True
+            and items.get(marker) is True
             and isinstance(value, list)
         ):
             refs.extend(item for item in value if isinstance(item, str))
     return refs
+
+
+def binding_refs(node: Node, node_type: NodeType) -> list[str]:
+    """이 노드가 쓰겠다고 적은 연결(spec.resources)의 id들 — x-binding-ref 자리."""
+    return _marked_refs(node, node_type, BINDING_REF_MARKER)
+
+
+def skill_refs(node: Node, node_type: NodeType) -> list[str]:
+    """이 노드가 입겠다고 적은 skill(spec.skills)의 ref들 — x-skill-ref 자리."""
+    return _marked_refs(node, node_type, SKILL_REF_MARKER)
 
 
 def _chosen_tool(
@@ -563,6 +577,28 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                             # 원소 하나하나가 spec.resources 바인딩의 id다.
                             "items": {"type": "string", BINDING_REF_MARKER: True},
                         },
+                        "skill_refs": {
+                            "type": "array",
+                            "title": "Skills it wears",
+                            "description": (
+                                "Write the tag of each skill this agent should "
+                                "follow, one per line — the tag looks like "
+                                "skill://name@1 and is listed with the document's "
+                                "skills."
+                            ),
+                            "x-i18n": {
+                                "ko": {
+                                    "title": "입는 skill",
+                                    "description": (
+                                        "이 에이전트가 따를 skill의 이름표를 한 줄에 "
+                                        "하나씩 적는다 — 이름표는 skill://이름@1 꼴이고 "
+                                        "이 문서의 skill 목록에 적혀 있다."
+                                    ),
+                                }
+                            },
+                            # 원소 하나하나가 spec.skills에 있는 skill의 ref다.
+                            "items": {"type": "string", SKILL_REF_MARKER: True},
+                        },
                         "max_turns": {
                             "type": "integer",
                             "title": "How many turns at most",
@@ -591,6 +627,7 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                         "model_ref",
                         "max_turns",
                         "toolset_refs",
+                        "skill_refs",
                         "prompt_ref",
                     ],
                 },
@@ -764,6 +801,7 @@ __all__ = [
     "BINDING_REF_MARKER",
     "DEFAULT_NODE_TYPES",
     "INPUT_NODE_TYPE",
+    "SKILL_REF_MARKER",
     "TOOL_INPUT_PORT",
     "TOOL_NAME_FIELD",
     "TOOL_OUTPUT_PORT",
@@ -775,4 +813,5 @@ __all__ = [
     "binding_refs",
     "config_issues",
     "resolve_ports",
+    "skill_refs",
 ]

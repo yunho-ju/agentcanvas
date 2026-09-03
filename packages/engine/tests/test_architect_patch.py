@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 from agentcanvas_contracts.agent_spec import (
     AgentSpec,
@@ -398,3 +401,33 @@ def test_the_same_graph_is_valid_while_the_binding_is_still_there():
     assert [
         issue for issue in validate_graph(spec) if issue.code == "node.unknown_binding"
     ] == []
+
+
+def test_a_document_saved_before_skills_existed_is_still_a_valid_patch_anchor():
+    """skills 필드가 생겼다고 저장된 문서의 판이 바뀌면 안 된다 — 바뀌면 patch가 전부 막힌다.
+
+    저장된 raw JSON에는 skills 키가 아예 없다. 그 문서를 읽어 계산한 판이 저장된 판과
+    같아야 apply_patch의 첫 관문(invalid_base_revision)을 지난다.
+    """
+    stored = json.loads(
+        (
+            Path(__file__).resolve().parents[3] / "examples/basic-agent/agent_spec.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert "skills" not in stored
+
+    base = AgentSpec.model_validate(stored)
+    patched = apply_patch(
+        base,
+        AgentSpecPatch(
+            schema_version="agent.patch/v1",
+            base_revision=base.revision,
+            operations=[
+                {
+                    "op": "remove_edge",
+                    "edge_id": base.edges[-1].id,
+                }
+            ],
+        ),
+    )
+    assert patched.revision == patched.computed_revision()

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "a node wears a skill the document has",
+    "skills": ["plain-answer"],
+    "wears": ["skill://plain-answer@1"],
+    "codes": []
+  },
+  {
+    "name": "a node wears a skill nobody added",
+    "skills": [],
+    "wears": ["skill://plain-answer@1"],
+    "codes": ["skill.missing"]
+  },
+  {
+    "name": "the same skill was added twice",
+    "skills": ["plain-answer", "plain-answer"],
+    "wears": ["skill://plain-answer@1"],
+    "codes": ["skill.duplicate"]
+  },
+  {
+    "name": "a skill nobody wears",
+    "skills": ["plain-answer"],
+    "wears": [],
+    "codes": ["skill.unused"]
+  },
+  {
+    "name": "one skill worn, one skill missing, one skill nobody wears",
+    "skills": ["plain-answer", "cite-sources"],
+    "wears": ["skill://plain-answer@1", "skill://ask-before-acting@1"],
+    "codes": ["skill.missing", "skill.unused"]
+  },
+  {
+    "name": "a document with no skills at all",
+    "skills": [],
+    "wears": [],
+    "codes": []
+  }
+]

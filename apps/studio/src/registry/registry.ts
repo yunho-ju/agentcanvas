@@ -19,6 +19,8 @@ export const INPUT_NODE_TYPE = "core.input";
 
 // config_schema 확장 키워드 — Python `node_registry`와 같은 이름을 읽는다.
 export const BINDING_REF_MARKER = "x-binding-ref";
+// 입은 skill의 표식은 연결과 갈라져 있다 — skill이 끊긴 연결로 잘못 잡히면 안 된다.
+export const SKILL_REF_MARKER = "x-skill-ref";
 export const TOOL_PORTS_MARKER = "x-tool-ports";
 export const TOOL_NAME_FIELD = "tool_name_field";
 const TOOL_INPUT_PORT = "input_port";
@@ -48,10 +50,10 @@ function byId(ports: PortSpec[] | undefined): Record<string, PortSpec> {
 }
 
 /**
- * config_schema가 바인딩 id라고 표시한(x-binding-ref) 자리에 실제로 적힌 이름들.
- * 타입 이름으로 분기하지 않는다 — 마커를 붙인 노드 타입이면 무엇이든 대상이다.
+ * config_schema가 이 표식을 붙인 자리에 실제로 적힌 이름들.
+ * 타입 이름으로 분기하지 않는다 — 표식을 붙인 노드 타입이면 무엇이든 대상이다.
  */
-export function bindingRefs(node: SpecNode, nodeType: NodeType): string[] {
+function markedRefs(node: SpecNode, nodeType: NodeType, marker: string): string[] {
   const properties = asRecord(nodeType.config_schema.properties);
   if (!properties) return [];
 
@@ -60,15 +62,25 @@ export function bindingRefs(node: SpecNode, nodeType: NodeType): string[] {
     const field = asRecord(fieldSchema);
     if (!field) continue;
     const value = node.config?.[name];
-    if (field[BINDING_REF_MARKER] === true && typeof value === "string") {
+    if (field[marker] === true && typeof value === "string") {
       refs.push(value);
     }
     const items = asRecord(field.items);
-    if (items?.[BINDING_REF_MARKER] === true && Array.isArray(value)) {
+    if (items?.[marker] === true && Array.isArray(value)) {
       refs.push(...value.filter((item): item is string => typeof item === "string"));
     }
   }
   return refs;
+}
+
+/** 이 노드가 쓰겠다고 적은 연결(spec.resources)의 id들 — x-binding-ref 자리. */
+export function bindingRefs(node: SpecNode, nodeType: NodeType): string[] {
+  return markedRefs(node, nodeType, BINDING_REF_MARKER);
+}
+
+/** 이 노드가 입겠다고 적은 skill(spec.skills)의 ref들 — x-skill-ref 자리. */
+export function skillRefs(node: SpecNode, nodeType: NodeType): string[] {
+  return markedRefs(node, nodeType, SKILL_REF_MARKER);
 }
 
 /** 이 노드가 고른 도구 — 가리킨 바인딩이 그 이름의 도구를 들고 있을 때만 있다. */

@@ -9,6 +9,7 @@ from agentcanvas_contracts.refs import (
     SchemaRef,
     SecretRef,
     ServerRef,
+    SkillRef,
     no_raw_secrets,
 )
 from pydantic import BaseModel, ValidationError
@@ -178,6 +179,44 @@ def test_no_raw_secrets_walks_nested_containers():
 def test_no_raw_secrets_ignores_non_secret_fields():
     payload = {"model_ref": "model://default", "max_turns": 4}
     assert no_raw_secrets(payload) == payload
+
+
+class SkillHolder(BaseModel):
+    ref: SkillRef
+
+
+def test_skill_ref_keeps_name_and_revision():
+    assert SkillHolder(ref="skill://plain-answer@1").ref == "skill://plain-answer@1"
+
+
+def test_skill_ref_rejects_another_scheme_in_words_a_person_can_act_on():
+    with pytest.raises(ValidationError) as exc:
+        SkillHolder(ref="prompt://plain-answer")
+    assert "must look like skill://name[@revision]" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "skill://plain-answer",
+        "skill://a@1",
+        "skill://",
+        "skill://a\n",
+        "plain-answer",
+        "prompt://a",
+    ],
+)
+def test_the_skill_pattern_accepts_exactly_what_the_model_accepts(ref):
+    """JSON Schema에 실은 pattern과 런타임 판정이 같은 집합을 뜻한다."""
+    pattern = SkillHolder.model_json_schema()["properties"]["ref"]["pattern"]
+    accepted_by_schema = re.fullmatch(pattern, ref) is not None
+    try:
+        SkillHolder(ref=ref)
+    except ValidationError:
+        accepted_by_model = False
+    else:
+        accepted_by_model = True
+    assert accepted_by_schema is accepted_by_model
 
 
 class EndUserHolder(BaseModel):

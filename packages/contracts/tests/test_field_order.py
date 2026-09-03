@@ -52,7 +52,14 @@ def order_problems(schema: dict) -> list[str]:
     [
         (
             "llm.agent",
-            ["instruction", "model_ref", "max_turns", "toolset_refs", "prompt_ref"],
+            [
+                "instruction",
+                "model_ref",
+                "max_turns",
+                "toolset_refs",
+                "skill_refs",
+                "prompt_ref",
+            ],
         ),
         ("llm.router", ["instruction", "model_ref", "output_schema_ref", "prompt_ref"]),
     ],

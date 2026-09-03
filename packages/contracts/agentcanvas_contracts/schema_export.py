@@ -25,6 +25,8 @@ from .release import ReleaseManifest
 from .run import ApprovalAnswer, Run
 from .run_events import RunEvent
 from .schema_catalog import DEFAULT_SCHEMA_CATALOG, SchemaDef
+from .skill_def import SkillDef
+from .starter_skills import starter_skills
 
 JSON_SCHEMA_DIR = Path(__file__).resolve().parent.parent / "json_schema"
 
@@ -44,6 +46,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "run": Run,
     "run_event": RunEvent,
     "schema_def": SchemaDef,
+    "skill_def": SkillDef,
     "spec_publication": SpecPublication,
 }
 
@@ -61,6 +64,10 @@ INSTRUCTION_CATALOG_NAME = "instruction_catalog"
 
 # 마찬가지로 데이터 — 답이 맞았는지 무엇으로 확인할지 고르는 판정기 목록이다.
 EVALUATOR_CATALOG_NAME = "evaluator_catalog"
+
+# 마찬가지로 데이터 — 빈 문서 앞에서 바로 입어 볼 수 있는 시작 skill 목록이다.
+# 문서 안 skill의 카탈로그가 아니다: 고르면 문서로 복사되어 그때부터 문서의 것이 된다.
+STARTER_SKILLS_NAME = "starter_skills"
 
 # 마찬가지로 데이터 — 대화가 사람 말을 찾는 입력 이름 하나. 화면도 이 파일을 읽어
 # 서버와 같은 철자를 쓴다 (Python↔TS 미러).
@@ -149,6 +156,14 @@ def write_evaluator_catalog(directory: Path = JSON_SCHEMA_DIR) -> Path:
     return write_data(EVALUATOR_CATALOG_NAME, DEFAULT_EVALUATOR_CATALOG, directory)
 
 
+def render_starter_skills() -> str:
+    return render_data(starter_skills())
+
+
+def write_starter_skills(directory: Path = JSON_SCHEMA_DIR) -> Path:
+    return write_data(STARTER_SKILLS_NAME, starter_skills(), directory)
+
+
 def render_chat_contract() -> str:
     return (
         json.dumps(
@@ -177,5 +192,6 @@ if __name__ == "__main__":  # pragma: no cover
         write_model_catalog(),
         write_instruction_catalog(),
         write_evaluator_catalog(),
+        write_starter_skills(),
     ]:
         print(path)

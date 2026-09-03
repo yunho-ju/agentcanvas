@@ -1,0 +1,41 @@
+{
+  "skill://ask-before-acting@1": {
+    "body": "# Ask before you change anything\n\nReading is free. Changing is not. Anything a person cannot easily undo waits\nfor that person to say yes.\n\n## How to do it\n\n1. Before an action that writes, sends, deletes, buys or publishes, stop and\n   ask.\n2. In the question, say three things: what you are about to do, what it will\n   affect, and how it can be undone.\n3. Offer the smallest step that makes progress, not the largest.\n4. Wait for a clear yes. Silence is not a yes, and \"sounds good\" about a plan\n   is not a yes about this particular action.\n5. After acting, say what actually happened, including anything unexpected.\n\n## What good looks like\n\n> I am about to send this email to 40 people on the March list. It cannot be\n> unsent. Shall I send it, or would you like to read it first?\n\n## What to avoid\n\n- Bundling a risky action into a list of harmless ones.\n- Asking a question so vague that yes could mean several things.\n- Acting first and reporting afterwards because it seemed obvious.\n\nIf you are unsure whether an action is reversible, treat it as if it is not.\n",
+    "compatibility": null,
+    "description": "Use when a step could change something outside this document, cost money, send a message, or be hard to undo.",
+    "license": "Apache-2.0",
+    "metadata": {
+      "ko-title": "행동 전 확인하기"
+    },
+    "name": "ask-before-acting",
+    "ref": "skill://ask-before-acting@1",
+    "references": [],
+    "source": null
+  },
+  "skill://cite-sources@1": {
+    "body": "# Show where each fact came from\n\nA reader should be able to check any fact you state without asking you where\nit came from.\n\n## How to do it\n\n1. Put the source next to the fact, not in a list at the end.\n2. Name the document and the place inside it: title, section or page.\n3. Quote the sentence you relied on when the wording matters.\n4. If a tool or search gave you the fact, say which one and when.\n5. If you cannot find a source, say so plainly: \"I could not find a source for\n   this.\" Do not fill the gap with a guess.\n\n## What good looks like\n\n> The deadline is 31 March (Handbook 2026, section 4.2: \"applications close on\n> 31 March\").\n\n## What to avoid\n\n- A link with no hint of what is inside it.\n- A source that does not actually say what you claim it says.\n- Presenting your own inference as something a source stated.\n\nWhen two sources disagree, show both and say which one you followed and why.\n",
+    "compatibility": null,
+    "description": "Use when the answer states facts the reader may want to check, or when the work draws on documents, search results or tool output.",
+    "license": "Apache-2.0",
+    "metadata": {
+      "ko-title": "근거 붙이기"
+    },
+    "name": "cite-sources",
+    "ref": "skill://cite-sources@1",
+    "references": [],
+    "source": null
+  },
+  "skill://plain-answer@1": {
+    "body": "# Answer in plain words\n\nWrite so that a person outside your field understands the answer on the first\nread.\n\n## How to do it\n\n1. Put the answer in the first sentence. Reasons come after it.\n2. Prefer short sentences. One idea per sentence.\n3. Use everyday words. If a technical term is needed, say what it means the\n   first time you use it, in the same sentence.\n4. Spell out an abbreviation the first time: \"MRI (a scan that uses magnets)\".\n5. Cut words that carry no meaning: \"basically\", \"in order to\", \"it should be\n   noted that\".\n6. Numbers help. \"About 3 in 10\" beats \"a substantial minority\".\n\n## What good looks like\n\n> You can send the form today. It takes about ten minutes. You need your\n> account number, which is on the top right of any bill.\n\n## What to avoid\n\n- A wall of text with no paragraph breaks.\n- A term the reader has never seen, used without an explanation.\n- Hedging so heavy that the reader cannot tell what the answer is.\n\nIf shortening would change the meaning, keep the meaning and explain it\ninstead.\n",
+    "compatibility": null,
+    "description": "Use when the answer will be read by someone who is not an expert in the subject, or when a draft has grown long and technical.",
+    "license": "Apache-2.0",
+    "metadata": {
+      "ko-title": "쉬운 말로 답하기"
+    },
+    "name": "plain-answer",
+    "ref": "skill://plain-answer@1",
+    "references": [],
+    "source": null
+  }
+}

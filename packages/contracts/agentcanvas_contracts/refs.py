@@ -67,6 +67,8 @@ ModelRef = _ref_type("model")
 SchemaRef = _ref_type("schema")
 McpRef = _ref_type("mcp")
 SecretRef = _ref_type("secret")
+# 노드가 입는 skill을 가리키는 이름 — 가리키는 곳은 문서 안 `spec.skills`다.
+SkillRef = _ref_type("skill")
 # 말한 이는 가리키는 이름만 — 신원(이메일·이름)을 직접 담지 않는다(secret-ref와 같은 규율).
 EndUserRef = _ref_type("end-user")
 
@@ -108,5 +110,6 @@ __all__ = [
     "SchemaRef",
     "SecretRef",
     "ServerRef",
+    "SkillRef",
     "no_raw_secrets",
 ]

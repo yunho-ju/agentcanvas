@@ -2,10 +2,13 @@ import pytest
 from agentcanvas_contracts.agent_spec import Node, ResourceBinding
 from agentcanvas_contracts.node_registry import (
     DEFAULT_NODE_TYPES,
+    SKILL_REF_MARKER,
     NodeType,
     PortSpec,
+    binding_refs,
     config_issues,
     resolve_ports,
+    skill_refs,
 )
 from pydantic import ValidationError
 
@@ -651,3 +654,62 @@ def test_a_marker_that_does_not_name_a_config_field_falls_back_quietly(plan):
         [a_binding_carrying_lookup({"type": "string"})],
     )
     assert resolved.outputs["result"].schema_ == {}
+
+
+def an_agent_wearing(refs) -> Node:
+    return node("llm.agent", {"model_ref": "model://default", "skill_refs": refs})
+
+
+def test_the_agent_can_be_told_which_skills_it_wears():
+    """입는 skill은 registry가 만드는 칸이다 — 화면이 이름을 외우지 않는다."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["skill_refs"]
+    assert field["type"] == "array"
+    assert field["items"][SKILL_REF_MARKER] is True
+    assert field["title"] == "Skills it wears"
+    assert field["x-i18n"]["ko"]["title"] == "입는 skill"
+
+
+def test_skill_refs_reads_what_the_node_wrote_in_the_marked_field():
+    refs = skill_refs(
+        an_agent_wearing(["skill://plain-answer@1", "skill://cite-sources@1"]),
+        DEFAULT_NODE_TYPES["llm.agent"],
+    )
+    assert refs == ["skill://plain-answer@1", "skill://cite-sources@1"]
+
+
+def test_skill_refs_skips_entries_that_are_not_names():
+    refs = skill_refs(
+        an_agent_wearing(["skill://plain-answer@1", 7, None]),
+        DEFAULT_NODE_TYPES["llm.agent"],
+    )
+    assert refs == ["skill://plain-answer@1"]
+
+
+def test_the_connection_reader_never_mistakes_a_worn_skill_for_a_connection():
+    """표식이 갈라져 있어야 skill이 끊긴 연결로 잘못 잡히지 않는다."""
+    assert (
+        binding_refs(
+            an_agent_wearing(["skill://plain-answer@1"]),
+            DEFAULT_NODE_TYPES["llm.agent"],
+        )
+        == []
+    )
+
+
+def test_the_skill_reader_never_mistakes_a_connection_for_a_skill():
+    worn = node(
+        "llm.agent", {"model_ref": "model://default", "toolset_refs": ["reference"]}
+    )
+    assert skill_refs(worn, DEFAULT_NODE_TYPES["llm.agent"]) == []
+
+
+@pytest.mark.parametrize("language", ["en", "ko"])
+def test_the_skill_field_shows_the_shape_of_what_goes_in_it(language: str):
+    """검증기가 바라는 값은 이름이 아니라 이름표다 — 칸이 그 꼴을 직접 보여 준다."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["skill_refs"]
+    description = (
+        field["description"]
+        if language == "en"
+        else field["x-i18n"]["ko"]["description"]
+    )
+    assert "skill://" in description

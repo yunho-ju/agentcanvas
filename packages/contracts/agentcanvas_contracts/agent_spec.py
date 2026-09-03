@@ -2,27 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from enum import Enum
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from pydantic import AfterValidator, AwareDatetime, Field, model_validator
+from pydantic import Field, model_validator
 
-from .base import ContractModel, JsonSchema, NonEmptyText
+from .base import ContractModel, JsonSchema, NonEmptyText, UtcDatetime
 from .refs import ServerRef
 from .revision import REVISION_PATTERN, compute_revision
+from .skill_def import SkillDef
 from .tool_def import ToolDef
 
 SCHEMA_VERSION = "agent.spec/v1"
-
-
-def _must_be_utc(value: datetime) -> datetime:
-    if value.utcoffset() != timedelta(0):
-        raise ValueError("timestamp must be in UTC")
-    return value
-
-
-UtcDatetime = Annotated[AwareDatetime, AfterValidator(_must_be_utc)]
 
 
 class AgentStatus(str, Enum):
@@ -127,6 +118,9 @@ class AgentSpec(ContractModel):
     nodes: list[Node]
     edges: list[Edge]
     resources: list[ResourceBinding] = Field(default_factory=list)
+    # 노드가 입는 지시 한 벌들. 비어 있으면 canonical 표현에서 생략되어(revision.py)
+    # 이 필드가 생기기 전에 저장된 문서의 revision을 흔들지 않는다.
+    skills: list[SkillDef] = Field(default_factory=list)
     execution: ExecutionConfig | None = None
 
     def computed_revision(self) -> str:
@@ -167,6 +161,7 @@ __all__ = [
     "NonEmptyText",
     "Position",
     "ResourceBinding",
+    "SkillDef",
     "UtcDatetime",
     "coerce_known_policies",
 ]

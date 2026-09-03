@@ -19,19 +19,23 @@ from agentcanvas_contracts.schema_export import (
     NODE_REGISTRY_NAME,
     SCHEMA_CATALOG_NAME,
     SCHEMA_MODELS,
+    STARTER_SKILLS_NAME,
     render_chat_contract,
     render_evaluator_catalog,
     render_instruction_catalog,
     render_model_catalog,
     render_schema,
     render_schema_catalog,
+    render_starter_skills,
     write_chat_contract,
     write_evaluator_catalog,
     write_instruction_catalog,
     write_model_catalog,
     write_schema_catalog,
     write_schemas,
+    write_starter_skills,
 )
+from agentcanvas_contracts.starter_skills import starter_skills
 
 
 def test_schema_models_cover_the_published_contracts():
@@ -51,6 +55,7 @@ def test_schema_models_cover_the_published_contracts():
         "run",
         "run_event",
         "schema_def",
+        "skill_def",
         "spec_publication",
     ]
 
@@ -73,6 +78,7 @@ def test_no_stale_schema_files_are_committed():
         MODEL_CATALOG_NAME,
         NODE_REGISTRY_NAME,
         SCHEMA_CATALOG_NAME,
+        STARTER_SKILLS_NAME,
     }
 
 
@@ -353,6 +359,7 @@ def test_regenerating_everything_twice_writes_exactly_the_same_bytes(tmp_path):
             write_instruction_catalog(tmp_path),
             write_model_catalog(tmp_path),
             write_schema_catalog(tmp_path),
+            write_starter_skills(tmp_path),
         ]
         return {path.name: path.read_text(encoding="utf-8") for path in paths}
 
@@ -388,3 +395,52 @@ def test_generated_typescript_carries_the_resource_operations():
     assert '"add_resource"' in generated
     assert '"replace_resource"' in generated
     assert '"remove_resource"' in generated
+
+
+def test_committed_starter_skills_match_the_ones_we_ship():
+    path = JSON_SCHEMA_DIR / f"{STARTER_SKILLS_NAME}.json"
+    assert path.exists(), (
+        f"{path} is missing — run python -m agentcanvas_contracts.schema_export"
+    )
+    assert path.read_text(encoding="utf-8") == render_starter_skills()
+
+
+def test_committed_starter_skills_hold_every_skill_keyed_by_ref():
+    committed = json.loads(
+        (JSON_SCHEMA_DIR / f"{STARTER_SKILLS_NAME}.json").read_text(encoding="utf-8")
+    )
+    assert sorted(committed) == sorted(starter_skills())
+    assert all(entry["ref"] == ref for ref, entry in committed.items())
+
+
+@pytest.mark.parametrize("ref", sorted(starter_skills()))
+def test_starter_skill_validates_against_the_committed_schema(ref):
+    schema = json.loads(
+        (JSON_SCHEMA_DIR / "skill_def.json").read_text(encoding="utf-8")
+    )
+    jsonschema.validate(
+        instance=starter_skills()[ref].model_dump(mode="json"), schema=schema
+    )
+
+
+def test_write_starter_skills_reports_the_file_it_wrote(tmp_path):
+    written = write_starter_skills(tmp_path)
+    assert written == tmp_path / f"{STARTER_SKILLS_NAME}.json"
+    assert written.read_text(encoding="utf-8") == render_starter_skills()
+
+
+def test_committed_agent_spec_schema_carries_the_skill_contract():
+    """skill은 문서의 일부다 — 파이썬 밖 소비자도 스키마만 보고 읽고 쓸 수 있어야 한다."""
+    schema = json.loads(
+        (JSON_SCHEMA_DIR / "agent_spec.json").read_text(encoding="utf-8")
+    )
+    defs = schema["$defs"]
+    assert schema["properties"]["skills"]["items"] == {"$ref": "#/$defs/SkillDef"}
+    assert {"SkillReference", "SkillSource"} <= set(defs)
+
+
+def test_generated_typescript_carries_the_skill_contract():
+    generated = (
+        Path(__file__).resolve().parents[3] / "apps/studio/src/generated/agent_spec.ts"
+    ).read_text(encoding="utf-8")
+    assert "SkillDef" in generated

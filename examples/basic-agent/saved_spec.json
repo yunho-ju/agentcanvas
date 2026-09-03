@@ -253,6 +253,7 @@
       ]
     }
   ],
+  "skills": [],
   "execution": {
     "checkpointer": "postgres",
     "replay_policy": "recorded_tools_first",

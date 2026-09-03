@@ -40,6 +40,8 @@ export function asServerAnswer(spec: AgentSpec): AgentSpec {
         result_handling: tool.result_handling ?? { mode: "full" },
       })),
     })),
+    // 아직 아무 skill도 입지 않은 문서에도 서버는 빈 목록을 채워 돌려준다.
+    skills: spec.skills ?? [],
     execution: spec.execution ?? null,
   };
 }
