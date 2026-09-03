@@ -48,6 +48,45 @@ function spec(overrides: Partial<AgentSpec> = {}): AgentSpec {
   };
 }
 
+/** 도구를 든 연결과 그 도구를 쓰는 노드 둘 — 도구 노드의 `input`은 진짜로 묶음만 받는다. */
+function specWithTools(): AgentSpec {
+  return spec({
+    resources: [
+      {
+        id: "reference",
+        kind: "mcp.toolset",
+        server_ref: "mcp://reference",
+        approval_policy: "read_only_auto",
+        tools: [
+          {
+            name: "lookup",
+            plain_description: { ko: "찾아본다.", en: "Looks it up." },
+            input_schema: { type: "object" },
+            output_schema: { type: "string" },
+            timeout_ms: 5000,
+            call: { transport: "mcp", remote_name: "lookup" },
+          },
+        ],
+      },
+    ],
+    nodes: [
+      ...spec().nodes,
+      {
+        id: "lookup",
+        type: "tool.mcp",
+        position: { x: 800, y: 0 },
+        config: { resource_ref: "reference", tool_name: "lookup" },
+      },
+      {
+        id: "second",
+        type: "tool.mcp",
+        position: { x: 1000, y: 0 },
+        config: { resource_ref: "reference", tool_name: "other" },
+      },
+    ],
+  });
+}
+
 function reason(result: ConnectionCheck, locale: Locale = "ko"): string {
   return result.reason ? translate(locale, result.reason) : "";
 }
@@ -58,6 +97,37 @@ describe("checkConnection", () => {
       spec(),
       { node: "input", port: "question" },
       { node: "router", port: "input" },
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  // Python `test_text_from_the_input_node_can_feed_the_agent`의 짝 — 같은 케이스를 양쪽에서 돌린다.
+  it("allows the text a person typed to feed the agent's conversation", () => {
+    const result = checkConnection(
+      spec(),
+      { node: "input", port: "question" },
+      { node: "agent", port: "messages" },
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  // Python `test_one_agent_answer_can_feed_the_next_agent`의 짝.
+  it("allows one agent's answer to feed the next agent", () => {
+    const chained = spec({
+      nodes: [
+        ...spec().nodes,
+        {
+          id: "agent2",
+          type: "llm.agent",
+          position: { x: 800, y: 0 },
+          config: { model_ref: "model://d", prompt_ref: "prompt://p" },
+        },
+      ],
+    });
+    const result = checkConnection(
+      chained,
+      { node: "agent", port: "response" },
+      { node: "agent2", port: "messages" },
     );
     expect(result.ok).toBe(true);
   });
@@ -73,60 +143,25 @@ describe("checkConnection", () => {
 
   // Python `_schemas_compatible`는 type 값을 그대로 비교한다 — union type도 예외가 아니다.
   it("refuses a union type against a plain type, like the Python validator does", () => {
-    const withUnion = spec({
+    const withUnion: AgentSpec = {
+      ...specWithTools(),
       input_schema: {
         type: "object",
         properties: { question: { type: ["string", "null"] } },
       },
-    });
+    };
     const result = checkConnection(
       withUnion,
       { node: "input", port: "question" },
-      { node: "agent", port: "messages" },
+      { node: "lookup", port: "input" },
     );
     expect(result.ok).toBe(false);
   });
 
   // Python validator의 `port.schema_mismatch` 미러 — 도구 노드의 포트도 ToolDef를 입는다.
   it("refuses a tool that gives back text feeding a port that wants an object", () => {
-    const withTools = spec({
-      resources: [
-        {
-          id: "reference",
-          kind: "mcp.toolset",
-          server_ref: "mcp://reference",
-          approval_policy: "read_only_auto",
-          tools: [
-            {
-              name: "lookup",
-              plain_description: { ko: "찾아본다.", en: "Looks it up." },
-              input_schema: { type: "object" },
-              output_schema: { type: "string" },
-              timeout_ms: 5000,
-              call: { transport: "mcp", remote_name: "lookup" },
-            },
-          ],
-        },
-      ],
-      nodes: [
-        ...spec().nodes,
-        {
-          id: "lookup",
-          type: "tool.mcp",
-          position: { x: 800, y: 0 },
-          config: { resource_ref: "reference", tool_name: "lookup" },
-        },
-        {
-          id: "second",
-          type: "tool.mcp",
-          position: { x: 1000, y: 0 },
-          config: { resource_ref: "reference", tool_name: "other" },
-        },
-      ],
-    });
-
     const result = checkConnection(
-      withTools,
+      specWithTools(),
       { node: "lookup", port: "result" },
       { node: "second", port: "input" },
     );
@@ -174,16 +209,17 @@ describe("checkConnection", () => {
     expect(result.ok).toBe(true);
   });
 
+  // Python `test_incompatible_port_types_are_an_error`의 짝 — 같은 포트 쌍(글자→묶음)을 본다.
   // 종류는 쉬운 말로 말한다 — 자료형 원문은 화면에 쓰지 않는다 (DESIGN §7).
   it("refuses a connection whose port types disagree, naming both kinds in plain words", () => {
     const result = checkConnection(
-      spec(),
+      specWithTools(),
       { node: "router", port: "route" },
-      { node: "agent", port: "messages" },
+      { node: "lookup", port: "input" },
     );
     expect(result.ok).toBe(false);
     expect(reason(result)).toContain("글자");
-    expect(reason(result)).toContain("목록");
+    expect(reason(result)).toContain("묶음");
   });
 
   it("refuses a source port the node does not have", () => {

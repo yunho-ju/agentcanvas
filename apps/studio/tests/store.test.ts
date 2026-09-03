@@ -1,11 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
-import type { AgentSpec } from "../src/generated/agent_spec";
 import { validateSpec } from "../src/graph/validateSpec";
 import { useEditor } from "../src/store/editor";
 import { translate } from "../src/i18n/messages";
-
-const example = exampleSpec as unknown as AgentSpec;
+import { WANTS_BUNDLE, example, exampleWithTool } from "./exampleWithTool";
 
 function store() {
   return useEditor.getState();
@@ -82,13 +79,30 @@ describe("connect", () => {
     expect(store().connectionHint).toBeNull();
   });
 
-  it("refuses incompatible ports and explains why instead of adding an edge", () => {
+  // 무엇이든 받는 자리에는 글자도 이어진다 (DESIGN §7 port-schema).
+  it("adds an edge from a port that sends text into the agent's conversation", () => {
     store().connect(
       {
         source: "triage",
         sourceHandle: "route",
         target: "clinical-agent",
         targetHandle: "messages",
+      },
+      DROPPED_AT,
+    );
+
+    expect(store().edges).toHaveLength(example.edges.length + 1);
+    expect(store().connectionHint).toBeNull();
+  });
+
+  it("refuses incompatible ports and explains why instead of adding an edge", () => {
+    store().loadSpec(exampleWithTool());
+    store().connect(
+      {
+        source: "triage",
+        sourceHandle: "route",
+        target: WANTS_BUNDLE,
+        targetHandle: "input",
       },
       DROPPED_AT,
     );
@@ -99,12 +113,13 @@ describe("connect", () => {
   });
 
   it("says it where the hand let go, in the tone of a refusal", () => {
+    store().loadSpec(exampleWithTool());
     store().connect(
       {
         source: "triage",
         sourceHandle: "route",
-        target: "clinical-agent",
-        targetHandle: "messages",
+        target: WANTS_BUNDLE,
+        targetHandle: "input",
       },
       DROPPED_AT,
     );
@@ -129,12 +144,13 @@ describe("connect", () => {
   });
 
   it("keeps only the newest refusal on screen", () => {
+    store().loadSpec(exampleWithTool());
     store().connect(
       {
         source: "triage",
         sourceHandle: "route",
-        target: "clinical-agent",
-        targetHandle: "messages",
+        target: WANTS_BUNDLE,
+        targetHandle: "input",
       },
       DROPPED_AT,
     );
@@ -154,12 +170,13 @@ describe("connect", () => {
 
   // C8 — 이어졌다는 사실이 이미 답이다: 떠 있던 거절 안내는 그 자리에서 물러난다.
   it("takes the refusal off the screen as soon as a connection succeeds", () => {
+    store().loadSpec(exampleWithTool());
     store().connect(
       {
         source: "triage",
         sourceHandle: "route",
-        target: "clinical-agent",
-        targetHandle: "messages",
+        target: WANTS_BUNDLE,
+        targetHandle: "input",
       },
       DROPPED_AT,
     );

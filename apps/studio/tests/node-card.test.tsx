@@ -5,14 +5,11 @@ import { useEffect } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
-import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { NodeCard } from "../src/canvas/NodeCard";
-import type { AgentSpec } from "../src/generated/agent_spec";
 import type { AgentNodeData } from "../src/graph/serialize";
 import { nodeTypes, resolvePorts } from "../src/registry/registry";
 import { useEditor } from "../src/store/editor";
-
-const example = exampleSpec as unknown as AgentSpec;
+import { WANTS_BUNDLE, example, exampleWithTool } from "./exampleWithTool";
 
 /** registry가 요구하는 값이 모두 채워진 config — 이 카드에는 손볼 곳이 없다. */
 const FILLED_AGENT = { model_ref: "model://default", prompt_ref: "prompt://a@1" };
@@ -200,17 +197,31 @@ describe("연결을 끄는 동안 포트가 서로를 알아본다", () => {
     );
   }
 
-  it("이을 수 있는 자리는 밝아지고, 타입이 다른 자리는 물러난다", () => {
-    // triage.passthrough(무엇이든)는 messages를 받을 수 있지만, route(글자)는 그러지 못한다.
+  it("이을 수 있는 자리는 밝아진다", () => {
+    // messages는 무엇이든 받는 자리다 — 갈림길이 흘려보내는 값도, 글자도 받는다.
     expect(linkStates("clinical-agent", { nodeId: "triage", id: "passthrough" })).toEqual({
       messages: "compatible",
       response: "incompatible",
       tool_calls: "incompatible",
     });
+  });
+
+  // 글자를 내보내는 자리(route)도 messages에 닿는다 (DESIGN §7 port-schema).
+  it("무엇이든 받는 자리는 글자를 끌고 와도 밝아진다", () => {
     expect(linkStates("clinical-agent", { nodeId: "triage", id: "route" })).toEqual({
-      messages: "incompatible",
+      messages: "compatible",
       response: "incompatible",
       tool_calls: "incompatible",
+    });
+  });
+
+  it("타입이 다른 자리는 물러난다", () => {
+    // 도구의 input은 묶음만 받는다 — 갈림길이 내보내는 글자(route)는 그 자리에 못 간다.
+    useEditor.getState().loadSpec(exampleWithTool());
+    expect(linkStates(WANTS_BUNDLE, { nodeId: "triage", id: "route" })).toEqual({
+      input: "incompatible",
+      result: "incompatible",
+      error: "incompatible",
     });
   });
 

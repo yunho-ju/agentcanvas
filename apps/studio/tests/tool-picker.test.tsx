@@ -13,6 +13,7 @@ const example = exampleSpec as unknown as AgentSpec;
 const TOOL_NODE = "tool";
 const CLINICAL = "clinical-reference";
 const BILLING = "billing-api";
+const TEXT_SINK = "text-sink";
 const TOOL_EDGE = "tool-agent";
 
 const clinical: ResourceBinding = {
@@ -37,6 +38,14 @@ const clinical: ResourceBinding = {
       timeout_ms: 5000,
       call: { transport: "mcp", remote_name: "listing" },
     },
+    {
+      name: "restate",
+      plain_description: { ko: "그대로 되뇐다.", en: "Says it back." },
+      input_schema: { type: "string" },
+      output_schema: { type: "string" },
+      timeout_ms: 5000,
+      call: { transport: "mcp", remote_name: "restate" },
+    },
   ],
 };
 
@@ -57,7 +66,11 @@ const billing: ResourceBinding = {
   ],
 };
 
-/** 도구 노드 하나와 그 결과를 받는 연결 하나를 얹은 문서. */
+/**
+ * 도구 노드 하나와, 그 결과를 받는 도구 노드(글자만 받는 자리) 하나를 얹은 문서.
+ * 받는 쪽이 종류를 가려야 도구를 바꿨을 때 연결이 깨지는 일이 드러난다 —
+ * AI 에이전트의 `messages`는 무엇이든 받으므로 그 자리로는 알 수 없다.
+ */
 function withTools(
   config: Record<string, unknown>,
   resources: ResourceBinding[] = [clinical, billing],
@@ -68,6 +81,12 @@ function withTools(
     nodes: [
       ...example.nodes,
       { id: TOOL_NODE, type: "tool.mcp", position: { x: 0, y: 0 }, config },
+      {
+        id: TEXT_SINK,
+        type: "tool.mcp",
+        position: { x: 200, y: 0 },
+        config: { resource_ref: CLINICAL, tool_name: "restate" },
+      },
     ],
     edges: [
       ...example.edges,
@@ -75,7 +94,7 @@ function withTools(
         id: TOOL_EDGE,
         kind: "data",
         source: { node: TOOL_NODE, port: "result" },
-        target: { node: "clinical-agent", port: "messages" },
+        target: { node: TEXT_SINK, port: "input" },
       },
     ],
   };
@@ -262,10 +281,10 @@ describe("what picking a tool does on the canvas", () => {
 
   // 도구를 바꾸면 값의 모양이 달라진다 — 그래서 못 쓰게 된 연결을 조용히 남기지 않는다.
   it("tells the user about a connection the new shape breaks", async () => {
-    open(withTools({ resource_ref: CLINICAL, tool_name: "listing" }));
+    open(withTools({ resource_ref: CLINICAL, tool_name: "lookup" }));
     expect(store().edges.some((edge) => edge.id === TOOL_EDGE)).toBe(true);
 
-    await userEvent.selectOptions(toolField(), "lookup");
+    await userEvent.selectOptions(toolField(), "listing");
 
     expect(store().edges.some((edge) => edge.id === TOOL_EDGE)).toBe(false);
     expect(store().notice).not.toBeNull();
@@ -274,7 +293,8 @@ describe("what picking a tool does on the canvas", () => {
   it("leaves connections the new shape still fits alone", async () => {
     open(withTools({ resource_ref: CLINICAL, tool_name: "lookup" }));
 
-    await userEvent.selectOptions(toolField(), "listing");
+    // 'restate'도 글자를 돌려준다 — 받는 자리가 그대로 받을 수 있다.
+    await userEvent.selectOptions(toolField(), "restate");
 
     expect(store().edges.some((edge) => edge.id === TOOL_EDGE)).toBe(true);
     expect(store().notice).toBeNull();

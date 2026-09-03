@@ -455,10 +455,12 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                     "inputs": [
                         {
                             "id": "messages",
-                            "schema": {"type": "array"},
+                            # 엔진은 state 전체를 모델에게 넘긴다 — 사람의 말 한 줄이든 앞
+                            # 노드의 답이든 대화가 된다. 이름뿐인 종류를 적지 않는다.
+                            "schema": {},
                             "plain_description": {
-                                "ko": "모델에게 줄 대화 내용",
-                                "en": "The conversation to hand the model",
+                                "ko": "모델에게 줄 대화 내용 — 무엇이든 받는다",
+                                "en": "The conversation to hand the model — takes anything",
                             },
                         }
                     ],

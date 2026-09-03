@@ -5,7 +5,10 @@ from agentcanvas_engine.validator import Severity, validate_graph
 
 
 def build_spec(
-    nodes: list[dict], edges: list[dict], resources: list[dict] | None = None
+    nodes: list[dict],
+    edges: list[dict],
+    resources: list[dict] | None = None,
+    input_schema: dict | None = None,
 ) -> AgentSpec:
     return AgentSpec.model_validate(
         {
@@ -14,7 +17,7 @@ def build_spec(
             "version": 1,
             "revision": "sha256:" + "0" * 64,
             "status": "draft",
-            "input_schema": {"type": "object"},
+            "input_schema": input_schema or {"type": "object"},
             "state_schema": {"type": "object"},
             "nodes": nodes,
             "edges": edges,
@@ -62,6 +65,19 @@ def binding(binding_id: str) -> dict:
         "kind": "mcp",
         "server_ref": f"mcp://{binding_id}",
         "approval_policy": "ask_first",
+    }
+
+
+def router_node(node_id: str = "router", **config) -> dict:
+    return {
+        "id": node_id,
+        "type": "llm.router",
+        "position": {"x": 50, "y": 0},
+        "config": {
+            "model_ref": "model://default",
+            "prompt_ref": "prompt://x@1",
+            **config,
+        },
     }
 
 
@@ -129,15 +145,42 @@ def test_dynamic_input_port_from_bindings_is_accepted():
 
 
 def test_incompatible_port_types_are_an_error():
+    """TS `refuses a connection whose port types disagree`의 짝 — 같은 포트 쌍을 본다."""
     spec = build_spec(
-        [agent_node(), agent_node("agent2")],
-        [edge("e1", ("agent", "response"), ("agent2", "messages"))],
+        [router_node(), tool_node("lookup", resource_ref="reference")],
+        [edge("e1", ("router", "route"), ("lookup", "input"))],
+        [binding("reference")],
     )
     issues = validate_graph(spec)
     assert "port.schema_mismatch" in codes(issues, Severity.ERROR)
     assert any(
-        "string" in issue.message and "array" in issue.message for issue in issues
+        "string" in issue.message and "object" in issue.message for issue in issues
     )
+
+
+def test_text_from_the_input_node_can_feed_the_agent():
+    """사람이 적은 말 한 줄이 그대로 에이전트의 대화가 된다 — 엔진이 state 전체를 넘기므로."""
+    spec = build_spec(
+        [input_node("input", "message"), agent_node(), output_node()],
+        [
+            edge("e1", ("input", "message"), ("agent", "messages")),
+            edge("e2", ("agent", "response"), ("output", "input")),
+        ],
+        input_schema={
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+        },
+    )
+    assert validate_graph(spec) == []
+
+
+def test_one_agent_answer_can_feed_the_next_agent():
+    """에이전트를 이어 붙일 수 있다 — 앞 노드의 답도 다음 모델에게는 대화다."""
+    spec = build_spec(
+        [agent_node(), agent_node("agent2")],
+        [edge("e1", ("agent", "response"), ("agent2", "messages"))],
+    )
+    assert "port.schema_mismatch" not in codes(validate_graph(spec), Severity.ERROR)
 
 
 def binding_with_tool(binding_id: str, name: str, output_schema: dict) -> dict:
@@ -335,14 +378,15 @@ def test_input_port_schema_is_taken_from_the_agent_input_schema():
                 "properties": {"question": {"type": "string"}},
             },
             "state_schema": {"type": "object"},
-            "nodes": [input_node(), agent_node()],
-            "edges": [edge("e1", ("input", "question"), ("agent", "messages"))],
+            "nodes": [input_node(), tool_node("lookup", resource_ref="reference")],
+            "edges": [edge("e1", ("input", "question"), ("lookup", "input"))],
+            "resources": [binding("reference")],
         }
     )
     issues = validate_graph(spec)
     assert "port.schema_mismatch" in codes(issues, Severity.ERROR)
     assert any(
-        "string" in issue.message and "array" in issue.message for issue in issues
+        "string" in issue.message and "object" in issue.message for issue in issues
     )
 
 

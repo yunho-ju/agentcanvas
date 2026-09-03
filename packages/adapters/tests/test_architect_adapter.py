@@ -129,7 +129,7 @@ def test_each_listed_node_type_carries_its_ports_and_a_plain_description():
     catalog = json_block_after(prompt_for(a_request()), NODE_TYPE_LABEL)
 
     agent = next(entry for entry in catalog if entry["type"] == "llm.agent")
-    assert agent["inputs"] == [{"id": "messages", "value": "array"}]
+    assert agent["inputs"] == [{"id": "messages", "value": "any"}]
     assert agent["outputs"] == [
         {"id": "response", "value": "string"},
         {"id": "tool_calls", "value": "array"},

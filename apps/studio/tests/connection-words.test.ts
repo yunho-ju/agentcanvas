@@ -3,7 +3,6 @@
 // 검사 대상은 손으로 적지 않는다: 이 카드에 뜨는 접두사(`connection.`·`hint.`)의 문구를 모두 끌어온다.
 // 새 문구가 생기면 그날부터 같은 규칙을 받는다.
 import { describe, expect, it } from "vitest";
-import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { checkConnection } from "../src/graph/connection";
 import type { AgentSpec } from "../src/generated/agent_spec";
 import { LOCALES, type Locale } from "../src/i18n/locale";
@@ -15,8 +14,7 @@ import {
   translate,
 } from "../src/i18n/messages";
 import { useEditor } from "../src/store/editor";
-
-const example = exampleSpec as unknown as AgentSpec;
+import { WANTS_BUNDLE, example, exampleWithTool } from "./exampleWithTool";
 
 function store() {
   return useEditor.getState();
@@ -142,16 +140,20 @@ describe("연결 안내가 쓰는 말", () => {
 // 사전이 규칙을 지켜도, 부르는 쪽이 내부 이름표를 넣어 주면 화면에서 새어 나간다.
 describe("손이 한 번 움직였을 때 실제로 뜨는 말", () => {
   /** 손이 한 번 움직인 결과로 이 카드에 뜬 말. */
-  function refusalOf(connect: () => void): string {
-    store().loadSpec(example);
+  function refusalOf(connect: () => void, spec: AgentSpec = example): string {
+    store().loadSpec(spec);
     connect();
     const hint = store().connectionHint;
     if (!hint) throw new Error("아무 말도 뜨지 않았다");
     return translate("ko", hint.message);
   }
 
-  function reasonOf(source: [string, string], target: [string, string]): string {
-    store().loadSpec(example);
+  function reasonOf(
+    source: [string, string],
+    target: [string, string],
+    spec: AgentSpec = example,
+  ): string {
+    store().loadSpec(spec);
     const check = checkConnection(
       store().exportSpec(),
       { node: source[0], port: source[1] },
@@ -162,16 +164,19 @@ describe("손이 한 번 움직였을 때 실제로 뜨는 말", () => {
   }
 
   const REAL: Record<string, string> = {
-    종류가다름: refusalOf(() =>
-      store().connect(
-        {
-          source: "triage",
-          sourceHandle: "route",
-          target: "clinical-agent",
-          targetHandle: "messages",
-        },
-        DROPPED_AT,
-      ),
+    // 도구의 input은 묶음만 받는다 — 이 문서에서 종류를 정말로 가리는 자리다.
+    종류가다름: refusalOf(
+      () =>
+        store().connect(
+          {
+            source: "triage",
+            sourceHandle: "route",
+            target: WANTS_BUNDLE,
+            targetHandle: "input",
+          },
+          DROPPED_AT,
+        ),
+      exampleWithTool(),
     ),
     이미이어짐: refusalOf(() =>
       store().connect(
@@ -202,14 +207,20 @@ describe("손이 한 번 움직였을 때 실제로 뜨는 말", () => {
 
   it.each(Object.entries(REAL))("%s — 빈칸에 내부 이름표를 넣지 않는다", (_name, text) => {
     expect(text).not.toMatch(/[A-Za-z_][\w-]*\.[A-Za-z_]/);
-    for (const nodeId of ["clinical-agent", "human-gate", "triage", "ghost"]) {
+    for (const nodeId of [
+      "clinical-agent",
+      "human-gate",
+      "triage",
+      "ghost",
+      WANTS_BUNDLE,
+    ]) {
       expect(text).not.toContain(nodeId);
     }
   });
 
   it("사용자가 캔버스에서 읽는 포트 이름을 그대로 가리킨다", () => {
     expect(REAL.종류가다름).toContain("route");
-    expect(REAL.종류가다름).toContain("messages");
+    expect(REAL.종류가다름).toContain("input");
   });
 });
 
@@ -222,7 +233,7 @@ describe("종류가 다르다는 말", () => {
 
   it("쉬운 말이 없는 종류는 이름 없이 종류가 다르다고만 말한다", () => {
     const union = {
-      ...example,
+      ...exampleWithTool(),
       input_schema: {
         type: "object",
         properties: { question: { type: ["string", "null"] } },
@@ -231,7 +242,7 @@ describe("종류가 다르다는 말", () => {
     const check = checkConnection(
       union,
       { node: "input", port: "question" },
-      { node: "clinical-agent", port: "messages" },
+      { node: WANTS_BUNDLE, port: "input" },
     );
 
     expect(check.ok).toBe(false);

@@ -1,12 +1,10 @@
 // 지금 잡고 있는 포트가 캔버스 위에서 갈 수 있는 자리들 — 하나도 없으면 안내가 나선다 (C5).
 // 이을 수 있는지는 여기서 새로 정하지 않는다. checkConnection에게 물을 뿐이다.
 import { describe, expect, it } from "vitest";
-import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { landingPorts } from "../src/canvas/landingPorts";
 import type { PortAddress } from "../src/canvas/portLink";
 import type { AgentSpec } from "../src/generated/agent_spec";
-
-const example = exampleSpec as unknown as AgentSpec;
+import { WANTS_BUNDLE, example, exampleWithTool } from "./exampleWithTool";
 
 function held(nodeId: string, portId: string, side: PortAddress["side"]): PortAddress {
   return { nodeId, portId, side };
@@ -49,7 +47,15 @@ describe("잡고 있는 포트가 갈 수 있는 자리", () => {
   });
 
   it("타입이 다른 자리는 갈 곳이 아니다", () => {
-    expect(landings(example, held("triage", "route", "source"))).not.toContain(
+    // 도구의 input은 묶음만 받는다 — 갈림길이 내보내는 글자는 그 자리에 못 간다.
+    expect(landings(exampleWithTool(), held("triage", "route", "source"))).not.toContain(
+      `${WANTS_BUNDLE}.input`,
+    );
+  });
+
+  it("무엇이든 받는 자리에는 글자도 갈 수 있다", () => {
+    // AI 에이전트의 messages는 엔진이 state 전체를 넘기는 자리다 (DESIGN §7 port-schema).
+    expect(landings(example, held("triage", "route", "source"))).toContain(
       "clinical-agent.messages",
     );
   });

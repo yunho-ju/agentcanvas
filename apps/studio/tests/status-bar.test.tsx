@@ -3,13 +3,10 @@ import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
-import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { StatusBar } from "../src/canvas/StatusBar";
-import type { AgentSpec } from "../src/generated/agent_spec";
 import { msg } from "../src/i18n/messages";
 import { useEditor } from "../src/store/editor";
-
-const example = exampleSpec as unknown as AgentSpec;
+import { WANTS_BUNDLE, exampleWithTool } from "./exampleWithTool";
 
 beforeEach(() => {
   useEditor.setState({
@@ -28,13 +25,13 @@ describe("StatusBar", () => {
 
   // 연결이 안 되는 이유는 손이 있는 자리에서 말한다 (DESIGN §7 채널 분리).
   it("says nothing about a connection that was refused", () => {
-    useEditor.getState().loadSpec(example);
+    useEditor.getState().loadSpec(exampleWithTool());
     useEditor.getState().connect(
       {
         source: "triage",
         sourceHandle: "route",
-        target: "clinical-agent",
-        targetHandle: "messages",
+        target: WANTS_BUNDLE,
+        targetHandle: "input",
       },
       { x: 40, y: 60 },
     );

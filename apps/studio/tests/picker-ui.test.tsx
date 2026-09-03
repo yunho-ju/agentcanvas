@@ -53,7 +53,8 @@ describe("노드 피커", () => {
     render(<NodePicker />);
 
     expect(optionNames().join(" ")).toContain("출력");
-    expect(optionNames().join(" ")).not.toContain("AI 에이전트");
+    // '도구 실행'은 묶음만 받는다 — 글자를 내보내는 자리에서는 목록에 오르지 않는다.
+    expect(optionNames().join(" ")).not.toContain("도구 실행");
   });
 
   it("이름을 치면 목록이 좁아진다", async () => {

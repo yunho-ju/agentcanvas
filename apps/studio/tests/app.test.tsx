@@ -1,12 +1,9 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
-import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { App } from "../src/App";
-import type { AgentSpec } from "../src/generated/agent_spec";
 import { useEditor } from "../src/store/editor";
-
-const example = exampleSpec as unknown as AgentSpec;
+import { WANTS_BUNDLE, example, exampleWithTool } from "./exampleWithTool";
 
 beforeEach(() => {
   useEditor.setState({ spec: null, nodes: [], edges: [], connectionHint: null });
@@ -32,7 +29,7 @@ describe("App", () => {
   });
 
   it("surfaces a refused connection to the user", () => {
-    useEditor.getState().loadSpec(example);
+    useEditor.getState().loadSpec(exampleWithTool());
     render(<App />);
 
     act(() => {
@@ -40,8 +37,8 @@ describe("App", () => {
         {
           source: "triage",
           sourceHandle: "route",
-          target: "clinical-agent",
-          targetHandle: "messages",
+          target: WANTS_BUNDLE,
+          targetHandle: "input",
         },
         { x: 120, y: 240 },
       );

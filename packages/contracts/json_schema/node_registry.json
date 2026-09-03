@@ -237,12 +237,10 @@
         {
           "id": "messages",
           "plain_description": {
-            "en": "The conversation to hand the model",
-            "ko": "모델에게 줄 대화 내용"
+            "en": "The conversation to hand the model — takes anything",
+            "ko": "모델에게 줄 대화 내용 — 무엇이든 받는다"
           },
-          "schema": {
-            "type": "array"
-          }
+          "schema": {}
         }
       ],
       "outputs": [
