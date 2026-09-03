@@ -15,13 +15,16 @@ AgentCanvas는 비개발자도 AI agent graph를 만들고, 실행 흐름을 관
 
 | 영역 | 제공하는 것 | 경계 |
 |---|---|---|
-| Build | node/edge 편집, validation, inspector, undo/redo, Impact Preview, save/revision | account·role·공유 workspace 없음 |
-| Guided | 자연어→제한된 AgentSpec patch preview→검토→명시적 적용 | OpenAI key와 model ID 필요, 자동 저장·배포 안 함 |
-| Run | SSE timeline, human gate, cancel, history와 정적 비교 | 외부 provider exactly-once와 full provenance 없음 |
-| Evaluate | dataset, 반복 attempt, batch history/detail/comparison | `expected_phrases` 포함 판정만 지원 |
-| Operate | 단일 관리자 auth, SQLite migration/backup, durable jobs, Compose | TLS, horizontal scaling, managed backup 없음 |
+| Build(만들기) | node/edge 편집, validation, inspector, undo/redo, Impact Preview, save/revision | account·role·공유 workspace 없음 |
+| Run(실행) | SSE timeline, human gate, cancel, history와 정적 비교 | 외부 provider exactly-once와 full provenance 없음 |
+| Test(시험) | dataset, AI 케이스 제안(그래프가 부를 수 있는 도구를 앎), 반복 attempt, batch history/detail/comparison, 판정 사다리(정확한 문구 → 뜻 비교 → 심판 모델)와 결과마다 `judged_by` 표시 | 뜻 비교는 `agentcanvas-adapters[nli]` 추가 설치 + source 실행에서만, 심판 모델은 `AGENTCANVAS_JUDGE_MODEL`이 이 서버가 부를 수 있는 모델일 때만 |
+| Improve(고치기) | 목표 문장 → 모델이 graph 변경 후보를 제안(시험 batch가 있으면 그것을 근거로) → 사람이 검토 후 적용 | 후보를 자동으로 돌려 base와 성적을 비교해 주지는 않음 |
+| Talk(대화) | revision publish, 내놓은 판과 대화, 지난 대화 목록, 대화에서 뽑은 고칠 지점, 대화 한 줄→시험 케이스 | 여러 사용자에게 여는 공개 창구·release/rollback 절차 없음 |
+| AI Architect | 자연어→검토 마친 draft(contract·flow·fake run 통과, step의 `model_ref`까지 채움)→명시적 적용 | OpenAI key와 model ID 필요, 자동 저장·배포 안 함 |
+| Tools(도구) | API 문서를 붙여 connection·tool로 승인, palette의 도구 노드, HTTP 실행, 실행 전 승인, 큰 응답 다루기 | 실제 MCP executor 없음 |
+| Operate | 단일 관리자 auth, SQLite migration/backup, durable jobs, Compose, `GET /models` 기반 모델 목록 | TLS, horizontal scaling, managed backup 없음 |
 
-Build, Run, Evaluate가 현재 Studio mode입니다. Blank canvas에서 Guided onboarding도 제공됩니다. Existing graph용 Architect patch API는 preview-only이며 해당 patch UI는 아직 없습니다.
+Build, Run, Test, Improve, Talk 다섯 가지가 현재 Studio mode입니다. Blank canvas에서 AI Architect onboarding도 제공됩니다. Existing graph용 Architect patch API는 preview-only이며 해당 patch UI는 아직 없습니다.
 
 ## 제품 원칙
 
@@ -47,8 +50,9 @@ Build, Run, Evaluate가 현재 Studio mode입니다. Blank canvas에서 Guided o
 다음은 현재 alpha capability가 아닙니다.
 
 - 사용자·role·workspace sharing과 collaboration
-- Model Matrix와 통계적/LLM-based evaluation
+- Model Matrix와 통계적 evaluation (LLM judge 자체는 현재 alpha의 시험 사다리 마지막 칸으로 있습니다)
 - Prompt Studio, release approval, deployment와 rollback
+- Improve 후보를 자동으로 돌려 base와 나란히 놓는 evidence table
 - Investigation Mode와 Issue Chat
 - MCP gateway/executor, LangGraph adapter와 complete provenance/replay
 - 3D Runtime World

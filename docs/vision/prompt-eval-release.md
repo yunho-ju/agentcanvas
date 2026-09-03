@@ -1,6 +1,8 @@
 # Prompt, Evaluation and Release Vision
 
-> **Vision document; not a capability statement for `v0.1.0-alpha.1`.** Prompt Studio, LLM judges, safety gates, online evaluation, release promotion/deployment and rollback are not implemented.
+> **Vision document; not a capability statement for `v0.1.0-alpha.1`.** Prompt Studio, safety gates, online evaluation, release promotion/deployment and rollback are not implemented.
+>
+> **Status.** One piece has shipped: a model judge is now the last rung of the Test mode's evaluation ladder, reached only when exact phrases and the local meaning check could not decide, chosen by `AGENTCANVAS_JUDGE_MODEL` and recorded on every result (`judged_by`). The rest of this document — the prompt lifecycle, the wider judge program and the release gates — remains a proposal and is left as written.
 
 ## Available now / proposed
 

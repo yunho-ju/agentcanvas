@@ -1,6 +1,13 @@
 # Optimize Vision — 그래프를 스스로 고칠 후보를 만들고, 증거로 비교한다
 
-*Proposal — not a current capability. See [`../AGENTCANVAS_DESIGN.md`](../AGENTCANVAS_DESIGN.md) §10.*
+*Partly shipped. See [`../AGENTCANVAS_DESIGN.md`](../AGENTCANVAS_DESIGN.md) §10.*
+
+> **Status.** 첫 조각이 Studio의 **고치기(Improve)** 모드로 현재 alpha에 있습니다:
+> 목표를 한 문장으로 적으면 모델이 그래프 변경 후보 하나를 제안하고, 시험 배치가
+> 있으면 서버가 그 근거를 채워 붙이며, 사람이 설계 도우미 초안처럼 검토한 뒤에만
+> 적용됩니다.
+> **아직 제안인 것**: 후보를 자동으로 돌려 base와 성적을 나란히 놓는 증거 표, 여러
+> 후보 생성과 Pareto 비교, 실행 텔레메트리 기반 제안. 제안은 지우지 않고 그대로 둡니다.
 
 만든 에이전트 그래프에 대해 "더 싸게·더 빠르게·더 잘"의 **실험 후보를 AI가 제안**하고,
 같은 시험을 돌려 **증거 표로 비교**한 뒤, 사람이 고른 후보가 새 판(revision)이 된다.

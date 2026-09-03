@@ -1,6 +1,14 @@
 # Live Chat and Conversation Analytics Vision
 
-*Proposal — not a current capability. See [`../AGENTCANVAS_DESIGN.md`](../AGENTCANVAS_DESIGN.md) §10.*
+*Partly shipped. See [`../AGENTCANVAS_DESIGN.md`](../AGENTCANVAS_DESIGN.md) §10.*
+
+> **Status.** 아래 슬라이스 1~4가 Studio의 다섯 번째 모드 **대화(Talk)**로 현재 alpha에
+> 있습니다: 스레드 계약(실행을 스레드로 묶고 말한 이를 남김), 판 내놓기(publish), 내놓은
+> 판과 이어지는 대화, 지난 대화 목록과 다시 열기, 대화에서 뽑아낸 고칠 지점, 대화 한
+> 줄을 시험 케이스로 만들기. 내놓기와 내리기(publish/unpublish) 모두 있습니다.
+> **아직 제안인 것**: 만든 사람 밖의 사람에게 여는 공개 대화 창구(지금은 관리자 한 명이
+> 로그인해서 쓰는 자리입니다), release/rollback 절차, 그리고 아래 분석 원칙 중 여기
+> 적히지 않은 나머지. 제안은 지우지 않고 그대로 둡니다.
 
 만든 에이전트를 **사람이 실제로 말을 걸어 쓰는 자리**를 열고, 거기서 오간 대화를
 **프롬프트를 고칠 근거**로 되돌려 받는다. 쉬운 말로: **"내가 만든 것을 남이 써 보게

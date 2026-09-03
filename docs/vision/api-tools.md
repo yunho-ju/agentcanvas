@@ -1,6 +1,12 @@
 # API Tools Vision
 
-*Proposal — not a current capability. See [`../AGENTCANVAS_DESIGN.md`](../AGENTCANVAS_DESIGN.md) §10.*
+*Partly shipped. See [`../AGENTCANVAS_DESIGN.md`](../AGENTCANVAS_DESIGN.md) §10.*
+
+> **Status.** 이 문서의 앞부분은 현재 alpha에 있습니다: API 문서를 붙여 넣어 connection과
+> tool로 승인하기(`POST /tools/wrap`), palette에서 도구 노드 꺼내기, 도구가 부를 포트
+> 모양 맞추기, HTTP로 실제 호출하기(실패는 error 포트로), 호출 전 사람 승인 붙이기,
+> 큰 응답을 carry·retrieve·digest로 줄이기. **아직 제안인 것**: 실제 MCP gateway/executor,
+> 그리고 아래에서 "proposed"로 남겨 둔 나머지 항목들. 제안은 지우지 않고 그대로 둡니다.
 
 이미 운영 중인 HTTP API를 MCP 서버 없이 "도구"로 감싸서 캔버스 파이프라인에 꽂는다.
 쉬운 말로: **"우리 회사가 이미 쓰는 웹 주소(API)를 붙여 넣으면, AI가 그것을 도구로

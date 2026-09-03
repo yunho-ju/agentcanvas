@@ -28,10 +28,27 @@ AgentCanvas의 사용자에게 영향을 주는 변경은 이 문서에 기록�
 - 단일 관리자 session 인증, CSRF, exact-origin CORS와 live/readiness endpoint.
 - Source-built multi-stage Dockerfile과 loopback-first Docker Compose profile.
 - Apache-2.0, DCO와 기여·보안·지원·거버넌스 정책.
+- Evaluation ladder: exact `expected_phrases`, then an optional local meaning check (`agentcanvas-adapters[nli]` extra, source runs only), then an optional judge model (`AGENTCANVAS_JUDGE_MODEL`, default `model://default`).
+- Every evaluation result records the rung that decided it (`judged_by`), and the eval screen shows the instructions under test, the missing phrases and the deciding layer.
+- AI-suggested evaluation cases the person keeps or drops, aware of which tools the graph can actually call.
+- Talk mode: publish a revision, chat with the published version, list past conversations, read the fix spots derived from them, and turn a real conversation turn into a test case.
+- Improve mode: state an objective and review a candidate graph change the model proposes, grounded in existing test batches when there are any.
+- Tool wrapping: paste an API document and approve it as a connection with tools (`POST /tools/wrap`), drag tool nodes from the palette, re-import or delete connections.
+- HTTP tool adapter that runs tool nodes for real, with failures on the error port, an optional hold for approval before a call, and carry/retrieve/digest handling for large responses.
+- `GET /models` lists the models this server can actually call, and the model picker offers those first while keeping the rest visible but disabled with the reason.
+- Architect drafts fill each step's `model_ref` with a model this server can call and name the graph's input row `message`, so a draft can be talked to once published.
 
 ### Changed
 
 - OpenAI provider는 API key뿐 아니라 `AGENTCANVAS_OPENAI_MODEL`도 명시해야 활성화됩니다. AgentCanvas는 외부 model 기본값을 선택하지 않습니다.
+- Node cards re-measure their ports when the ports change, so a hand-placed input node can be connected.
+- New palette nodes land where the person is looking, and Tidy puts unconnected nodes in one row and fits the view.
+- The top bar, mode segment and canvas corners share one responsive grid and no longer overlap at narrow desktop widths; the minimap fits its container and Sign out moved into the document menu.
+- Popovers (document menu, revision history, node picker, confirmations) are opaque and always stack above the floating layer.
+- The first-steps card counts a finished run from run history and folds to one line while a mode panel is open.
+- The run button is idempotent — pressing it again keeps the input card open — and Talk opens on the composer when there is no past conversation to continue.
+- Saving a document the server already has issues one PUT instead of a POST that fails with 409 first.
+- Docker Compose passes `AGENTCANVAS_JUDGE_MODEL` through to the API.
 
 ### Security
 
@@ -44,6 +61,7 @@ AgentCanvas의 사용자에게 영향을 주는 변경은 이 문서에 기록�
 - 단일 신뢰 관리자와 하나의 암묵적 workspace만 지원합니다.
 - TLS/trusted proxy, Kubernetes, horizontal scaling과 rolling SQLite migration을 제공하지 않습니다.
 - 외부 provider side effect의 exactly-once를 보장하지 않습니다.
-- 평가는 phrase-contract regression이며 모델 품질·안전·task success 증거가 아닙니다.
+- 평가는 문구·뜻·심판 모델 판정을 사다리로 쌓은 regression이며, 모델 품질·안전·task success 증거가 아닙니다. 뜻 비교는 `agentcanvas-adapters[nli]`를 추가로 설치한 source 실행에서만, 심판 모델은 `AGENTCANVAS_JUDGE_MODEL`이 이 서버가 부를 수 있는 모델일 때만 동작합니다.
+- Improve는 후보를 제안할 뿐, 후보를 자동으로 돌려 base와 성적을 비교해 주지는 않습니다.
 - ReleaseManifest는 schema contract만 존재하며 release workflow, Investigate와 실제 MCP executor는 구현되지 않았습니다.
 - 현재 범위는 source distribution입니다. Prebuilt image/binary에는 artifact별 license bundle, SBOM, digest와 signature가 추가로 필요합니다.
