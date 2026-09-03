@@ -1,7 +1,7 @@
 // 어디를 보고 있는가 — 화면을 데려가 달라는 부탁만 남긴다 (브리프 B7).
 // 실제로 화면을 옮기는 일은 캔버스가 한다. store는 지도를 그리지 않는다.
 import type { StateCreator } from "zustand";
-import type { Position } from "../history/graphCommands";
+import type { ViewBox } from "../graph/placement";
 import type { EditorState } from "./editor";
 
 export interface ViewRequest {
@@ -13,10 +13,10 @@ export interface ViewRequest {
 
 export interface ViewSlice {
   viewRequest: ViewRequest | null;
-  /** 지금 보고 있는 화면의 한가운데 — 캔버스 좌표. 새 카드는 여기서부터 자리를 찾는다 */
-  viewportCenter: Position;
-  /** 캔버스가 자기 한가운데를 알려 준다 — 그 자리를 아는 것은 캔버스뿐이다 */
-  noteViewportCenter: (at: Position) => void;
+  /** 지금 보고 있는 화면 — 캔버스 좌표로 잰 네모. 새 카드는 이 안에서 자리를 찾는다 */
+  viewportBox: ViewBox;
+  /** 캔버스가 자기가 보여주고 있는 자리를 알려 준다 — 그것을 아는 것은 캔버스뿐이다 */
+  noteViewportBox: (seen: ViewBox) => void;
   /** 캔버스에 있는 것을 모두 한 화면에 */
   fitAll: () => void;
   /** 지금 고른 노드로 */
@@ -35,14 +35,19 @@ export const createViewSlice: StateCreator<EditorState, [], [], ViewSlice> = (
 ) => ({
   viewRequest: null,
 
-  // 캔버스가 아직 서기 전에는 원점이다 — 자리를 지어내지 않는다.
-  viewportCenter: { x: 0, y: 0 },
+  // 캔버스가 아직 서기 전에는 원점의 빈 네모다 — 자리를 지어내지 않는다.
+  viewportBox: { x: 0, y: 0, width: 0, height: 0 },
 
   // 달라진 것이 없으면 상태도 그대로다 — 화면을 끄는 매 프레임마다 화면을 다시 그리지 않는다.
-  noteViewportCenter: (at) => {
-    const now = get().viewportCenter;
-    if (at.x === now.x && at.y === now.y) return;
-    set({ viewportCenter: at });
+  noteViewportBox: (seen) => {
+    const now = get().viewportBox;
+    const same =
+      seen.x === now.x &&
+      seen.y === now.y &&
+      seen.width === now.width &&
+      seen.height === now.height;
+    if (same) return;
+    set({ viewportBox: seen });
   },
 
   // 같은 곳을 다시 부탁해도 새 부탁이다 — 그래서 매번 새 객체를 놓는다.

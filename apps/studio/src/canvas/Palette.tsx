@@ -14,14 +14,14 @@ export function Palette() {
   const running = useEditor(isRunning);
   const locale = useLocale();
   const t = useT();
-  // 자리를 정하는 규칙은 순수 함수의 것이다 — 고른 카드 옆, 없으면 보고 있는 한가운데.
+  // 자리를 정하는 규칙은 순수 함수의 것이다 — 고른 카드 옆, 없으면 보고 있는 화면 안.
   // 그 재료는 누르는 순간의 캔버스에서 읽는다: 화면을 끌 때마다 팔레트를 다시 그리지 않는다.
   const placedAt = () => {
     const canvas = useEditor.getState();
     return placeNewNode({
       nodes: canvas.nodes,
       selectedId: selectedNode(canvas)?.id ?? null,
-      viewportCenter: canvas.viewportCenter,
+      viewport: canvas.viewportBox,
     });
   };
 

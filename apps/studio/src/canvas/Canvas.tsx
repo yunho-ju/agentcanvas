@@ -1,13 +1,14 @@
 import {
   Controls,
-  type FinalConnectionState,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  ViewportPortal,
+  type FinalConnectionState,
   useConnection,
   useReactFlow,
+  useStore,
   useViewport,
+  ViewportPortal,
 } from "@xyflow/react";
 // 캔버스 라이브러리의 기본 스타일은 app.css가 맨 앞에서 한 번만 들여온다 (덮어쓰기 순서).
 import {
@@ -108,20 +109,26 @@ function CanvasSurface() {
     useReactFlow();
   // 화면을 끌거나 확대하면 한가운데가 가리키는 캔버스 좌표도 달라진다.
   const viewport = useViewport();
-  const noteViewportCenter = useEditor((state) => state.noteViewportCenter);
+  // 창 크기가 바뀌면 보이는 네모도 바뀐다 — 팬·줌이 없어도 다시 잰다 (DESIGN §7 palette 화면 안이 먼저다).
+  const surfaceWidth = useStore((state) => state.width);
+  const surfaceHeight = useStore((state) => state.height);
+  const noteViewportBox = useEditor((state) => state.noteViewportBox);
   const t = useT();
 
-  // 보고 있는 화면의 한가운데는 캔버스만 안다 — 새 카드를 놓는 자리로 쓰라고 알려 둔다 (DESIGN §7 palette).
+  // 지금 보여주고 있는 자리가 캔버스 좌표로 어디인지는 캔버스만 안다 — 새 카드를 놓는 자리로
+  // 쓰라고 알려 둔다 (DESIGN §7 palette 배치 — 화면 안이 먼저다).
   useEffect(() => {
     const rect = surface.current?.getBoundingClientRect();
     if (!rect) return;
-    noteViewportCenter(
-      screenToFlowPosition({
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      }),
-    );
-  }, [viewport, screenToFlowPosition, noteViewportCenter]);
+    const near = screenToFlowPosition({ x: rect.left, y: rect.top });
+    const far = screenToFlowPosition({ x: rect.right, y: rect.bottom });
+    noteViewportBox({
+      x: near.x,
+      y: near.y,
+      width: far.x - near.x,
+      height: far.y - near.y,
+    });
+  }, [viewport, surfaceWidth, surfaceHeight, screenToFlowPosition, noteViewportBox]);
 
   // 지금 쥐고 있는 포트 — 받아 줄 자리가 하나도 없으면 그 곁에서 말을 건다 (C5).
   useLandingHint(
