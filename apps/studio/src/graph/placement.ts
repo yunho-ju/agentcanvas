@@ -21,9 +21,14 @@ function middleOf(view: ViewBox): Position {
 
 /** 카드 한 장의 크기 — tokens.css `--node-width` / `--node-height`의 복사본이다. */
 export const NODE_SIZE = { width: 208, height: 48 };
-/** 고른 카드 옆에 두는 틈 — tokens.css `--space-6`. */
-export const GAP_BESIDE = 32;
-/** 다음 빈 자리를 찾아 옮길 때의 틈 — tokens.css `--space-4`. */
+/**
+ * 한 줄에 나란히 선 카드 사이의 가로 틈 — tokens.css `--handle-hit` × 2 + `--space-6` (GP-4).
+ * 손잡이의 잡히는 자리는 카드 밖으로 `--handle-hit` − `--handle-size`/2 = 20px 나와 있어, 틈이 그
+ * 둘(40px)보다 좁으면 앞 카드의 나가는 손잡이를 누른 손이 뒤 카드의 받는 손잡이에 잡힌다
+ * (2026-09-04 실측: 16px 틈에서 선이 안 생겼다). 80px는 그 위에 여유 40px을 더한 값이다.
+ */
+export const GAP_ROW = 24 * 2 + 32;
+/** 줄을 바꿔 아래로 비킬 때·화면 가장자리에서 남기는 틈 — tokens.css `--space-4`. */
 export const GAP_NEXT = 16;
 
 /** 자리를 정하는 데 필요한 것은 어디에 얼마만 한 카드가 있는가뿐이다. */
@@ -61,12 +66,16 @@ function cardSizeAmong(cards: PlacedCard[]): CardSize {
   }, NODE_SIZE);
 }
 
-/** 이 자리에 이만 한 카드를 놓으면 저 카드를 가리는가 — 맞닿는 것은 가리는 것이 아니다. */
+/**
+ * 이 자리에 이만 한 카드를 놓으면 저 카드를 가리거나 손잡이를 덮는가 — 맞닿는 것은 가리는 것이 아니다.
+ * 가로로는 카드가 차지하는 상자를 한 줄의 가로 틈의 절반씩 부풀려 잰다 (DESIGN §7 palette): 그래야
+ * 옆자리·격자·가로 걷기 어느 길로 놓아도 이웃과의 틈이 그보다 좁아지지 않는다. 세로는 카드 그대로다.
+ */
 function hides(at: Position, size: CardSize, card: PlacedCard): boolean {
   const other = sizeOf(card);
   return (
-    at.x < card.position.x + other.width &&
-    card.position.x < at.x + size.width &&
+    at.x < card.position.x + other.width + GAP_ROW &&
+    card.position.x < at.x + size.width + GAP_ROW &&
     at.y < card.position.y + other.height &&
     card.position.y < at.y + size.height
   );
@@ -143,7 +152,7 @@ function placesInView(view: ViewBox, size: CardSize): Position[] {
   const anchor = anchorIn(view, size);
   const columns = gridLine(
     anchor.x,
-    size.width + GAP_NEXT,
+    size.width + GAP_ROW,
     view.x,
     view.x + view.width - size.width,
   );
@@ -208,14 +217,14 @@ function rightmostOnTheMiddleRow(cards: PlacedCard[], view: ViewBox): PlacedCard
 
 /**
  * 고른 카드가 없을 때의 자리 (DESIGN §7 palette 놓이는 자리) — 가운데 줄의 가장 오른쪽 카드 옆
- * (`--space-4`, 그 카드의 실측 폭 기준), 줄이 화면 폭에 들어오는 한. 그 줄에 카드가 없거나 줄이 넘치면
+ * (한 줄의 가로 틈, 그 카드의 실측 폭 기준), 줄이 화면 폭에 들어오는 한. 그 줄에 카드가 없거나 줄이 넘치면
  * 없다 — 그때는 화면 안 빈 자리를 격자로 살핀다. 선택이 있든 없든 연달아 놓은 카드는 한 줄에 읽는 순서로 선다.
  */
 function nextOnTheMiddleRow(cards: PlacedCard[], view: ViewBox): Position | null {
   const rightmost = rightmostOnTheMiddleRow(cards, view);
   if (!rightmost) return null;
   const beside = {
-    x: rightmost.position.x + sizeOf(rightmost).width + GAP_NEXT,
+    x: rightmost.position.x + sizeOf(rightmost).width + GAP_ROW,
     y: rightmost.position.y,
   };
   const size = cardSizeAmong(cards);
@@ -235,7 +244,7 @@ export function placeNewNode(canvas: {
   if (!chosen) {
     // 고른 카드가 없으면 가운데 줄의 가장 오른쪽 카드 옆, 아니면 보고 있는 화면 안 가운데에서 가장 가까운
     // 빈 자리다 (DESIGN §7 palette 놓이는 자리). 화면이 꽉 찼을 때만 걸어 나간다.
-    const step = { x: size.width + GAP_NEXT, y: 0 };
+    const step = { x: size.width + GAP_ROW, y: 0 };
     return (
       nextOnTheMiddleRow(canvas.nodes, canvas.viewport) ??
       freePlaceInView(canvas.viewport, canvas.nodes) ??
@@ -243,7 +252,7 @@ export function placeNewNode(canvas: {
     );
   }
   const beside = {
-    x: chosen.position.x + sizeOf(chosen).width + GAP_BESIDE,
+    x: chosen.position.x + sizeOf(chosen).width + GAP_ROW,
     y: chosen.position.y,
   };
   const asked = firstFreePlace(beside, { x: 0, y: size.height + GAP_NEXT }, size, canvas.nodes);

@@ -2,13 +2,23 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { GAP_BESIDE, GAP_NEXT, NODE_SIZE, placeNewNode } from "../src/graph/placement";
+import { GAP_NEXT, GAP_ROW, NODE_SIZE, placeNewNode } from "../src/graph/placement";
 
 const tokens = readFileSync(join(process.cwd(), "src/tokens.css"), "utf8");
 const appRules = readFileSync(join(process.cwd(), "src/app.css"), "utf8");
 
 function tokenValue(name: string): string | undefined {
   return new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(tokens)?.[1].trim();
+}
+
+function pixels(name: string): number {
+  return Number.parseFloat(tokenValue(name) ?? "");
+}
+
+/** app.css에서 그 선택자의 규칙 한 덩이 — 없으면 빈 문자열이라 어떤 단언도 통과하지 못한다. */
+function ruleFor(selector: string): string {
+  const from = appRules.indexOf(`${selector} {`);
+  return from < 0 ? "" : appRules.slice(from, appRules.indexOf("}", from));
 }
 
 const SEEN = { width: 1440, height: 900 };
@@ -59,6 +69,50 @@ function overlap(a: { x: number; y: number }, b: { x: number; y: number }): numb
   return Math.max(0, wide) * Math.max(0, tall);
 }
 
+/** 같은 줄에 선 두 카드 사이의 가로 틈 — 줄이 겹치지 않으면 재지 않는다. */
+function horizontalGap(one: Card, other: Card): number | null {
+  const boxes = [boxOf(one.position), boxOf(other.position)];
+  const [top, below] = boxes;
+  if (!(top.top < below.bottom && below.top < top.bottom)) return null;
+  const [left, right] = boxes[0].left <= boxes[1].left ? boxes : [boxes[1], boxes[0]];
+  return right.left - left.right;
+}
+
+function rowGapsAmong(cards: Card[]): number[] {
+  return cards.flatMap((one, index) =>
+    cards
+      .slice(index + 1)
+      .map((other) => horizontalGap(one, other))
+      .filter((gap): gap is number => gap !== null),
+  );
+}
+
+// GP-4: 한 줄의 가로 틈은 경로마다 맞추는 좌표 규칙이 아니라 겹침 판정의 일부다
+// (DESIGN §7 palette 놓이는 자리) — 어느 경로로 놓아도 같은 줄 이웃과 이보다 좁아지지 않는다.
+describe("가로 틈은 어느 길로 놓아도 좁아지지 않는다", () => {
+  it("화면이 꽉 차 오른쪽으로 걸어 나갈 때도 지킨다", () => {
+    const cramped = { x: 0, y: 0, width: 480, height: 300 };
+    const placed: Card[] = [];
+    for (const id of ["1", "2", "3", "4", "5", "6", "7", "8"]) {
+      const at = placeNewNode({ nodes: placed, selectedId: null, viewport: cramped });
+      placed.push(card(id, at.x, at.y));
+    }
+
+    expect(rowGapsAmong(placed).filter((gap) => gap < GAP_ROW)).toEqual([]);
+  });
+
+  // 사람이 끌어다 둔 두 카드 사이의 격자 칸 — 칸은 비어 있어도 손잡이는 이웃에 닿는다.
+  it("사람이 끌어다 둔 두 카드 사이의 좁은 칸에 끼우지 않는다", () => {
+    const view = { x: 0, y: 0, width: 720, height: 450 };
+    const dragged = [card("left", 0, 201), card("right", 472, 201)];
+
+    const at = placeNewNode({ nodes: dragged, selectedId: null, viewport: view });
+
+    const gaps = rowGapsAmong([...dragged, card("new", at.x, at.y)]);
+    expect(gaps.filter((gap) => gap < GAP_ROW)).toEqual([]);
+  });
+});
+
 describe("placing a new card", () => {
   it("puts it to the right of the selected card, on the same line", () => {
     const at = placeNewNode({
@@ -67,11 +121,11 @@ describe("placing a new card", () => {
       viewport: seenAround({ x: 0, y: 0 }),
     });
 
-    expect(at).toEqual({ x: 100 + NODE_SIZE.width + GAP_BESIDE, y: 200 });
+    expect(at).toEqual({ x: 100 + NODE_SIZE.width + GAP_ROW, y: 200 });
   });
 
   it("steps down when the place to the right is taken", () => {
-    const beside = { x: 100 + NODE_SIZE.width + GAP_BESIDE, y: 200 };
+    const beside = { x: 100 + NODE_SIZE.width + GAP_ROW, y: 200 };
     const at = placeNewNode({
       nodes: [card("a", 100, 200), { id: "b", position: beside }],
       selectedId: "a",
@@ -90,7 +144,7 @@ describe("placing a new card", () => {
       viewport: seenAround({ x: 0, y: 0 }),
     });
 
-    expect(at).toEqual({ x: 400 + GAP_BESIDE, y: 0 });
+    expect(at).toEqual({ x: 400 + GAP_ROW, y: 0 });
   });
 
   // 카드의 중심이 화면 한가운데에 온다 — 좌상단을 한가운데에 두면 카드가 오른쪽으로 치우친다.
@@ -114,7 +168,7 @@ describe("placing a new card", () => {
       viewport: seen,
     });
 
-    expect(at).toEqual({ x: first.x + NODE_SIZE.width + GAP_NEXT, y: first.y });
+    expect(at).toEqual({ x: first.x + NODE_SIZE.width + GAP_ROW, y: first.y });
   });
 
   it("does not look at a selected id that is no longer on the canvas", () => {
@@ -134,7 +188,7 @@ describe("placing a new card", () => {
 
     const at = placeNewNode({ nodes: [a, b], selectedId: "a", viewport: seenAround({ x: 720, y: 450 }) });
 
-    expect(at).toEqual({ x: 416 + GAP_BESIDE, y: 400 + wide.height + GAP_NEXT });
+    expect(at).toEqual({ x: 416 + GAP_ROW, y: 400 + wide.height + GAP_NEXT });
   });
 
   // 합격 조건(UXQ-5): 팔레트로 세 번 놓아도 어떤 두 카드도 겹치지 않는다.
@@ -192,7 +246,7 @@ describe("화면 안이 먼저다", () => {
   it("오른쪽 자리가 화면 밖이어도 줄이 화면 폭에 들어오면 그대로 오른쪽에 놓는다", () => {
     const at = placeNewNode({ nodes: [atTheEdge], selectedId: "a", viewport: VIEW });
 
-    expect(at).toEqual({ x: 1300 + NODE_SIZE.width + GAP_BESIDE, y: 400 });
+    expect(at).toEqual({ x: 1300 + NODE_SIZE.width + GAP_ROW, y: 400 });
   });
 
   // 합격 조건(UXQ2-6): 세 장을 연달아 놓으면 세 장이 한 줄에 읽는 순서로 서고, 그 줄이 화면 폭
@@ -238,7 +292,7 @@ describe("화면 안이 먼저다", () => {
   // 실제 앱에서 팔레트로 놓은 카드는 선택되지 않는다 — 그래서 매번 '선택 없음' 규칙을 탄다.
   // 사람이 브라우저에서 겪은 그대로: 아무것도 고르지 않은 채 다섯 장을 연달아 놓는다.
   it("아무것도 고르지 않고 다섯 장을 놓으면 한 줄로 읽는 순서대로 늘어선다", () => {
-    const step = NODE_SIZE.width + GAP_NEXT;
+    const step = NODE_SIZE.width + GAP_ROW;
     const first = centredIn(VIEW);
     const placed: Card[] = [];
     for (const id of ["input", "agent", "output", "fourth", "fifth"]) {
@@ -296,7 +350,7 @@ describe("화면 안이 먼저다", () => {
   });
 
   it("가운데 줄이 다 차고 줄이 화면 폭을 넘으면 아래 줄로 내려간다 — 위가 아니라 아래가 먼저다", () => {
-    const step = NODE_SIZE.width + GAP_NEXT;
+    const step = NODE_SIZE.width + GAP_ROW;
     const first = centredIn(VIEW);
     // 화면 안 다섯 칸이 다 찼고, 왼쪽 밖에 한 장 더 있어 줄(-56 → 1496)이 화면 폭을 넘는다.
     const wholeRow = [-3, -2, -1, 0, 1, 2].map((column) =>
@@ -317,7 +371,7 @@ describe("화면 안이 먼저다", () => {
       return { id, position: { x, y }, measured: size };
     }
 
-    it("가로 칸은 가장 넓은 카드 + --space-4다", () => {
+    it("가로 칸은 가장 넓은 카드 + 한 줄의 가로 틈이다", () => {
       const first = centredIn(VIEW, WIDE);
 
       const at = placeNewNode({
@@ -326,13 +380,13 @@ describe("화면 안이 먼저다", () => {
         viewport: VIEW,
       });
 
-      expect(at).toEqual({ x: first.x + WIDE.width + GAP_NEXT, y: first.y });
+      expect(at).toEqual({ x: first.x + WIDE.width + GAP_ROW, y: first.y });
     });
 
-    // 넓은 카드(416px)도 한 줄에 셋이 선다 — 가운데(512)에서 오른쪽(944)으로, 그다음도 오른쪽(1376):
-    // 셋째는 화면 밖이지만 줄(512 → 1792)이 화면 폭에 들어오니 캔버스가 최소로 따라간다.
+    // 넓은 카드(416px)도 한 줄에 셋이 선다 — 가운데(512)에서 오른쪽(1008)으로, 그다음도 오른쪽(1504):
+    // 셋째는 화면 밖이지만 줄(512 → 1920)이 화면 폭에 들어오니 캔버스가 최소로 따라간다.
     it("416px 카드 세 장이 한 줄에 나란히 선다", () => {
-      const step = WIDE.width + GAP_NEXT;
+      const step = WIDE.width + GAP_ROW;
       const first = centredIn(VIEW, WIDE);
       const placed = [wideCard("input", first.x, first.y)];
       for (const id of ["agent", "output"]) {
@@ -359,7 +413,7 @@ describe("화면 안이 먼저다", () => {
 
       const first = centredIn(VIEW);
       expect(placed.map((one) => one.position)).toEqual(
-        [0, 1, 2].map((column) => ({ x: first.x + column * (WIDE.width + GAP_NEXT), y: first.y })),
+        [0, 1, 2].map((column) => ({ x: first.x + column * (WIDE.width + GAP_ROW), y: first.y })),
       );
       expect(rowSpan(placed, WIDE.width)).toBeLessThanOrEqual(VIEW.width - GAP_NEXT);
     });
@@ -380,8 +434,10 @@ describe("화면 안이 먼저다", () => {
     describe("줌 2배 화면에서 선택 없이 연달아 놓는다", () => {
       const ZOOMED = { x: 360, y: 225, width: 720, height: 450 };
       const MEASURED = [208, 227.5, 219];
+      /** 새 카드의 크기 추정치 — 이미 놓인 카드 가운데 가장 넓은 것(227.5)이다. */
+      const WIDEST = { width: 227.5, height: 48 };
 
-      function threeInARow() {
+      function threeCards() {
         const placed: ReturnType<typeof wideCard>[] = [];
         for (const [index, id] of ["input", "agent", "output"].entries()) {
           const at = placeNewNode({ nodes: [...placed], selectedId: null, viewport: ZOOMED });
@@ -390,34 +446,48 @@ describe("화면 안이 먼저다", () => {
         return placed;
       }
 
-      it("세 장이 한 줄에 읽는 순서로 서고 줄이 화면 폭에 들어온다 — 셋째는 화면 밖이어도 된다", () => {
-        const placed = threeInARow();
+      function standsInView(at: { x: number; y: number }, size = WIDEST): boolean {
+        return (
+          at.x >= ZOOMED.x &&
+          at.y >= ZOOMED.y &&
+          at.x + size.width <= ZOOMED.x + ZOOMED.width &&
+          at.y + size.height <= ZOOMED.y + ZOOMED.height
+        );
+      }
+
+      // 이 화면에는 한 줄에 두 장까지만 선다 — 208 + 틈 + 227.5 + 틈 + 219는 보이는 폭(720)을 넘는다.
+      // 셋째는 그래서 격자의 아래 줄로 내려간다: 읽는 순서(위 → 아래)를 지키고, 화면 안에 그대로 있다.
+      it("한 줄에 두 장이 서고 셋째는 아래 줄로 내려가 화면 안에 남는다", () => {
+        const placed = threeCards();
 
         const [input, agent, output] = placed;
-        expect(placed.every((one) => one.position.y === input.position.y)).toBe(true);
-        expect(ascending(placed)).toBe(true);
-        // 가장 오른쪽 카드 옆 --space-4, 그 카드의 실측 폭 기준.
-        expect(agent.position.x).toBe(input.position.x + 208 + GAP_NEXT);
-        expect(output.position.x).toBe(agent.position.x + 227.5 + GAP_NEXT);
-        const span = output.position.x + 219 - input.position.x;
+        expect(input.position).toEqual(centredIn(ZOOMED));
+        expect(agent.position).toEqual({ x: input.position.x + 208 + GAP_ROW, y: input.position.y });
+        expect(output.position).toEqual({
+          x: centredIn(ZOOMED, WIDEST).x,
+          y: input.position.y + WIDEST.height + GAP_NEXT,
+        });
+        expect(ascending([input, agent])).toBe(true);
+        // 그 줄은 화면 폭에 들어온다 — 캔버스가 최소로 따라가면 둘 다 보인다.
+        const span = agent.position.x + 227.5 - input.position.x;
         expect(span).toBeLessThanOrEqual(ZOOMED.width - GAP_NEXT);
+        // 아래 줄로 내려간 셋째는 따라가지 않아도 지금 보이는 화면 안에 선다.
+        expect(standsInView(output.position, { width: 219, height: 48 })).toBe(true);
       });
 
-      // 넷째는 줄이 화면 폭을 넘는다 — 그때만 격자 탐색이다. 캔버스는 셋째를 보이도록 최소로
-      // (넘친 만큼 + --space-4) 따라가 있으므로, 그 화면의 가운데 줄은 다 차 있고 아래 줄 가운데 칸이 빈다.
-      it("네 번째 카드는 줄이 화면 폭을 넘으니 아래 줄 가운데 칸으로 간다", () => {
-        const placed = threeInARow();
+      // 넷째도 같은 칸을 따라 한 줄 더 아래로 — 위가 아니라 아래가 먼저다. 줄이 화면 폭을 넘어도
+      // 카드는 캔버스가 따라가야 보이는 곳이 아니라 지금 보이는 화면 안에 선다.
+      it("네 번째 카드는 그 아래 줄로 이어지고 화면 안에 남는다", () => {
+        const placed = threeCards();
         const output = placed[2];
-        const overflow = output.position.x + 219 - (ZOOMED.x + ZOOMED.width);
-        expect(overflow).toBeGreaterThan(0);
-        const followed = { ...ZOOMED, x: ZOOMED.x + overflow + GAP_NEXT };
 
-        const at = placeNewNode({ nodes: placed, selectedId: null, viewport: followed });
+        const at = placeNewNode({ nodes: placed, selectedId: null, viewport: ZOOMED });
 
-        // 격자 칸은 가장 넓은 카드(227.5)로 잰다.
-        const widest = { width: 227.5, height: 48 };
-        const middle = centredIn(followed, widest);
-        expect(at).toEqual({ x: middle.x, y: middle.y + widest.height + GAP_NEXT });
+        expect(at).toEqual({
+          x: output.position.x,
+          y: output.position.y + WIDEST.height + GAP_NEXT,
+        });
+        expect(standsInView(at)).toBe(true);
       });
     });
 
@@ -480,7 +550,7 @@ describe("화면 안이 먼저다", () => {
     // 카드 한 줄만 들어가는 화면 — 위아래로 갈 곳이 없으니 왼쪽으로 가는지가 드러난다.
     const oneRow = { x: 0, y: 0, width: 1440, height: 100 };
     const first = centredIn(oneRow);
-    const step = NODE_SIZE.width + GAP_NEXT;
+    const step = NODE_SIZE.width + GAP_ROW;
     const takenRight = [0, 1, 2].map((column) =>
       card(`full${column}`, first.x + column * step, first.y),
     );
@@ -501,7 +571,7 @@ describe("화면 안이 먼저다", () => {
     // 한 줄짜리 화면을 격자 자리마다 카드로 채운다 — 이제 정말 빈 자리가 없다.
     const oneRow = { x: 0, y: 0, width: 1440, height: 100 };
     const first = centredIn(oneRow);
-    const step = NODE_SIZE.width + GAP_NEXT;
+    const step = NODE_SIZE.width + GAP_ROW;
     const edge = card("a", 1300, 50);
     const full = [
       edge,
@@ -512,7 +582,7 @@ describe("화면 안이 먼저다", () => {
 
     const at = placeNewNode({ nodes: full, selectedId: "a", viewport: oneRow });
 
-    expect(at).toEqual({ x: 1300 + NODE_SIZE.width + GAP_BESIDE, y: 50 });
+    expect(at).toEqual({ x: 1300 + NODE_SIZE.width + GAP_ROW, y: 50 });
   });
 });
 
@@ -536,8 +606,21 @@ describe("the numbers come from tokens.css", () => {
     expect(card).toContain("min-height: var(--node-height)");
   });
 
-  it("keeps the gap beside a selected card equal to --space-6", () => {
-    expect(tokenValue("--space-6")).toBe(`${GAP_BESIDE}px`);
+  // 손잡이의 잡히는 자리는 카드 밖으로 --handle-hit − --handle-size/2 만큼 나와 있다 — 틈이 그
+  // 둘보다 좁으면 앞 카드의 나가는 손잡이를 누른 손이 뒤 카드의 받는 손잡이에 잡힌다 (GP-4).
+  it("keeps the gap along a row equal to --handle-hit twice plus --space-6", () => {
+    expect(GAP_ROW).toBe(2 * pixels("--handle-hit") + pixels("--space-6"));
+  });
+
+  // 그 '나와 있는 만큼'은 이 두 규칙에서 나온다 — 규칙이 바뀌면 위 상수의 근거가 사라지므로
+  // 조용히 지나가지 않게 여기서 걸린다.
+  it("keeps the hit area reaching out of both sides of the card", () => {
+    expect(ruleFor(".node-card__ports--inputs .react-flow__handle::before")).toContain(
+      "left: calc(var(--handle-size) - var(--handle-hit) / 2)",
+    );
+    expect(ruleFor(".node-card__ports--outputs .react-flow__handle::before")).toContain(
+      "left: calc(var(--handle-hit) / 2)",
+    );
   });
 
   it("keeps the gap to the next free place equal to --space-4", () => {
