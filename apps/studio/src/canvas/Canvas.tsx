@@ -20,6 +20,7 @@ import {
   useState,
 } from "react";
 import type { FlowEdge, FlowNode } from "../graph/serialize";
+import { visibleRect } from "../graph/visibleRect";
 import { edgeFlowStates, nodeRunFacts } from "../run/player";
 import { markedForRun } from "../run/runMarks";
 import { useT } from "../i18n/useT";
@@ -113,22 +114,25 @@ function CanvasSurface() {
   const surfaceWidth = useStore((state) => state.width);
   const surfaceHeight = useStore((state) => state.height);
   const noteViewportBox = useEditor((state) => state.noteViewportBox);
+  const covers = useEditor((state) => state.covers);
   const t = useT();
 
   // 지금 보여주고 있는 자리가 캔버스 좌표로 어디인지는 캔버스만 안다 — 새 카드를 놓는 자리로
-  // 쓰라고 알려 둔다 (DESIGN §7 palette 배치 — 화면 안이 먼저다).
+  // 쓰라고 알려 둔다 (DESIGN §7 palette 배치 — 화면 안이 먼저다). 팔레트·인스펙터·실행 독처럼
+  // 캔버스 위에 뜬 층이 가린 만큼은 뷰포트에서 뺀다(§7 palette 보이는 네모는 덮개를 뺀 것이다).
   useEffect(() => {
     const rect = surface.current?.getBoundingClientRect();
     if (!rect) return;
-    const near = screenToFlowPosition({ x: rect.left, y: rect.top });
-    const far = screenToFlowPosition({ x: rect.right, y: rect.bottom });
+    const seen = visibleRect(rect, Object.values(covers));
+    const near = screenToFlowPosition({ x: seen.x, y: seen.y });
+    const far = screenToFlowPosition({ x: seen.x + seen.width, y: seen.y + seen.height });
     noteViewportBox({
       x: near.x,
       y: near.y,
       width: far.x - near.x,
       height: far.y - near.y,
     });
-  }, [viewport, surfaceWidth, surfaceHeight, screenToFlowPosition, noteViewportBox]);
+  }, [viewport, surfaceWidth, surfaceHeight, covers, screenToFlowPosition, noteViewportBox]);
 
   // 지금 쥐고 있는 포트 — 받아 줄 자리가 하나도 없으면 그 곁에서 말을 건다 (C5).
   useLandingHint(
@@ -144,9 +148,12 @@ function CanvasSurface() {
     if (measuring.current.request !== viewRequest) {
       measuring.current = { request: viewRequest, waited: 0 };
     }
-    const seen = surface.current?.getBoundingClientRect();
+    const rect = surface.current?.getBoundingClientRect();
     const card = cardRect(surface.current, viewRequest.nodes[0]);
-    if (!seen) return;
+    if (!rect) return;
+    // 캔버스 위에 뜬 층이 가린 자리는 "보인다"고 치지 않는다 — 그만큼 더 데려온다
+    // (DESIGN §7 palette 보이는 네모는 덮개를 뺀 것이다).
+    const seen = visibleRect(rect, Object.values(covers));
     // 아직 그리지도 재지도 못한 카드는 어디 있는지 모른다 — 모르는 채로 화면을 흔들지 않고
     // 다음 프레임에 다시 본다. 끝내 재지 못하면 부탁을 놓는다(매 프레임 다시 묻지 않는다).
     if (!card) {
@@ -167,7 +174,7 @@ function CanvasSurface() {
       );
     }
     viewRequestDone();
-  }, [viewRequest, lookAgain, getViewport, setViewport, viewRequestDone]);
+  }, [viewRequest, lookAgain, covers, getViewport, setViewport, viewRequestDone]);
 
   // 화면을 데려가 달라는 부탁이 오면 그때 움직인다 (브리프 B7).
   useEffect(() => {
@@ -239,6 +246,9 @@ function CanvasSurface() {
         nodesDraggable={!running}
         nodesConnectable={!running}
         fitView
+        // 열 때 전부를 담되 확대는 하지 않는다 — 빈 문서에 첫 카드가 들어오는 순간 초기 fit이
+        // 카드 하나를 2배로 키우면 그 뒤로 보이는 자리가 반으로 줄어 카드가 세로로 감긴다 (DESIGN §7 palette).
+        fitViewOptions={{ maxZoom: 1 }}
       >
         <AlignmentGuides />
         <Controls className="canvas__controls" showInteractive={false} />

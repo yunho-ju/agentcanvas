@@ -55,6 +55,7 @@ const example = exampleSpec as unknown as AgentSpec;
 
 beforeEach(() => {
   Object.assign(seen, SEEN);
+  useEditor.setState({ covers: {} });
   useEditor.getState().loadSpec(example);
 });
 
@@ -83,6 +84,20 @@ describe("보고 있는 화면", () => {
       y: 500,
       width: narrower.width / ZOOM,
       height: narrower.height / ZOOM,
+    });
+  });
+
+  // 팔레트를 연 채 카드를 놓아도 첫 카드가 그 뒤에 숨지 않는다 (DESIGN §7 palette 보이는 네모는 덮개를 뺀 것이다).
+  it("왼쪽에 뜬 층이 있으면 그만큼 뷰포트의 x·width가 줄어든다", () => {
+    useEditor.getState().noteCover("dock", { side: "left", size: 333 });
+
+    render(<Canvas />);
+
+    expect(useEditor.getState().viewportBox).toEqual({
+      x: 1000 + 333 / ZOOM,
+      y: 500,
+      width: SEEN.width / ZOOM - 333 / ZOOM,
+      height: SEEN.height / ZOOM,
     });
   });
 

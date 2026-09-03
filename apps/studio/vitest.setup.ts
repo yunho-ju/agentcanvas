@@ -4,12 +4,23 @@ import { setLocale } from "./src/i18n/localeStore";
 import { useEditor } from "./src/store/editor";
 
 // jsdom에는 ResizeObserver가 없다 — xyflow가 캔버스 크기를 재려고 찾는다.
+// 콜백을 여기 모아 두면, 크기가 실제로 바뀌는 jsdom 밖 세계를 흉내 낼 시험이 직접 불러 재측정을 일으킬 수 있다.
 if (!("ResizeObserver" in globalThis)) {
+  const callbacks = new Set<ResizeObserverCallback>();
   globalThis.ResizeObserver = class {
+    #callback: ResizeObserverCallback;
+    constructor(callback: ResizeObserverCallback) {
+      this.#callback = callback;
+      callbacks.add(callback);
+    }
     observe() {}
     unobserve() {}
-    disconnect() {}
+    disconnect() {
+      callbacks.delete(this.#callback);
+    }
   };
+  (globalThis as unknown as { __resizeObservers: Set<ResizeObserverCallback> }).__resizeObservers =
+    callbacks;
 }
 
 // jsdom에는 DOMMatrixReadOnly가 없다 — xyflow가 화면 배율(m22)을 읽으려고 찾는다.

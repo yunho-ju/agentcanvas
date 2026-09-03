@@ -115,11 +115,15 @@ function alongTheRow(columns: number[], anchorX: number): number[] {
   return [...rightwards, ...leftwards];
 }
 
-/** 줄을 살펴볼 순서 — 가운데 줄, 그다음 아래 줄, 그다음 위 줄(멀어지며 번갈아). */
+/**
+ * 줄을 살펴볼 순서 — 가운데 줄에서 아래로 차례로, 아래 줄이 다 차면 위 줄들을 가까운 순으로.
+ * 아래·위를 번갈아 잡으면 세로로 감길 때 세 번째 카드가 첫 카드 위에 서서 읽는 순서가 깨진다
+ * (DESIGN §7 palette — 가로에서 오른쪽을 다 쓰고 왼쪽으로 가는 것과 같은 이치).
+ */
 function fromTheMiddleRow(rows: number[], anchorY: number): number[] {
-  return [...rows].sort(
-    (one, other) => Math.abs(one - anchorY) - Math.abs(other - anchorY) || other - one,
-  );
+  const downwards = rows.filter((y) => y >= anchorY).sort((one, other) => one - other);
+  const upwards = rows.filter((y) => y < anchorY).sort((one, other) => other - one);
+  return [...downwards, ...upwards];
 }
 
 /**

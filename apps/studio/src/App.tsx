@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import "./app.css";
 import { Canvas } from "./canvas/Canvas";
 import { StatusBar } from "./canvas/StatusBar";
+import { useCoverReport } from "./canvas/useCoverReport";
 import { Dock } from "./shell/Dock";
 import { DocCard } from "./shell/DocCard";
 import { HistoryControls } from "./shell/HistoryControls";
@@ -47,6 +48,12 @@ import { isComparing, isRunning } from "./store/runSlice";
 
 export function App() {
   const inspectorRef = useRef<HTMLElement>(null);
+  const layerRightRef = useRef<HTMLDivElement>(null);
+  const layerBottomRef = useRef<HTMLDivElement>(null);
+  // 캔버스 위에 뜬 오른쪽·아래 층도 팔레트와 같은 규칙으로 자기가 가린 띠를 알린다
+  // (DESIGN §7 palette — 보이는 네모는 덮개를 뺀 것이다).
+  useCoverReport(layerRightRef, "layer-right", "right");
+  useCoverReport(layerBottomRef, "layer-bottom", "bottom");
   const dock = useDockPanel();
   const architectOpen = useEditor((state) => state.architectMode === "guided" && state.spec === null && state.nodes.length === 0);
   // 재생 중에는 밖의 시계가 store에 시간을 흘려 넣는다.
@@ -160,7 +167,9 @@ export function App() {
         {/* 겉 레이어는 자리만 잡고 클릭을 받지 않는다 — 스크롤은 손이 닿는 안쪽 기둥의 일이다
             (DESIGN §1 우측 레이어의 자리 나눔). */}
         <div className="layer-right">
-          <div className="layer-right__stack">
+          {/* 덮개는 이 안쪽 기둥의 자식들(실제로 뜬 패널)로 잰다 — 바깥 껍데기는 스크롤 padding
+              때문에 패널이 하나도 없어도 폭·높이를 갖는다 (DESIGN §7 palette). */}
+          <div className="layer-right__stack" ref={layerRightRef}>
             <Inspector panelRef={inspectorRef} />
             <EventList />
             {/* 시험 모드일 때만 선다 — 캔버스는 배경에 그대로다 (DESIGN §7 eval-panel). */}
@@ -173,7 +182,7 @@ export function App() {
             {!architectOpen ? <FirstStepsCard /> : null}
           </div>
         </div>
-        <div className="layer-bottom">
+        <div className="layer-bottom" ref={layerBottomRef}>
           <StatusBar />
           <Timeline />
           <RunHistoryStrip />

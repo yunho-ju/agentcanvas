@@ -1,6 +1,7 @@
 // 어디를 보고 있는가 — 화면을 데려가 달라는 부탁만 남긴다 (브리프 B7).
 // 실제로 화면을 옮기는 일은 캔버스가 한다. store는 지도를 그리지 않는다.
 import type { StateCreator } from "zustand";
+import type { Cover } from "../graph/visibleRect";
 import type { ViewBox } from "../graph/placement";
 import type { EditorState } from "./editor";
 
@@ -17,6 +18,10 @@ export interface ViewSlice {
   viewportBox: ViewBox;
   /** 캔버스가 자기가 보여주고 있는 자리를 알려 준다 — 그것을 아는 것은 캔버스뿐이다 */
   noteViewportBox: (seen: ViewBox) => void;
+  /** 캔버스 위에 뜬 층들이 자기가 가린 띠 — 층의 id로 기억한다 */
+  covers: Record<string, Cover>;
+  /** 한 층이 자기가 지금 차지한 띠를 알린다. null이면 그 층의 덮개가 사라진다(닫힘) */
+  noteCover: (id: string, cover: Cover | null) => void;
   /** 캔버스에 있는 것을 모두 한 화면에 */
   fitAll: () => void;
   /** 지금 고른 노드로 */
@@ -48,6 +53,26 @@ export const createViewSlice: StateCreator<EditorState, [], [], ViewSlice> = (
       seen.height === now.height;
     if (same) return;
     set({ viewportBox: seen });
+  },
+
+  covers: {},
+
+  noteCover: (id, cover) => {
+    const now = get().covers;
+    const had = now[id];
+    const same =
+      (had === undefined && cover === null) ||
+      (had !== undefined &&
+        cover !== null &&
+        had.side === cover.side &&
+        had.size === cover.size);
+    if (same) return;
+    if (cover === null) {
+      const { [id]: _removed, ...rest } = now;
+      set({ covers: rest });
+      return;
+    }
+    set({ covers: { ...now, [id]: cover } });
   },
 
   // 같은 곳을 다시 부탁해도 새 부탁이다 — 그래서 매번 새 객체를 놓는다.

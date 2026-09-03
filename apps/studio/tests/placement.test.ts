@@ -254,6 +254,47 @@ describe("화면 안이 먼저다", () => {
     expect(rowSpan(placed)).toBeLessThanOrEqual(VIEW.width - GAP_NEXT);
   });
 
+  // 회송 UXQ2-9: 보이는 폭이 한 장 분량이면 줄마다 칸이 하나뿐이라 줄 순서 자체가 드러난다.
+  // 아래·위를 번갈아 잡으면 셋째 카드가 첫 카드 위에 서서 읽는 순서가 깨진다.
+  describe("격자 탐색은 세로로 감길 때도 읽는 순서다", () => {
+    const ONE_COLUMN = { x: 0, y: 0, width: 240, height: 900 };
+
+    it("세 장을 놓으면 위→아래로 y가 오름차순으로 늘어선다", () => {
+      const step = NODE_SIZE.height + GAP_NEXT;
+      const first = centredIn(ONE_COLUMN);
+      const placed: Card[] = [];
+      for (const id of ["input", "agent", "output"]) {
+        const at = placeNewNode({ nodes: [...placed], selectedId: null, viewport: ONE_COLUMN });
+        placed.push(card(id, at.x, at.y));
+      }
+
+      expect(placed.map((one) => one.position)).toEqual(
+        [0, 1, 2].map((row) => ({ x: first.x, y: first.y + row * step })),
+      );
+    });
+
+    it("아래 줄이 아직 남아 있으면 위 줄로 가지 않는다", () => {
+      // 높이를 줄여 아래로 갈 수 있는 줄을 가운데 포함 셋으로 못 박는다.
+      const view = { x: 0, y: 0, width: 240, height: 304 };
+      const step = NODE_SIZE.height + GAP_NEXT;
+      const first = centredIn(view);
+      const placed: Card[] = [];
+      for (const id of ["one", "two", "three"]) {
+        const at = placeNewNode({ nodes: [...placed], selectedId: null, viewport: view });
+        placed.push(card(id, at.x, at.y));
+      }
+
+      // 아래로 내려갈 줄이 아직 둘 남았을 때도(첫 장을 놓은 다음부터) 위로 가지 않는다.
+      expect(placed.map((one) => one.position)).toEqual(
+        [0, 1, 2].map((row) => ({ x: first.x, y: first.y + row * step })),
+      );
+
+      // 아래 줄이 다 찬 뒤에야 위 줄로 간다.
+      const fourth = placeNewNode({ nodes: placed, selectedId: null, viewport: view });
+      expect(fourth).toEqual({ x: first.x, y: first.y - step });
+    });
+  });
+
   it("가운데 줄이 다 차고 줄이 화면 폭을 넘으면 아래 줄로 내려간다 — 위가 아니라 아래가 먼저다", () => {
     const step = NODE_SIZE.width + GAP_NEXT;
     const first = centredIn(VIEW);

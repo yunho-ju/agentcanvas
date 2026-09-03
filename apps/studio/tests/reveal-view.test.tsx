@@ -75,6 +75,7 @@ beforeEach(() => {
   // 여백은 토큰의 것이다 — jsdom에는 스타일시트가 없으므로 여기서 그 값을 꽂아 둔다.
   document.documentElement.style.setProperty("--space-4", `${MARGIN}px`);
   cardBox = OUTSIDE;
+  useEditor.setState({ covers: {} });
   store().loadSpec(example);
   setViewport.mockClear();
   fitView.mockClear();
@@ -131,6 +132,28 @@ describe("화면 밖에 놓인 카드", () => {
 
     expect(setViewport).not.toHaveBeenCalled();
     expect(store().viewRequest).toBeNull();
+  });
+});
+
+describe("캔버스 위에 뜬 층이 가린 자리", () => {
+  // 오른쪽에 뜬 층(인스펙터 등)이 있으면 그 뒤는 "보인다"고 치지 않는다 — 그만큼 더 옮긴다
+  // (DESIGN §7 palette 보이는 네모는 덮개를 뺀 것이다).
+  it("오른쪽 덮개가 있으면 덮개 크기만큼 더 움직인다", () => {
+    const rightCover = 100;
+    store().noteCover("layer-right", { side: "right", size: rightCover });
+    render(<Canvas />);
+    setViewport.mockClear();
+
+    act(() => {
+      store().revealNode("input");
+    });
+
+    expect(setViewport).toHaveBeenCalledTimes(1);
+    expect(setViewport.mock.calls[0][0]).toEqual({
+      x: SEEN.width - rightCover - MARGIN - (OUTSIDE.x + OUTSIDE.width),
+      y: 0,
+      zoom: 1,
+    });
   });
 });
 

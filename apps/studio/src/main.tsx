@@ -6,6 +6,12 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { SessionGate } from "./SessionGate";
 import { installAuthenticatedFetch } from "./auth";
+import { useEditor } from "./store/editor";
+
+// 개발 빌드에서만 store를 창에 건다 — 실브라우저 QA가 화면 값(뷰포트·덮개)을 그대로 읽기 위해서다.
+if (import.meta.env.DEV) {
+  (window as Window & { __editor?: typeof useEditor }).__editor = useEditor;
+}
 
 installAuthenticatedFetch();
 
