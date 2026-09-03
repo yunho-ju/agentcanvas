@@ -7,6 +7,7 @@ import { useFocusInspector } from "../inspector/inspectorFocus";
 import { RunInputCard } from "../run/RunInputCard";
 import { useEditor } from "../store/editor";
 import { isRunning } from "../store/runSlice";
+import { docSkills } from "../store/skillSlice";
 
 export function RunControls() {
   const spec = useEditor((state) => state.spec);
@@ -24,7 +25,9 @@ export function RunControls() {
   const nodes = useEditor((state) => state.nodes);
   const select = useEditor((state) => state.select);
   const focusInspector = useFocusInspector();
-  const waiting = useMemo(() => nodesNeedingSetup(nodes), [nodes]);
+  // 입은 skill이 문서에 있는지도 손볼 곳이다 — 뱃지와 같은 판정을 같은 재료로 읽는다.
+  const skills = useEditor(docSkills);
+  const waiting = useMemo(() => nodesNeedingSetup(nodes, skills), [nodes, skills]);
   const t = useT();
 
   return (

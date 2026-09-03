@@ -705,11 +705,12 @@ def test_the_skill_reader_never_mistakes_a_connection_for_a_skill():
 
 @pytest.mark.parametrize("language", ["en", "ko"])
 def test_the_skill_field_shows_the_shape_of_what_goes_in_it(language: str):
-    """검증기가 바라는 값은 이름이 아니라 이름표다 — 칸이 그 꼴을 직접 보여 준다."""
+    """칸은 체크 목록이다 — 사람에게 이름표 문법이 아니라 고르는 법을 말한다 (DESIGN §7 skill-wear)."""
     field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["skill_refs"]
     description = (
         field["description"]
         if language == "en"
         else field["x-i18n"]["ko"]["description"]
     )
-    assert "skill://" in description
+    assert "skill://" not in description
+    assert ("Tick" in description) or ("고른다" in description)

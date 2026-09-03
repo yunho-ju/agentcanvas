@@ -4776,13 +4776,15 @@ button:disabled {
 
 /* ── 연결 패널과 도구 만들기 카드 (DESIGN §7 resources-panel / tool-wrap-card) ── */
 
-.resources-panel {
+.resources-panel,
+.skills-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.resources-panel__title {
+.resources-panel__title,
+.skills-panel__title {
   margin: 0 0 var(--space-2);
   font-size: var(--text-caption);
   font-weight: var(--weight-semibold);
@@ -4792,6 +4794,7 @@ button:disabled {
 }
 
 .resources-panel__list,
+.skills-panel__list,
 .resources-panel__tools,
 .tool-wrap-card__proposed,
 .tool-wrap-card__tools {
@@ -4804,6 +4807,7 @@ button:disabled {
 }
 
 .resources-panel__connection,
+.skills-panel__skill,
 .tool-wrap-card__connection {
   display: flex;
   flex-direction: column;
@@ -4815,6 +4819,8 @@ button:disabled {
 }
 
 .resources-panel__name,
+.skills-panel__name,
+.skill-import-card__name,
 .tool-wrap-card__name {
   font-size: var(--text-label);
   font-weight: var(--weight-semibold);
@@ -4824,6 +4830,18 @@ button:disabled {
 .resources-panel__kind,
 .resources-panel__no-tools,
 .resources-panel__empty,
+.skills-panel__explain,
+.skills-panel__what,
+.skills-panel__from,
+.skills-panel__idle,
+.skills-panel__empty,
+.skills-panel__length,
+.skill-import-card__caption,
+.skill-import-card__label,
+.skill-import-card__status,
+.skill-wear__explain,
+.skill-wear__empty,
+.skill-wear__what,
 .tool-wrap-card__label,
 .tool-wrap-card__secret,
 .tool-wrap-card__status,
@@ -4832,7 +4850,8 @@ button:disabled {
   color: var(--ink-soft);
 }
 
-.resources-panel__empty {
+.resources-panel__empty,
+.skills-panel__empty {
   margin: 0;
 }
 
@@ -4858,7 +4877,8 @@ button:disabled {
   color: var(--ink);
 }
 
-.tool-wrap-card {
+.tool-wrap-card,
+.skill-import-card {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -4873,35 +4893,41 @@ button:disabled {
   padding: var(--space-4);
 }
 
-.tool-wrap-card__title {
+.tool-wrap-card__title,
+.skill-import-card__title {
   margin: 0;
   font-size: var(--text-title);
   font-weight: var(--weight-semibold);
 }
 
-.tool-wrap-card__description {
+.tool-wrap-card__description,
+.skill-import-card__description {
   margin: 0;
   font-size: var(--text-body);
   color: var(--ink-soft);
 }
 
-.tool-wrap-card__error {
+.tool-wrap-card__error,
+.skill-import-card__error {
   margin: 0;
   font-size: var(--text-caption);
   color: var(--danger-ink);
 }
 
-.tool-wrap-card__source {
+.tool-wrap-card__source,
+.skill-import-card__source {
   min-height: calc(var(--space-6) * 4);
   resize: vertical;
 }
 
-.tool-wrap-card__kinds {
+.tool-wrap-card__kinds,
+.skill-import-card__kinds {
   display: inline-flex;
   gap: var(--space-1);
 }
 
-.tool-wrap-card__kind {
+.tool-wrap-card__kind,
+.skill-import-card__kind {
   padding: var(--space-2) var(--space-3);
   border: var(--border-hair) solid var(--hairline);
   border-radius: var(--radius-control);
@@ -4913,39 +4939,47 @@ button:disabled {
   cursor: pointer;
 }
 
-.tool-wrap-card__kind:hover:not(:disabled) {
+.tool-wrap-card__kind:hover:not(:disabled),
+.skill-import-card__kind:hover:not(:disabled) {
   background: var(--surface-hover);
   color: var(--ink);
 }
 
-.tool-wrap-card__kind:active:not(:disabled) {
+.tool-wrap-card__kind:active:not(:disabled),
+.skill-import-card__kind:active:not(:disabled) {
   transform: scale(0.98);
 }
 
-.tool-wrap-card__kind:focus-visible {
+.tool-wrap-card__kind:focus-visible,
+.skill-import-card__kind:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
 }
 
-.tool-wrap-card__kind:disabled {
+.tool-wrap-card__kind:disabled,
+.skill-import-card__kind:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.tool-wrap-card__kind[aria-pressed="true"] {
+.tool-wrap-card__kind[aria-pressed="true"],
+.skill-import-card__kind[aria-pressed="true"] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
   font-weight: var(--weight-semibold);
 }
 
-.tool-wrap-card__actions {
+.tool-wrap-card__actions,
+.skill-import-card__actions {
   display: flex;
   gap: var(--space-2);
 }
 
 .resources-panel__new,
-.tool-wrap-card__actions button {
+.skills-panel__new,
+.tool-wrap-card__actions button,
+.skill-import-card__actions button {
   padding: var(--space-2) var(--space-3);
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-control);
@@ -4956,47 +4990,61 @@ button:disabled {
 }
 
 .resources-panel__new,
-.tool-wrap-card__actions .button-primary {
+.skills-panel__new,
+.tool-wrap-card__actions .button-primary,
+.skill-import-card__actions .button-primary {
   background: var(--accent);
   color: var(--on-accent);
 }
 
 .resources-panel__new:hover:not(:disabled),
-.tool-wrap-card__actions .button-primary:hover:not(:disabled) {
+.skills-panel__new:hover:not(:disabled),
+.tool-wrap-card__actions .button-primary:hover:not(:disabled),
+.skill-import-card__actions .button-primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
 .resources-panel__new:active:not(:disabled),
-.tool-wrap-card__actions .button-primary:active:not(:disabled) {
+.skills-panel__new:active:not(:disabled),
+.tool-wrap-card__actions .button-primary:active:not(:disabled),
+.skill-import-card__actions .button-primary:active:not(:disabled) {
   background: var(--accent-active);
   transform: scale(0.98);
 }
 
-.tool-wrap-card__actions .button-ghost {
+.tool-wrap-card__actions .button-ghost,
+.skill-import-card__actions .button-ghost {
   background: transparent;
   color: var(--ink-soft);
 }
 
-.tool-wrap-card__actions .button-ghost:hover:not(:disabled) {
+.tool-wrap-card__actions .button-ghost:hover:not(:disabled),
+.skill-import-card__actions .button-ghost:hover:not(:disabled) {
   background: var(--surface-hover);
   color: var(--ink);
 }
 
-.tool-wrap-card__actions .button-ghost:active:not(:disabled) {
+.tool-wrap-card__actions .button-ghost:active:not(:disabled),
+.skill-import-card__actions .button-ghost:active:not(:disabled) {
   background: var(--surface-hover);
   color: var(--ink);
   transform: scale(0.98);
 }
 
 .resources-panel__new:focus-visible,
+.skills-panel__new:focus-visible,
 .tool-wrap-card__actions .button-primary:focus-visible,
-.tool-wrap-card__actions .button-ghost:focus-visible {
+.tool-wrap-card__actions .button-ghost:focus-visible,
+.skill-import-card__actions .button-primary:focus-visible,
+.skill-import-card__actions .button-ghost:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
 }
 
 .resources-panel__new:disabled,
-.tool-wrap-card__actions button:disabled {
+.skills-panel__new:disabled,
+.tool-wrap-card__actions button:disabled,
+.skill-import-card__actions button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -5058,7 +5106,8 @@ button:disabled {
   color: var(--ink-soft);
 }
 
-.resources-panel__actions {
+.resources-panel__actions,
+.skills-panel__actions {
   display: flex;
   gap: var(--space-2);
   margin-top: var(--space-1);
@@ -5066,7 +5115,9 @@ button:disabled {
 
 /* 두 행동은 ghost 문법 그대로다 — 지우기만 글자가 danger다 (§9 붉은 바탕 상시 금지). */
 .resources-panel__reimport,
-.resources-panel__delete {
+.resources-panel__delete,
+.skills-panel__read,
+.skills-panel__delete {
   padding: var(--space-1) var(--space-2);
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-control);
@@ -5077,39 +5128,49 @@ button:disabled {
   cursor: pointer;
 }
 
-.resources-panel__delete {
+.resources-panel__delete,
+.skills-panel__delete {
   color: var(--danger-ink);
 }
 
-.resources-panel__reimport:hover:not(:disabled) {
+.resources-panel__reimport:hover:not(:disabled),
+.skills-panel__read:hover:not(:disabled) {
   background: var(--surface-hover);
   color: var(--ink);
 }
 
-.resources-panel__delete:hover:not(:disabled) {
+.resources-panel__delete:hover:not(:disabled),
+.skills-panel__delete:hover:not(:disabled) {
   border-color: var(--danger);
   background: var(--surface-hover);
 }
 
 .resources-panel__reimport:active:not(:disabled),
-.resources-panel__delete:active:not(:disabled) {
+.resources-panel__delete:active:not(:disabled),
+.skills-panel__read:active:not(:disabled),
+.skills-panel__delete:active:not(:disabled) {
   background: var(--surface-active);
   transform: scale(0.98);
 }
 
 .resources-panel__reimport:focus-visible,
-.resources-panel__delete:focus-visible {
+.resources-panel__delete:focus-visible,
+.skills-panel__read:focus-visible,
+.skills-panel__delete:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
 }
 
 .resources-panel__reimport:disabled,
-.resources-panel__delete:disabled {
+.resources-panel__delete:disabled,
+.skills-panel__read:disabled,
+.skills-panel__delete:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.resources-panel__undo {
+.resources-panel__undo,
+.skills-panel__undo {
   font-size: var(--text-caption);
   line-height: var(--leading-tight);
   color: var(--ink-soft);
@@ -5413,4 +5474,236 @@ button:disabled {
   align-self: flex-end;
   font-size: var(--text-caption);
   color: var(--ink-soft);
+}
+
+/* ── skill 패널·가져오기 카드·입는 skill 칸 (DESIGN §7 skills-panel / skill-import-card / skill-wear) ──
+   표면과 버튼 문법은 연결 패널·도구 만들기 카드의 것을 그대로 물려받는다 (위 선택자 묶음).
+   여기 있는 것은 skill에만 있는 자리뿐이다. */
+
+.skills-panel__wearers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.skills-panel__wearers-label {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}
+
+/* 입은 단계는 이름표 하나로 — 캔버스의 그 노드를 부르는 그 이름이다. */
+.skills-panel__wearer {
+  padding: 0 var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  font-size: var(--text-caption);
+  color: var(--ink);
+}
+
+/* 읽기용 본문 — 패널 안에서도, 카드 안에서도 같은 글의 결이다. */
+.skill-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+
+.skill-body__heading {
+  margin: 0;
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.skill-body__paragraph {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--ink);
+}
+
+.skill-body__list {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.skill-body__item {
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.skill-body__quote {
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: var(--border-hair) solid var(--accent);
+  font-size: var(--text-body);
+  color: var(--ink-soft);
+}
+
+/* 넣어도 되지만 알고는 있어야 할 것 — 붉은 바탕 없이 글자만 말한다 (§9). */
+.skill-import-card__warn,
+.skills-panel__warn,
+.skill-wear__warn {
+  font-size: var(--text-caption);
+  color: var(--warn-ink);
+}
+
+.skill-import-card__what {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.skill-import-card__trouble {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.skill-import-card__starters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.skill-import-card__starters-title {
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.skill-import-card__starter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skill-import-card__starter-name {
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+}
+
+.skill-import-card__starter-what {
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+}
+
+.skill-import-card__more {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.skill-import-card__starter:hover:not(:disabled),
+.skill-import-card__more:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.skill-import-card__starter:active:not(:disabled),
+.skill-import-card__more:active:not(:disabled) {
+  background: var(--surface-active);
+  transform: scale(0.98);
+}
+
+.skill-import-card__starter:focus-visible,
+.skill-import-card__more:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.skill-import-card__starter:disabled,
+.skill-import-card__more:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 입는 skill 칸 — 셀렉트가 아니라 체크 목록이다 (DESIGN §7 skill-wear). */
+.skill-wear {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.skill-wear__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skill-wear__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.skill-wear__pick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.skill-wear__name {
+  font-size: var(--text-label);
+  color: var(--ink);
+}
+
+.skill-wear__import {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.skill-wear__import:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.skill-wear__import:active:not(:disabled) {
+  background: var(--surface-active);
+  transform: scale(0.98);
+}
+
+.skill-wear__import:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.skill-wear__import:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

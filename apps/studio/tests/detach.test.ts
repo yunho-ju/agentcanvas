@@ -121,7 +121,7 @@ describe("asking to take a node out", () => {
   });
 
   it("knows there is nothing to take back about a node that is not there", () => {
-    const scene = { ...toFlow(example), tray: [], name: null, resources: [], input_schema: {} };
+    const scene = { ...toFlow(example), tray: [], name: null, resources: [], input_schema: {}, skills: [] };
     expect(changesNothing(detachToTray(scene, "ghost"))).toBe(true);
   });
 });
@@ -265,14 +265,14 @@ describe("plugging a stored node back in", () => {
   });
 
   it("leaves the scene as it is when asked for a node nobody stored", () => {
-    const scene = { ...toFlow(example), tray: [], name: null, resources: [], input_schema: {} };
+    const scene = { ...toFlow(example), tray: [], name: null, resources: [], input_schema: {}, skills: [] };
 
     expect(restoreFromTray(scene, "ghost").apply(scene)).toEqual(scene);
     expect(restoreFromTray(scene, "ghost").revert(scene)).toEqual(scene);
   });
 
   it("knows there is nothing to take back about a node nobody stored", () => {
-    const scene = { ...toFlow(example), tray: [], name: null, resources: [], input_schema: {} };
+    const scene = { ...toFlow(example), tray: [], name: null, resources: [], input_schema: {}, skills: [] };
     expect(changesNothing(restoreFromTray(scene, "ghost"))).toBe(true);
   });
 });

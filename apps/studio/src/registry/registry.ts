@@ -83,6 +83,21 @@ export function skillRefs(node: SpecNode, nodeType: NodeType): string[] {
   return markedRefs(node, nodeType, SKILL_REF_MARKER);
 }
 
+/**
+ * 입은 skill을 적는 칸의 이름 — 표식을 붙인 칸이 없으면 없다.
+ * 화면은 노드 타입 이름도, 칸 이름도 외우지 않는다: registry에게 묻는다.
+ */
+export function skillRefField(nodeType: NodeType): string | undefined {
+  const properties = asRecord(nodeType.config_schema.properties) ?? {};
+  return Object.entries(properties).find(([, field]) => {
+    const schema = asRecord(field);
+    return (
+      schema?.[SKILL_REF_MARKER] === true ||
+      asRecord(schema?.items)?.[SKILL_REF_MARKER] === true
+    );
+  })?.[0];
+}
+
 /** 이 노드가 고른 도구 — 가리킨 바인딩이 그 이름의 도구를 들고 있을 때만 있다. */
 function chosenTool(
   node: SpecNode,

@@ -68,6 +68,12 @@ export function isToolWrapFieldFocused(target: EventTarget | null): boolean {
   return isEditingElement(target) && target.closest(".tool-wrap-card") !== null;
 }
 
+/** skill을 가져오는 칸에 손이 있는가 — 그 칸의 Esc는 손을 떼는 일이다 (DESIGN §7 skill-import-card). */
+export function isSkillImportFieldFocused(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return isEditingElement(target) && target.closest(".skill-import-card") !== null;
+}
+
 /** 대화에서 할 말을 적는 칸에 손이 있는가 — 그 칸의 Esc는 손을 떼는 일이다 (DESIGN §7 chat-panel). */
 export function isChatFieldFocused(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -165,6 +171,10 @@ export interface ShortcutContext {
   toolWrapOpen: boolean;
   /** 손이 그 카드의 붙여 넣는 칸 안에 있는가 */
   onToolWrapField: boolean;
+  /** 붙여 넣은 글을 skill로 바꾸는 카드가 떠 있는가 */
+  skillImportOpen: boolean;
+  /** 손이 그 카드의 적는 칸 안에 있는가 */
+  onSkillImportField: boolean;
   /** 대화 패널이 열려 있는가 */
   chatOpen: boolean;
   /** 손이 대화에서 할 말을 적는 칸 안에 있는가 */
@@ -227,6 +237,9 @@ const ESCAPE_CHAIN: RetreatStep[] = [
   // 붙여 넣던 칸에 손이 있으면 그 손만 뗀다 — 긴 붙여넣기를 한 번의 Esc로 잃지 않는다.
   { when: (it) => it.onToolWrapField, step: ({ blurField }) => blurField() },
   { when: (it) => it.toolWrapOpen, step: ({ editor }) => editor.closeToolWrap() },
+  // skill을 가져오는 카드도 같은 자리에서, 같은 순서로 물러난다.
+  { when: (it) => it.onSkillImportField, step: ({ blurField }) => blurField() },
+  { when: (it) => it.skillImportOpen, step: ({ editor }) => editor.closeSkillImport() },
   { when: (it) => it.panelOpen, step: ({ closePanel }) => closePanel() },
   { when: (it) => it.comparing, step: ({ editor }) => editor.clearCompare() },
   { when: (it) => it.running, step: ({ editor }) => editor.stopRun() },
@@ -249,6 +262,7 @@ export function findShortcut(
         context.onGateField ||
         context.onRunInputField ||
         context.onToolWrapField ||
+        context.onSkillImportField ||
         context.onChatField));
   if (context.editing && !typingException) return undefined;
   // Esc는 언제나 체인이 답한다 — 손이 어디에 있든 물러나는 순서는 같다.

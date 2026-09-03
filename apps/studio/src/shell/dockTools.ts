@@ -5,8 +5,9 @@ import { NodeList } from "../canvas/NodeList";
 import { Palette } from "../canvas/Palette";
 import { Tray } from "../canvas/Tray";
 import { ResourcesPanel } from "../resources/ResourcesPanel";
+import { SkillsPanel } from "../skills/SkillsPanel";
 
-export type DockPanelId = "palette" | "tray" | "nodes" | "resources";
+export type DockPanelId = "palette" | "tray" | "nodes" | "resources" | "skills";
 
 export interface DockTool {
   id: DockPanelId;
@@ -40,6 +41,14 @@ export const DOCK_TOOLS: DockTool[] = [
     hint: "resources.hint",
     mark: "⇄",
     panel: ResourcesPanel,
+  },
+  {
+    id: "skills",
+    name: "skills.title",
+    hint: "skills.hint",
+    // 글 한 편을 뜻하는 기호 — 다른 도구의 기호와 겹치지 않는다.
+    mark: "¶",
+    panel: SkillsPanel,
   },
   {
     id: "nodes",

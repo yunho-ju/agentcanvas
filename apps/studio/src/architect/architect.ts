@@ -25,7 +25,9 @@ export interface ArchitectReview {
  * 한 칸이 여러 이유로 어긋나도 채울 자리는 하나다 — 노드+필드 짝으로 센다. */
 function fieldsToFill(spec: AgentSpec): number {
   const fields = spec.nodes.flatMap((node) =>
-    nodeSetupIssues(node, nodeTypes[node.type]).map((issue) => `${node.id}/${issue.field}`),
+    nodeSetupIssues(node, nodeTypes[node.type], spec.skills ?? []).map(
+      (issue) => `${node.id}/${issue.field}`,
+    ),
   );
   return new Set(fields).size;
 }

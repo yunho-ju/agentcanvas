@@ -3,10 +3,13 @@
 // config_schema가 요구하는(required) 값이 비었는지까지 함께 본다. 순수 함수다.
 import type { Node1 as SpecNode } from "../generated/agent_spec";
 import type { NodeType } from "../generated/node_type";
+import type { SkillDef } from "../generated/skill_def";
 import { type Message, msg } from "../i18n/messages";
 import { fieldTitle } from "../inspector/schemaForm";
-import { INPUT_NODE_TYPE } from "../registry/registry";
+import { INPUT_NODE_TYPE, skillRefField } from "../registry/registry";
 import type { FlowNode } from "./serialize";
+import { missingWornRefs } from "./skillIssues";
+import { nameInSkillRef } from "./skillMarkdown";
 
 export interface SetupIssue {
   /** 어느 설정 항목의 이야기인가 — inspector의 그 자리로 데려가는 데 쓴다 */
@@ -56,14 +59,44 @@ function bindingIssues(value: unknown): SetupIssue[] {
   });
 }
 
-/** 이 노드가 아직 설정을 기다리는 이유들. 비어 있으면 준비가 끝난 노드다. */
-export function nodeSetupIssues(node: SpecNode, nodeType?: NodeType): SetupIssue[] {
+/**
+ * 이 노드가 입었지만 문서에 없는 skill — validator `skill.missing`(graph/skillIssues)이 내린
+ * 그 판정을 그 칸의 손볼 곳으로 옮긴다. 이름표가 아니라 사람이 부르는 이름으로 말한다.
+ */
+export function skillWearIssues(
+  node: SpecNode,
+  nodeType: NodeType | undefined,
+  skills: SkillDef[],
+): SetupIssue[] {
+  if (!nodeType) return [];
+  const field = skillRefField(nodeType);
+  if (field === undefined) return [];
+  return missingWornRefs(
+    node,
+    nodeType,
+    skills.map((skill) => skill.ref),
+  ).map((ref) => ({
+    field,
+    message: msg("setup.skillMissing", { name: nameInSkillRef(ref) ?? ref }),
+  }));
+}
+
+/**
+ * 이 노드가 아직 설정을 기다리는 이유들. 비어 있으면 준비가 끝난 노드다.
+ * 문서가 가진 skill을 함께 받는다 — 입은 skill이 문서에 있는지는 문서를 봐야 아는 일이고,
+ * 뱃지·pill·실행 게이트·첫 걸음이 모두 이 한 판정을 읽어야 서로 어긋나지 않는다.
+ */
+export function nodeSetupIssues(
+  node: SpecNode,
+  nodeType: NodeType | undefined,
+  skills: SkillDef[],
+): SetupIssue[] {
   if (!nodeType) {
     return [{ field: null, message: msg("setup.unknownType", { type: node.type }) }];
   }
   const config = (node.config ?? {}) as Record<string, unknown>;
 
-  return requiredFields(nodeType).flatMap((field) => {
+  const waiting = requiredFields(nodeType).flatMap((field) => {
     const value = config[field];
     if (isBlank(value)) {
       return [{ field, message: msg("setup.empty", { title: titleOf(nodeType, field) }) }];
@@ -73,11 +106,12 @@ export function nodeSetupIssues(node: SpecNode, nodeType?: NodeType): SetupIssue
     }
     return [];
   });
+  return [...waiting, ...skillWearIssues(node, nodeType, skills)];
 }
 
 /** 캔버스에서 확인이 필요한 노드들 — 집계 pill과 실행 전 검증이 세는 대상. */
-export function nodesNeedingSetup(nodes: FlowNode[]): FlowNode[] {
+export function nodesNeedingSetup(nodes: FlowNode[], skills: SkillDef[]): FlowNode[] {
   return nodes.filter(
-    (node) => nodeSetupIssues(node.data.spec, node.data.nodeType).length > 0,
+    (node) => nodeSetupIssues(node.data.spec, node.data.nodeType, skills).length > 0,
   );
 }

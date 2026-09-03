@@ -44,6 +44,7 @@ export const createHistorySlice: StateCreator<EditorState, [], [], HistorySlice>
             name: next.name,
             resources: next.resources,
             input_schema: next.input_schema,
+            skills: next.skills,
           },
         }
       : {}),

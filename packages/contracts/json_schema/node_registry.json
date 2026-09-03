@@ -198,7 +198,7 @@
           }
         },
         "skill_refs": {
-          "description": "Write the tag of each skill this agent should follow, one per line — the tag looks like skill://name@1 and is listed with the document's skills.",
+          "description": "Tick the skills (written ways of working) this step should follow. Only skills this document holds can be ticked; bring one in first if the list is empty.",
           "items": {
             "type": "string",
             "x-skill-ref": true
@@ -207,7 +207,7 @@
           "type": "array",
           "x-i18n": {
             "ko": {
-              "description": "이 에이전트가 따를 skill의 이름표를 한 줄에 하나씩 적는다 — 이름표는 skill://이름@1 꼴이고 이 문서의 skill 목록에 적혀 있다.",
+              "description": "이 단계가 따를 skill(일하는 방법을 적어 둔 글)을 고른다. 이 문서에 든 skill만 고를 수 있다 — 목록이 비어 있으면 먼저 가져온다.",
               "title": "입는 skill"
             }
           }

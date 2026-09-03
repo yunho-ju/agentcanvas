@@ -8,6 +8,7 @@ import { HistoryControls } from "./shell/HistoryControls";
 import { ModeSegment } from "./shell/ModeSegment";
 import { OpenDialog } from "./shell/OpenDialog";
 import { ToolWrapCard } from "./resources/ToolWrapCard";
+import { SkillImportCard } from "./skills/SkillImportCard";
 import { RunControls } from "./shell/RunControls";
 import { TopWidthNotice } from "./shell/TopWidthNotice";
 import { useDockPanel } from "./shell/useDockPanel";
@@ -19,6 +20,7 @@ import {
   isGateFieldFocused,
   isPreviewFocused,
   isRunInputFieldFocused,
+  isSkillImportFieldFocused,
   isToolWrapFieldFocused,
   shortcutName,
 } from "./canvas/shortcuts";
@@ -40,6 +42,7 @@ import { chatGateIsAsking, chatGateIsConfirmingReject } from "./store/chatSlice"
 import { gateIsAsking, gateIsConfirmingReject } from "./store/gateSlice";
 import { askingBeforeOpen, docListIsOpen, fileOpenIsAsking } from "./store/openSlice";
 import { runInputIsAsking } from "./store/runInputSlice";
+import { skillImportIsOpen } from "./store/skillImportSlice";
 import { isComparing, isRunning } from "./store/runSlice";
 
 export function App() {
@@ -99,6 +102,8 @@ export function App() {
         fileOpenAsking: fileOpenIsAsking(editor),
         toolWrapOpen: editor.toolWrapMode !== "closed",
         onToolWrapField: isToolWrapFieldFocused(event.target),
+        skillImportOpen: skillImportIsOpen(editor),
+        onSkillImportField: isSkillImportFieldFocused(event.target),
         chatOpen: editor.chatOpen,
         onChatField: isChatFieldFocused(event.target),
         chatDeleteAsking: editor.chatDeleteAsking,
@@ -150,6 +155,8 @@ export function App() {
         <OpenDialog />
         {/* 붙여 넣은 API 설명을 연결로 바꾸는 자리도 한가운데다 — 승인 전에는 문서가 그대로다. */}
         <ToolWrapCard />
+        {/* 붙여 넣은 글을 skill로 바꾸는 자리도 한가운데다 — 승인 전에는 문서가 그대로다. */}
+        <SkillImportCard />
         {/* 겉 레이어는 자리만 잡고 클릭을 받지 않는다 — 스크롤은 손이 닿는 안쪽 기둥의 일이다
             (DESIGN §1 우측 레이어의 자리 나눔). */}
         <div className="layer-right">

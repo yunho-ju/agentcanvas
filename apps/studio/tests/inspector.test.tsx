@@ -126,7 +126,8 @@ describe("a form built from config_schema", () => {
       describeForm(schema).fields.map((field) => [field.name, field.label.ko]),
     );
     const expected = (schema["x-field-order"] as string[]).map((name) => labelOf.get(name));
-    const drawn = Array.from(container.querySelectorAll("label")).map((label) =>
+    // 스스로 라벨을 붙이는 편집기는 label 태그가 아니다 — 칸 이름이 서는 자리로 읽는다.
+    const drawn = Array.from(container.querySelectorAll(".inspector__label")).map((label) =>
       label.textContent?.replace(/ \*$/, ""),
     );
 

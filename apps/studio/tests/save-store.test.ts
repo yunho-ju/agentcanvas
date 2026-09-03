@@ -155,6 +155,19 @@ describe("저장하는 순간", () => {
     expect(store().feedbackNotice?.tone).toBe("ok");
   });
 
+  // 같은 skill이 두 번 든 문서는 잘못이다 (validator skill.duplicate, ERROR) — 세어 말한다.
+  it("같은 skill을 두 번 든 문서는 손볼 곳으로 센다", async () => {
+    const issues = [
+      { severity: "error", code: "skill.duplicate", message: "두 번 들었어요" },
+    ];
+    useEditor.setState({ sendSpec: acceptingServer(1, issues).send });
+
+    await store().saveSpec();
+
+    expect(said()).toBe("저장했어요 — 손볼 곳 1곳");
+    expect(store().feedbackNotice?.tone).toBe("warn");
+  });
+
   it("손볼 곳과 알아 둘 곳이 섞이면 손볼 곳만 센다", async () => {
     const issues = [
       { severity: "error", code: "node.unknown_type", message: "무슨 노드죠" },

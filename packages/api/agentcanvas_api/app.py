@@ -24,6 +24,12 @@ from agentcanvas_adapters.providers import (
     nobody_to_ask,
 )
 from agentcanvas_adapters.secrets import env_vault
+from agentcanvas_adapters.skill_fetch import (
+    Gets,
+    SkillFetched,
+    fetch_skill_markdown,
+    gets_with_httpx,
+)
 from agentcanvas_adapters.tool_adapters import tools_from
 from agentcanvas_adapters.tool_wrapper import ToolSource
 from agentcanvas_contracts.agent_spec import AgentSpec, NonEmptyText
@@ -268,6 +274,18 @@ class ArchitectDraftRequest(BaseModel):
     model_ref: ModelRef
     request: NonEmptyText
     draft_id: NonEmptyText
+
+
+class SkillMarkdown(BaseModel):
+    """주소 하나에서 가져온 표준 SKILL.md 원문.
+
+    어디서 왔는가는 **사람이 적은 그 주소**다: 저장소 안 어느 파일을 읽었는지는 우리가
+    찾아본 길일 뿐이라 문서의 출처로 적지 않는다 (SK-3 리뷰 지적 4).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
 
 
 class ToolWrapBody(BaseModel):
@@ -628,6 +646,15 @@ def _durability_blockers(
     return blockers
 
 
+#: 가져오지 못한 까닭 -> 문이 답하는 자리 (새 까닭이 생기면 여기 한 줄이다).
+SKILL_FETCH_STATUS = {
+    "skill.fetch.host": 400,
+    "skill.fetch.notfound": 404,
+    "skill.fetch.toolarge": 413,
+    "skill.fetch.timeout": 504,
+}
+
+
 def create_app(
     store: SpecStore | None = None,
     clock: Clock = utc_now,
@@ -644,6 +671,7 @@ def create_app(
     job_store: DurableJobStore | None = None,
     durability: bool | None = None,
     asks_entailment: EntailmentCall | None = None,
+    gets_a_page: Gets | None = None,
 ) -> FastAPI:
     """저장소·시계·일꾼·모델·허용할 자리·인증을 주입해 서버를 만든다.
 
@@ -653,6 +681,8 @@ def create_app(
 
     durability를 적지 않으면 기본 배선일 때만 durable job을 켠다 — 켜지 못하면 까닭을 남긴다.
     True는 켜지 못하는 배선에서 조용히 넘어가지 않고 멈춘다. False는 켜지 않는다.
+
+    skill 원문을 가져오는 그물도 주입이다: 적어 주지 않으면 진짜 httpx가 나간다.
 
     뜻 검사(함의) 백엔드도 주입이다: 적어 주지 않으면 판정 사다리는 0층까지만 선다.
     서버를 만드는 것만으로 모델을 싣지 않는다 — 실제로 싣는 자리는 아래 `serves`뿐이다.
@@ -970,6 +1000,17 @@ def create_app(
             ),
             guided=True,
         )
+
+    @app.get("/skills/fetch", response_model=SkillMarkdown)
+    def fetch_skill(url: str) -> SkillMarkdown:
+        """주소 하나 = SKILL.md 원문 하나. 읽어 skill로 만드는 일은 화면의 파서가 한다."""
+        got = fetch_skill_markdown(url, gets=gets_a_page or gets_with_httpx)
+        if not isinstance(got, SkillFetched):
+            # 저쪽이 보낸 말은 그대로 내보내지 않는다 — 화면이 아는 코드 하나만 건넨다.
+            raise HTTPException(
+                status_code=SKILL_FETCH_STATUS.get(got.code, 502), detail=got.code
+            )
+        return SkillMarkdown(text=got.text)
 
     @app.post("/optimize/preview", response_model=OptimizePreviewResponse)
     def optimize_preview(asked: OptimizePreviewBody) -> OptimizePreviewResponse:

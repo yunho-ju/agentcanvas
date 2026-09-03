@@ -575,6 +575,178 @@ const TEXTS = {
     ko: "붙여 넣는 자리로 돌아가요",
     en: "Go back to what you pasted",
   },
+  // skill 패널·가져오기 카드·입는 skill 칸 (DESIGN §7 skills-panel / skill-import-card / skill-wear)
+  // 용어 원칙: 'skill'은 각 표면의 첫 등장에서 '일하는 방법을 적어 둔 글'이라는 설명을 달고 선다.
+  "skills.title": { ko: "skill", en: "Skills" },
+  "skills.hint": {
+    ko: "이 문서가 가진 skill(일하는 방법을 적어 둔 글)을 보고, 새로 가져온다",
+    en: "See the skills (written ways of working) this document has, and bring in a new one",
+  },
+  "skills.explain": {
+    ko: "skill은 일하는 방법을 적어 둔 글이에요 — 단계가 그 글을 따라 일해요",
+    en: "A skill is a written way of working — a step follows it as it works",
+  },
+  "skills.empty": {
+    ko: "이 문서에는 아직 skill이 없어요",
+    en: "This document has no skills yet",
+  },
+  "skills.new": { ko: "skill 가져오기", en: "Bring in a skill" },
+  "skills.new.hint": {
+    ko: "글을 붙여 넣거나 주소를 주면 이 문서의 skill이 돼요",
+    en: "Paste the text or give an address, and it becomes a skill here",
+  },
+  "skills.source.imported": { ko: "가져온 곳: {where}", en: "Came from {where}" },
+  "skills.source.made": { ko: "이 문서에서 만듦", en: "Made in this document" },
+  "skills.source.starter": { ko: "시작 skill", en: "Starter skill" },
+  "skills.duplicate": {
+    ko: "이 문서에 두 번 들어 있어요",
+    en: "This document holds it twice",
+  },
+  "skills.wornBy": { ko: "입은 단계", en: "Steps that follow it" },
+  "skills.wornBy.none": {
+    ko: "아직 아무 단계도 안 따라요",
+    en: "No step follows it yet",
+  },
+  "skills.read": { ko: "읽기", en: "Read it" },
+  "skills.read.hint": {
+    ko: "본문을 이 자리에서 펼쳐 읽어요",
+    en: "Opens the text right here",
+  },
+  "skills.delete": { ko: "지우기", en: "Delete" },
+  "skills.delete.hint": {
+    ko: "이 skill을 문서에서 빼요 — 되돌리기로 언제든 살릴 수 있어요",
+    en: "Takes this skill out — undo brings it right back",
+  },
+  "skills.lines": { ko: "{count}줄", en: "{count} lines" },
+  "skillImport.title": { ko: "skill을 가져올까요", en: "Bring in a skill?" },
+  "skillImport.description": {
+    ko: "일하는 방법을 적어 둔 글을 붙여 넣거나, skills.sh 주소를 주세요",
+    en: "Paste a written way of working, or give a skills.sh address",
+  },
+  "skillImport.kind.label": { ko: "가져오는 방법", en: "How to bring it in" },
+  "skillImport.kind.paste": { ko: "글 붙여넣기", en: "Paste the text" },
+  "skillImport.kind.url": { ko: "주소", en: "Address" },
+  "skillImport.source.paste": { ko: "붙여 넣은 글", en: "The text you pasted" },
+  "skillImport.source.url": { ko: "가져올 주소", en: "Address to bring it from" },
+  "skillImport.placeholder.paste": {
+    ko: "여기에 붙여 넣어요 — 글 전체를 그대로 넣어도 돼요",
+    en: "Paste it here — the whole text is fine",
+  },
+  "skillImport.placeholder.url": {
+    ko: "skills.sh나 github.com 주소를 적어요",
+    en: "Write a skills.sh or github.com address",
+  },
+  "skillImport.read": { ko: "읽어 보기", en: "Read it" },
+  "skillImport.read.hint": {
+    ko: "적은 것을 읽고 무엇이 들어올지 먼저 보여 줘요",
+    en: "Reads what you wrote and shows what would come in",
+  },
+  "skillImport.read.disabled": {
+    ko: "먼저 붙여 넣거나 주소를 적어 주세요",
+    en: "Paste it or write an address first",
+  },
+  "skillImport.cancel": { ko: "그만두기", en: "Never mind" },
+  "skillImport.cancel.hint": {
+    ko: "문서를 그대로 두고 닫아요",
+    en: "Close it and leave the document as it is",
+  },
+  "skillImport.loading": {
+    ko: "그 주소에서 글을 가져오는 중이에요",
+    en: "Getting the text from that address",
+  },
+  "skillImport.starter": { ko: "시작 skill에서 고르기", en: "Or pick a starter skill" },
+  "skillImport.review.title": { ko: "이 skill을 넣을까요", en: "Add this skill?" },
+  "skillImport.more": { ko: "더 보기", en: "Show more" },
+  "skillImport.license": { ko: "라이선스: {license}", en: "License: {license}" },
+  "skillImport.license.none": {
+    ko: "라이선스가 적혀 있지 않아요",
+    en: "No license is written on it",
+  },
+  "skillImport.apply": { ko: "문서에 넣기", en: "Add it to the document" },
+  "skillImport.apply.hint": {
+    ko: "이 skill을 문서에 넣어요 — 되돌리기로 언제든 뺄 수 있어요",
+    en: "Adds this skill — undo takes it right back out",
+  },
+  "skillImport.replace": { ko: "바꿔 넣기", en: "Replace the one you have" },
+  "skillImport.replace.hint": {
+    ko: "같은 이름의 skill을 새 판으로 갈아 끼워요 — 되돌리기로 이전 판이 돌아와요",
+    en: "Swaps the skill of that name for this one — undo brings the old one back",
+  },
+  "skillImport.replace.diff": {
+    ko: "지금 판은 {before}줄, 새 판은 {after}줄이에요",
+    en: "The one you have is {before} lines; this one is {after}",
+  },
+  "skillImport.back": { ko: "다시 적기", en: "Write it again" },
+  "skillImport.back.hint": {
+    ko: "적던 자리로 돌아가요",
+    en: "Go back to what you wrote",
+  },
+  "skillImport.issue.name": {
+    ko: "이름은 소문자·숫자·하이픈만 쓸 수 있어요 — 맨 위 이름 줄을 확인해 주세요",
+    en: "A name may hold only lowercase letters, digits and hyphens — check the name line at the top",
+  },
+  "skillImport.issue.description": {
+    ko: "언제 쓰는 글인지 맨 위에 한 줄로 적어 주세요",
+    en: "Write one line at the top saying when to use it",
+  },
+  "skillImport.issue.body": {
+    ko: "따를 내용이 없어요 — 맨 위 칸 아래에 무엇을 어떻게 할지 적어 주세요",
+    en: "There is nothing to follow — write what to do under the top block",
+  },
+  "skillImport.issue.frontmatter": {
+    ko: "맨 위 칸을 읽지 못했어요 — '---' 줄 사이에 '이름: 값'을 한 줄씩 적어 주세요",
+    en: "We could not read the top block — write 'name: value' lines between the '---' lines",
+  },
+  "skillImport.issue.reference": {
+    ko: "곁의 문서 중 읽을 수 없는 것은 빼고 가져와요",
+    en: "Any side document we cannot read is left out",
+  },
+  "skillImport.issue.long": {
+    ko: "긴 글이에요 — 모델이 다 읽지 못할 수 있어요",
+    en: "This is a long one — the model may not read all of it",
+  },
+  "skillImport.issue.other": {
+    ko: "이 글을 skill로 읽지 못했어요 — 맨 위에 이름과 설명이 있는지 확인해 주세요",
+    en: "We could not read this as a skill — check that it has a name and a description at the top",
+  },
+  "skillImport.error.empty": {
+    ko: "무엇을 가져올지 붙여 넣거나 주소를 적어 주세요.",
+    en: "Paste what you want to bring in, or write an address.",
+  },
+  "skillImport.error.offline": {
+    ko: "서버에 닿지 못했어요 — 서버가 켜져 있는지 확인하고 다시 해보세요",
+    en: "Could not reach the server — check that it is running and try again",
+  },
+  "skillImport.error.strange": {
+    ko: "알 수 없는 답이 왔어요 — 잠시 뒤 다시 해보세요",
+    en: "The answer could not be read — try again in a moment",
+  },
+  "skillImport.error.host": {
+    ko: "이 주소에서는 가져올 수 없어요 — skills.sh나 github.com 주소를 주세요",
+    en: "We cannot bring anything in from that address — give a skills.sh or github.com address",
+  },
+  "skillImport.error.notFound": {
+    ko: "그 주소에서 skill을 찾지 못했어요 — 주소를 확인하고 다시 해보세요",
+    en: "We found no skill at that address — check it and try again",
+  },
+  "skillImport.error.tooLarge": {
+    ko: "글이 너무 커서 가져오지 못했어요 — 필요한 부분만 붙여 넣어 보세요",
+    en: "The text was too big to bring in — try pasting just the part you need",
+  },
+  "skillImport.error.timeout": {
+    ko: "그 주소가 제때 답하지 않았어요 — 잠시 뒤 다시 해보세요",
+    en: "That address did not answer in time — try again in a moment",
+  },
+  "control.skillWear.explain": {
+    ko: "skill은 일하는 방법을 적어 둔 글이에요 — 고른 글을 이 단계가 따라요",
+    en: "A skill is a written way of working — this step follows the ones you tick",
+  },
+  "control.skillWear.empty": {
+    ko: "이 문서에는 아직 skill이 없어요 — 가져오면 이 단계가 따를 수 있어요",
+    en: "This document has no skills yet — bring one in and this step can follow it",
+  },
+  "control.skillWear.import": { ko: "skill 가져오기…", en: "Bring in a skill…" },
+  "control.skillWear.stale": { ko: "문서에 없는 skill", en: "Not in this document" },
   "nodeList.focus.hint": {
     ko: "두 번 누르면 캔버스가 그 노드로 데려간다",
     en: "Double-click and the canvas takes you to that node",
@@ -683,6 +855,13 @@ const TEXTS = {
   "edit.config.notice": {
     ko: "'{id}' 노드의 설정을 바꿔서 {impact}",
     en: "Changing the settings on '{id}' left this — {impact}",
+  },
+  "edit.takeInSkill": { ko: "skill 들이기", en: "Taking in a skill" },
+  "edit.swapSkill": { ko: "skill 바꿔 넣기", en: "Replacing a skill" },
+  "edit.dropSkill": { ko: "skill 지우기", en: "Deleting a skill" },
+  "edit.dropSkill.notice": {
+    ko: "'{name}' skill을 지웠다 — {nodes} 노드가 따르던 글이라 다시 골라야 한다",
+    en: "'{name}' is gone — {nodes} followed it, so those need a skill again",
   },
 
   // 좁은 화면 (DESIGN §1 상단 레이어 600↓)
@@ -1563,6 +1742,11 @@ const TEXTS = {
   "setup.bindings.path": {
     ko: "'{name}'의 위치를 글자로 적어야 해요",
     en: "Write where '{name}' comes from as text",
+  },
+  // 입은 skill이 문서에 없을 때 (validator skill.missing) — 이름표가 아니라 이름으로 말한다.
+  "setup.skillMissing": {
+    ko: "'{name}' skill이 이 문서에 없어요",
+    en: "'{name}' is not among this document's skills",
   },
 
   // 값의 종류를 부르는 쉬운 말 — 자료형 원문(string·array…)은 화면에 쓰지 않는다.

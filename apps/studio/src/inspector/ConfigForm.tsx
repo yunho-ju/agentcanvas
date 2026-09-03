@@ -13,6 +13,11 @@ interface ConfigFormProps {
   schema: unknown;
   config: Config;
   onChange: (config: Config, options?: EditOptions) => void;
+  /**
+   * schema 혼자서는 알 수 없는 손볼 곳 — 문서 전체를 봐야 아는 판정이 여기로 온다
+   * (예: 입은 skill이 이 문서에 있는가). 붙는 자리는 schema 오류와 같다.
+   */
+  extraErrors?: ConfigError[];
 }
 
 function ConfigFieldRow({
@@ -113,10 +118,15 @@ function RawConfigEditor({ config, onChange }: Omit<ConfigFormProps, "schema">) 
   );
 }
 
-export function ConfigForm({ schema, config, onChange }: ConfigFormProps) {
+export function ConfigForm({
+  schema,
+  config,
+  onChange,
+  extraErrors = [],
+}: ConfigFormProps) {
   const t = useT();
   const form = describeForm(schema);
-  const errors = validateConfig(schema, config);
+  const errors = [...validateConfig(schema, config), ...extraErrors];
 
   if (form.raw) return <RawConfigEditor config={config} onChange={onChange} />;
 

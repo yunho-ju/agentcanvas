@@ -23,6 +23,7 @@ import {
   toNumber,
 } from "../values";
 import { InputRowsControl } from "./InputRowsControl";
+import { SkillWearControl } from "./SkillWearControl";
 import { StringMapControl } from "./StringMapControl";
 import type { ControlEntry, ControlProps } from "./types";
 
@@ -473,6 +474,7 @@ export const CONTROLS: Record<ControlKind, ControlEntry> = {
   schemaRef: { Component: SchemaRefControl },
   modelRef: { Component: ModelRefControl },
   bindingSelect: { Component: BindingSelectControl },
+  skillWear: { Component: SkillWearControl, selfLabelled: true },
   toolSelect: { Component: ToolSelectControl },
   json: { Component: JsonControl },
   stringMap: { Component: StringMapControl, selfLabelled: true },

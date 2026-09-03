@@ -2,6 +2,7 @@
 // 보관함은 이번 편집 시간 동안만 있는 것이라 AgentSpec에는 들어가지 않는다.
 // 이름은 AgentSpec에 적히지만 캔버스 위에 있지 않다 — 되돌릴 수 있어야 하므로 여기 함께 온다.
 import type { AgentSpec, InputSchema, ResourceBinding } from "../generated/agent_spec";
+import type { SkillDef } from "../generated/skill_def";
 import type { FlowGraph, FlowNode } from "./serialize";
 
 export interface Scene extends FlowGraph {
@@ -11,6 +12,8 @@ export interface Scene extends FlowGraph {
   resources: ResourceBinding[];
   /** 이 문서가 받기로 한 값의 모양 — 입력 노드의 받는 줄이 여기에 적힌다 (같은 자리) */
   input_schema: InputSchema;
+  /** 이 문서가 가진 skill들 — 연결과 같은 자리에 산다 (SK-3) */
+  skills: SkillDef[];
 }
 
 /** 되돌리기가 다루는 것들이 지금 화면 어디에 있는가 — 짓는 자리는 여기 하나뿐이다. */
@@ -27,5 +30,6 @@ export function sceneOf(state: {
     name: state.spec?.name ?? null,
     resources: state.spec?.resources ?? [],
     input_schema: state.spec?.input_schema ?? {},
+    skills: state.spec?.skills ?? [],
   };
 }

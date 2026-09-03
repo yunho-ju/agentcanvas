@@ -29,6 +29,8 @@ import { type RunSlice, createRunSlice } from "./runSlice";
 import { type PublishSlice, createPublishSlice } from "./publishSlice";
 import { type SaveSlice, createSaveSlice } from "./saveSlice";
 import { type SelectionSlice, createSelectionSlice } from "./selectionSlice";
+import { type SkillImportSlice, createSkillImportSlice } from "./skillImportSlice";
+import { type SkillSlice, createSkillSlice } from "./skillSlice";
 import { type ToolWrapSlice, createToolWrapSlice } from "./toolWrapSlice";
 import { type ViewSlice, createViewSlice } from "./viewSlice";
 
@@ -60,6 +62,8 @@ export type EditorState = GraphSlice &
   EvalStandingSlice &
   ArchitectSlice &
   OptimizeSlice &
+  SkillSlice &
+  SkillImportSlice &
   ToolWrapSlice;
 
 export function selectedNode(state: EditorState): FlowNode | undefined {
@@ -74,6 +78,8 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createArchitectSlice(...args),
   ...createOptimizeSlice(...args),
   ...createToolWrapSlice(...args),
+  ...createSkillSlice(...args),
+  ...createSkillImportSlice(...args),
   ...createHistorySlice(...args),
   ...createSelectionSlice(...args),
   ...createDetachSlice(...args),

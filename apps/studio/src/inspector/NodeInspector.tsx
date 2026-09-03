@@ -1,10 +1,12 @@
 // 선택된 노드의 설정. 폼은 registry의 config_schema가 그린다.
 import type { FlowNode } from "../graph/serialize";
+import { skillWearIssues } from "../graph/nodeSetupIssues";
 import { localized } from "../i18n/locale";
 import { useLocale, useT } from "../i18n/useT";
 import { LOCKED_HINT } from "../run/lockWords";
 import { useEditor } from "../store/editor";
 import { isRunning } from "../store/runSlice";
+import { docSkills } from "../store/skillSlice";
 import { ConfigForm } from "./ConfigForm";
 
 export function NodeInspector({ node }: { node: FlowNode }) {
@@ -13,6 +15,8 @@ export function NodeInspector({ node }: { node: FlowNode }) {
   const deleteSelection = useEditor((state) => state.deleteSelection);
   const running = useEditor(isRunning);
   const halting = useEditor((state) => state.breakpoints.includes(node.id));
+  // 문서 전체를 봐야 아는 손볼 곳 — 입은 skill이 이 문서에 있는가 (validator skill.missing).
+  const skills = useEditor(docSkills);
   const { nodeType, spec } = node.data;
   const locale = useLocale();
   const t = useT();
@@ -44,6 +48,7 @@ export function NodeInspector({ node }: { node: FlowNode }) {
         schema={nodeType?.config_schema}
         config={spec.config ?? {}}
         onChange={(config, options) => updateNodeConfig(node.id, config, options)}
+        extraErrors={skillWearIssues(spec, nodeType, skills)}
       />
       {/* 지우는 길은 폼 맨 아래에 있다 — Delete 키가 가던 그 길로 간다 (DESIGN §7).
           잠그는 일은 이 폼을 감싼 fieldset이 이미 한다 — 이유만 여기서 말한다. */}

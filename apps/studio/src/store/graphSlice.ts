@@ -50,6 +50,7 @@ import {
 import { nodeTypes } from "../registry/registry";
 import { nodesUsing } from "../graph/connections";
 import type { EditorState } from "./editor";
+import { CLOSED_SKILL_IMPORT } from "./skillImportSlice";
 import { CLOSED_TOOL_WRAP } from "./toolWrapSlice";
 
 export interface GraphSlice extends FlowGraph {
@@ -216,6 +217,8 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
         architectLoading: false,
         // 만들던 연결도 그 문서의 것이었다 (DESIGN §7 tool-wrap-card).
         ...CLOSED_TOOL_WRAP,
+        // 가져오던 skill도 그 문서의 것이었다 (DESIGN §7 skill-import-card).
+        ...CLOSED_SKILL_IMPORT,
       });
       // 듣고 있던 이벤트도, 서버에 부탁해 둔 실행도 그 그래프의 것이었다.
       get().abandonRuns();

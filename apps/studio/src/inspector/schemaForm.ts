@@ -3,6 +3,7 @@
 import type { Locale } from "../i18n/locale";
 import {
   BINDING_REF_MARKER,
+  SKILL_REF_MARKER,
   TOOL_NAME_FIELD,
   TOOL_PORTS_MARKER,
   type JsonSchema,
@@ -25,6 +26,7 @@ export type ControlKind =
   | "schemaRef"
   | "modelRef"
   | "bindingSelect"
+  | "skillWear"
   | "toolSelect"
   | "json";
 
@@ -85,6 +87,14 @@ const CONTROL_BY_MARKER: Record<string, ControlKind> = {
 };
 
 /**
+ * 목록 칸의 **항목**에 붙은 마커가 골라 주는 편집기 — 같은 표식도 자리가 다르면 다른 모양이다.
+ * (값 하나를 고르는 칸과 여럿을 고르는 칸은 다른 편집기다.)
+ */
+const CONTROL_BY_ITEM_MARKER: Record<string, ControlKind> = {
+  [SKILL_REF_MARKER]: "skillWear",
+};
+
+/**
  * schema type -> 편집기 매핑 테이블.
  * 새 type을 지원할 때 여기 한 줄을 더한다 — 읽는 쪽 코드는 그대로다.
  */
@@ -97,9 +107,15 @@ const CONTROL_BY_TYPE: Record<string, (schema: Record<string, unknown>) => Contr
   object: (schema) => (additionalType(schema) === "string" ? "stringMap" : "json"),
 };
 
+/** 표식은 칸 자신에 붙기도 하고, 목록 칸이면 그 항목(items)에 붙기도 한다. */
 function markedControl(schema: Record<string, unknown>): ControlKind | undefined {
   const marker = Object.keys(CONTROL_BY_MARKER).find((key) => schema[key] === true);
-  return marker ? CONTROL_BY_MARKER[marker] : undefined;
+  if (marker) return CONTROL_BY_MARKER[marker];
+  const items = asObject(schema.items);
+  const itemMarker = Object.keys(CONTROL_BY_ITEM_MARKER).find(
+    (key) => items?.[key] === true,
+  );
+  return itemMarker ? CONTROL_BY_ITEM_MARKER[itemMarker] : undefined;
 }
 
 /** 뿌리가 "이 필드가 도구 이름"이라고 가리킨 이름 — 가리키지 않았으면 없다. */

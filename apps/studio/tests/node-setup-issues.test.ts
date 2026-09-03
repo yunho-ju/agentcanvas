@@ -13,7 +13,8 @@ function node(type: string, config: Record<string, unknown> = {}): SpecNode {
 }
 
 function issuesOf(type: string, config: Record<string, unknown> = {}) {
-  return nodeSetupIssues(node(type, config), nodeTypes[type]);
+  // 문서가 가진 skill은 이 판정의 재료다 — 여기 규칙들은 skill 없는 문서에서의 이야기다.
+  return nodeSetupIssues(node(type, config), nodeTypes[type], []);
 }
 
 function messagesOf(type: string, config: Record<string, unknown> = {}, locale: Locale = "ko") {
@@ -109,6 +110,7 @@ describe("망가진 bindings는 값이 있어도 문제다", () => {
       nodeSetupIssues(
         node("llm.agent", { ...FILLED["llm.agent"], bindings: 5 }),
         nodeTypes["llm.agent"],
+        [],
       ),
     ).toEqual([]);
   });
@@ -116,7 +118,7 @@ describe("망가진 bindings는 값이 있어도 문제다", () => {
 
 describe("registry가 모르는 노드", () => {
   it("설정을 판정할 수 없다는 사실을 숨기지 않는다", () => {
-    expect(nodeSetupIssues(node("custom.unknown"), undefined)).toHaveLength(1);
+    expect(nodeSetupIssues(node("custom.unknown"), undefined, [])).toHaveLength(1);
   });
 });
 
@@ -138,11 +140,11 @@ describe("캔버스 전체에서 확인이 필요한 노드", () => {
       flowNode("half", "tool.mcp", { resource_ref: "x" }),
     ];
 
-    expect(nodesNeedingSetup(nodes).map((node) => node.id)).toEqual(["empty", "half"]);
+    expect(nodesNeedingSetup(nodes, []).map((node) => node.id)).toEqual(["empty", "half"]);
   });
 
   it("다 채운 캔버스에서는 아무도 손들지 않는다", () => {
-    expect(nodesNeedingSetup([flowNode("ok", "core.output", FILLED["core.output"])])).toEqual(
+    expect(nodesNeedingSetup([flowNode("ok", "core.output", FILLED["core.output"])], [])).toEqual(
       [],
     );
   });

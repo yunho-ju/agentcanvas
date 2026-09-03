@@ -37,7 +37,7 @@ describe("describeForm on the six base node types", () => {
       instruction: "instructionText",
       prompt_ref: "text",
       toolset_refs: "array",
-      skill_refs: "array",
+      skill_refs: "skillWear",
       max_turns: "number",
     });
   });
