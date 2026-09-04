@@ -59,6 +59,7 @@ export type EditorState = GraphSlice &
   ViewSlice &
   HintSlice &
   ModelsSlice &
+  PatternsSlice &
   FirstStepsSlice &
   EvalSlice &
   EvalSuggestSlice &
@@ -109,6 +110,7 @@ export const useEditor = create<EditorState>()((...args) => ({
   ...createViewSlice(...args),
   ...createHintSlice(...args),
   ...createModelsSlice(...args),
+  ...createPatternsSlice(...args),
   ...createFirstStepsSlice(...args),
   ...createEvalSlice(...args),
   ...createEvalSuggestSlice(...args),
