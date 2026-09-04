@@ -457,6 +457,29 @@ const TEXTS = {
     en: "Puts a new node on the canvas",
   },
   "palette.docTools": { ko: "이 문서의 도구", en: "Tools in this document" },
+  // 팔레트의 모양 목록과, 그 모양을 놓을 수 없을 때의 말 (DESIGN §7 palette, AGENT_PATTERNS D12).
+  // 까닭의 이름은 계약의 것과 하나다 — 서버가 놓아 줄 때도 같은 뜻을 듣는다.
+  "palette.patterns": { ko: "이 모양으로 놓기", en: "Put a shape in" },
+  "pattern.cannot.ambiguous": {
+    ko: "어느 단계에 놓을지 골라 주세요",
+    en: "Pick which step to put it on",
+  },
+  "pattern.cannot.missing": {
+    ko: "이 모양이 붙을 단계가 아직 없어요",
+    en: "There is no step for this shape yet",
+  },
+  "pattern.cannot.needsTools": {
+    ko: "먼저 이 단계가 쓸 도구를 골라 주세요",
+    en: "Pick the tools this step may use first",
+  },
+  "pattern.cannot.noToolsAnywhere": {
+    ko: "이 문서에는 도구가 붙은 연결이 아직 없어요 — 연결 패널에서 만들면 이 단계가 쓸 수 있어요",
+    en: "This document has no connection with tools yet — make one in the connections panel and this step can use it",
+  },
+  "pattern.cannot.unknownPort": {
+    ko: "이 모양이 이어 줄 값이 아직 없어요 — 받는 줄을 먼저 만들어 주세요",
+    en: "There is no value for this shape to carry yet — add a row it can read first",
+  },
   "tray.title": { ko: "보관함", en: "Shelf" },
   "tray.hint": {
     ko: "캔버스에서 뺀 노드가 설정을 지닌 채 기다린다",
@@ -1019,6 +1042,11 @@ const TEXTS = {
   "edit.addNode": { ko: "노드 추가", en: "Adding a node" },
   "edit.addEdge": { ko: "연결 추가", en: "Adding a connection" },
   "edit.addLinkedNode": { ko: "노드 이어 붙이기", en: "Adding a node and joining it" },
+  "edit.putPattern": { ko: "이 모양으로 놓기", en: "Putting a shape in" },
+  "edit.pattern.notice": {
+    ko: "'{id}' 단계에서 바꾼 것: {fields}",
+    en: "What this changed on '{id}': {fields}",
+  },
   "edit.removeNode": { ko: "노드 삭제", en: "Deleting a node" },
   "edit.removeEdge": { ko: "연결 삭제", en: "Deleting a connection" },
   "edit.moveNodes": { ko: "노드 이동", en: "Moving nodes" },

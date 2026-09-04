@@ -8,6 +8,9 @@ const answered: PatternChoice[] = [
   {
     id: "react",
     shortName: { ko: "도구를 쓰며 답 다듬기", en: "Look things up while answering" },
+    cost: { ko: "실행이 길어져요", en: "Runs take longer" },
+    needs: ["tool_calling"],
+    template: [{ op: "requires_tools", node: "{agent}" }],
   },
 ];
 

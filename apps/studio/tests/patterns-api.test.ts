@@ -25,7 +25,7 @@ const REACT = {
 };
 
 describe("fetchServerPatternsFromServer — 이 서버가 놓아 줄 수 있는 모양", () => {
-  it("서버의 모양 목록에 묻고, 짧은 이름까지 읽는다", async () => {
+  it("서버의 모양 목록에 묻고, 팔레트가 놓는 데 필요한 것까지 읽는다", async () => {
     const { calls, fetch } = server({ status: 200, body: { patterns: [REACT] } });
 
     const patterns = await fetchServerPatternsFromServer({
@@ -34,7 +34,15 @@ describe("fetchServerPatternsFromServer — 이 서버가 놓아 줄 수 있는 
     });
 
     expect(calls).toEqual([{ url: "http://here/patterns", method: "GET" }]);
-    expect(patterns).toEqual([{ id: "react", shortName: REACT.short_name }]);
+    expect(patterns).toEqual([
+      {
+        id: "react",
+        shortName: REACT.short_name,
+        cost: REACT.cost,
+        needs: REACT.needs,
+        template: REACT.template,
+      },
+    ]);
   });
 
   it("서버에 닿지 못하면 모른다고 한다", async () => {
@@ -52,8 +60,18 @@ describe("fetchServerPatternsFromServer — 이 서버가 놓아 줄 수 있는 
   });
 
   it("답의 모양이 어긋나면 모른다고 한다", async () => {
-    const { fetch } = server({ status: 200, body: { patterns: [{ id: "react" }] } });
+    const { fetch } = server({ status: 200, body: { patterns: "soon" } });
 
     expect(await fetchServerPatternsFromServer({ fetch })).toBeNull();
+  });
+
+  // 이 서버가 이 화면보다 새로울 수 있다 — 모르는 모양 하나가 아는 모양들을 지우지 않는다.
+  it("못 읽는 모양이 섞여 있으면 그 줄만 빼고 들은 대로 전한다", async () => {
+    const { fetch } = server({
+      status: 200,
+      body: { patterns: [{ id: "telepathy" }, REACT] },
+    });
+
+    expect(await fetchServerPatternsFromServer({ fetch })).toHaveLength(1);
   });
 });

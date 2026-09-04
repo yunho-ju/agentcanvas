@@ -267,6 +267,7 @@ describe("정보 위계 — 감춘 것은 반드시 다시 나타난다", () => 
       ".tool-wrap-card__actions .button-primary",
       ".tool-wrap-card__actions .button-ghost",
       ".palette__tool",
+      ".palette__shape",
       ".resources-panel__reimport",
       ".resources-panel__delete",
     ]) {

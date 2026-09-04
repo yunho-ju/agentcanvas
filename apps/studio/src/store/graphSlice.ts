@@ -101,7 +101,7 @@ export interface GraphSlice extends FlowGraph {
 }
 
 /** 손이 있던 자리가 없는 입구(팔레트)의 대신할 자리 — 캔버스의 왼쪽 위 구석. */
-const CANVAS_ORIGIN: Position = { x: 0, y: 0 };
+export const CANVAS_ORIGIN: Position = { x: 0, y: 0 };
 
 function positionsOf(nodes: FlowNode[], ids: string[]): Record<string, Position> {
   return Object.fromEntries(

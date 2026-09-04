@@ -1,0 +1,156 @@
+[
+  {
+    "name": "the only agent and the only output are where the shape lands",
+    "pattern": "human_gate",
+    "nodes": [
+      { "id": "input", "type": "core.input", "config": {} },
+      { "id": "agent", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "output", "type": "core.output", "config": {} }
+    ],
+    "edges": [["agent", "output"]],
+    "anchors": { "{agent}": "agent", "{output}": "output" }
+  },
+  {
+    "name": "the chosen agent is the one it lands on",
+    "pattern": "human_gate",
+    "nodes": [
+      { "id": "agent-a", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "agent-b", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "output", "type": "core.output", "config": {} }
+    ],
+    "selected": "agent-b",
+    "anchors": { "{agent}": "agent-b", "{output}": "output" }
+  },
+  {
+    "name": "a chosen step of another kind leaves the other anchors to the document",
+    "pattern": "router",
+    "nodes": [
+      {
+        "id": "input-a",
+        "type": "core.input",
+        "config": { "bindings": { "question": "state.question" } }
+      },
+      {
+        "id": "input-b",
+        "type": "core.input",
+        "config": { "bindings": { "question": "state.question" } }
+      },
+      { "id": "agent", "type": "llm.agent", "config": { "model_ref": "model://default" } }
+    ],
+    "selected": "input-b",
+    "anchors": { "{input}": "input-b", "{agent}": "agent" }
+  },
+  {
+    "name": "two agents and nothing chosen — it does not guess",
+    "pattern": "human_gate",
+    "nodes": [
+      { "id": "agent-a", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "agent-b", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "output", "type": "core.output", "config": {} }
+    ],
+    "cannot": "ambiguous_anchor"
+  },
+  {
+    "name": "the chosen step is of another kind, so the two agents are still a guess",
+    "pattern": "human_gate",
+    "nodes": [
+      { "id": "agent-a", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "agent-b", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "output", "type": "core.output", "config": {} }
+    ],
+    "selected": "output",
+    "cannot": "ambiguous_anchor"
+  },
+  {
+    "name": "there is no output step for the shape to hand its answer to",
+    "pattern": "human_gate",
+    "nodes": [
+      { "id": "input", "type": "core.input", "config": {} },
+      { "id": "agent", "type": "llm.agent", "config": { "model_ref": "model://default" } }
+    ],
+    "cannot": "missing_node"
+  },
+  {
+    "name": "an agent that reaches for a tool can look things up while answering",
+    "pattern": "react",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": { "model_ref": "model://default", "toolset_refs": ["records"] }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "anchors": { "{agent}": "agent" }
+  },
+  {
+    "name": "an agent with no tool chosen yet cannot look things up",
+    "pattern": "react",
+    "nodes": [
+      { "id": "agent", "type": "llm.agent", "config": { "model_ref": "model://default" } }
+    ],
+    "resources": [
+      {
+        "id": "records",
+        "approval_policy": "read_only_auto",
+        "tools": [
+          {
+            "name": "look-up",
+            "plain_description": { "ko": "찾아본다.", "en": "Looks it up." },
+            "input_schema": { "type": "object" },
+            "output_schema": { "type": "object" },
+            "timeout_ms": 5000,
+            "call": { "transport": "mcp", "remote_name": "look-up" }
+          }
+        ]
+      }
+    ],
+    "cannot": "needs_tools"
+  },
+  {
+    "name": "a name no connection in the document answers to is no tool at all",
+    "pattern": "react",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": { "model_ref": "model://default", "toolset_refs": ["records"] }
+      }
+    ],
+    "resources": [
+      {
+        "id": "orders",
+        "approval_policy": "read_only_auto",
+        "tools": [
+          {
+            "name": "look-up",
+            "plain_description": { "ko": "찾아본다.", "en": "Looks it up." },
+            "input_schema": { "type": "object" },
+            "output_schema": { "type": "object" },
+            "timeout_ms": 5000,
+            "call": { "transport": "mcp", "remote_name": "look-up" }
+          }
+        ]
+      }
+    ],
+    "cannot": "needs_tools"
+  },
+  {
+    "name": "a document with no tool-bearing connection has nothing to pick from",
+    "pattern": "react",
+    "nodes": [
+      { "id": "agent", "type": "llm.agent", "config": { "model_ref": "model://default" } }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "cannot": "no_tools_anywhere"
+  },
+  {
+    "name": "which agent comes before whether it holds a tool",
+    "pattern": "react",
+    "nodes": [
+      { "id": "agent-a", "type": "llm.agent", "config": { "model_ref": "model://default" } },
+      { "id": "agent-b", "type": "llm.agent", "config": { "model_ref": "model://default" } }
+    ],
+    "cannot": "ambiguous_anchor"
+  }
+]

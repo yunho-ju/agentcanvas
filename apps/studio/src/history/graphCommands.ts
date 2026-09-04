@@ -4,6 +4,7 @@ import { withNodeConfig } from "../graph/config";
 import { analyzeConfigChange, breaksNothing } from "../graph/impact";
 import { impactLines } from "../graph/impactWords";
 import type { Scene } from "../graph/scene";
+import { settingsChanged } from "../graph/patternWords";
 import { msg } from "../i18n/messages";
 import { type FlowEdge, type FlowEdgeData, type FlowNode, toFlow } from "../graph/serialize";
 import type { JsonSchema } from "../registry/registry";
@@ -70,6 +71,24 @@ export function addNodeWithEdge(node: FlowNode, edge: FlowEdge): Command {
       edges: [...scene.edges, edge],
     }),
     revert: (scene) => withoutNode(scene, node.id),
+  };
+}
+
+/**
+ * 카탈로그의 모양 하나를 문서에 놓는다 (설계 문서 D12).
+ * 카드도 선도 설정도 사용자에게는 한 번의 행동이었으므로 되돌리기도 한 걸음이다 —
+ * 무엇을 놓을지는 이미 정해져 온다(graph/patternPut.ts).
+ */
+export function putPattern(before: Scene, put: Scene): Command {
+  // 카드도 선도 늘지 않는 모양은 바뀐 칸을 말해 주지 않으면 아무 일도 없던 것처럼 보인다.
+  const changed = settingsChanged(before, put);
+  return {
+    label: msg("edit.putPattern"),
+    ...(changed
+      ? { notice: msg("edit.pattern.notice", { id: changed.id, fields: changed.fields }) }
+      : {}),
+    apply: (current) => ({ ...current, nodes: put.nodes, edges: put.edges }),
+    revert: (current) => ({ ...current, nodes: before.nodes, edges: before.edges }),
   };
 }
 

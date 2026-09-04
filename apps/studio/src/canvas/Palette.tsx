@@ -8,6 +8,7 @@ import { selectedNode, useEditor } from "../store/editor";
 import { isRunning } from "../store/runSlice";
 import { DocTools } from "./DocTools";
 import { NodeTypeChip } from "./NodeTypeChip";
+import { PatternShapes } from "./PatternShapes";
 
 export function Palette() {
   const addNode = useEditor((state) => state.addNode);
@@ -51,6 +52,7 @@ export function Palette() {
         ))}
       </ul>
       <DocTools at={placedAt} />
+      <PatternShapes />
     </section>
   );
 }

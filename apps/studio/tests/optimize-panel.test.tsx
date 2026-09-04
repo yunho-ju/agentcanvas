@@ -6,6 +6,7 @@ import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
 import { App } from "../src/App";
 import type { AgentSpec } from "../src/generated/agent_spec";
 import type { OptimizeOutcome } from "../src/api/optimize";
+import { type PatternChoice, serverPatternsOf } from "../src/registry/patternCatalog";
 import { useEditor } from "../src/store/editor";
 
 const example = exampleSpec as unknown as AgentSpec;
@@ -48,10 +49,13 @@ function fixButton() {
   return screen.getByRole("button", { name: "고치기" });
 }
 
-const REACT_ONLY = [
+const REACT_ONLY: PatternChoice[] = [
   {
     id: "react",
     shortName: { ko: "도구를 쓰며 답 다듬기", en: "Look things up while answering" },
+    cost: { ko: "실행이 길어져요", en: "Runs take longer" },
+    needs: ["tool_calling"],
+    template: [{ op: "requires_tools", node: "{agent}" }],
   },
 ];
 
@@ -180,6 +184,33 @@ describe("고치기 모드", () => {
     await userEvent.click(screen.getByRole("button", { name: "다시 적기" }));
     await userEvent.click(screen.getByRole("button", { name: "고칠 방법 찾기" }));
 
+    expect(await within(panel).findByText("도구를 쓰며 답 다듬기")).toBeInTheDocument();
+  });
+
+  // 이 서버가 이 화면보다 새로울 수 있다 — 모르는 모양 하나가 아는 이름까지 지우면 안 된다.
+  it("모르는 모양이 섞인 목록을 들어도 아는 모양의 이름은 그대로 선다", async () => {
+    useEditor.setState({
+      optimizeOnServer: async () => withShape("react"),
+      serverPatterns: null,
+      fetchServerPatterns: async () =>
+        serverPatternsOf({
+          patterns: [
+            { id: "telepathy", short_name: { ko: "?", en: "?" } },
+            {
+              id: "react",
+              short_name: REACT_ONLY[0].shortName,
+              cost: REACT_ONLY[0].cost,
+              needs: REACT_ONLY[0].needs,
+              template: REACT_ONLY[0].template,
+            },
+          ],
+        }),
+    });
+    render(<App />);
+
+    await askToFix();
+
+    const panel = screen.getByRole("region", { name: "고치기" });
     expect(await within(panel).findByText("도구를 쓰며 답 다듬기")).toBeInTheDocument();
   });
 

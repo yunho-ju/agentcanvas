@@ -1,0 +1,86 @@
+{
+  "react": [
+    {
+      "op": "requires_tools",
+      "node": "{agent}"
+    },
+    {
+      "op": "replace_node_config",
+      "node": "{agent}",
+      "config": {
+        "max_turns": 3
+      }
+    }
+  ],
+  "human_gate": [
+    {
+      "op": "add_node",
+      "node": "{new:gate}",
+      "type": "control.human_gate",
+      "config": {
+        "approval_schema_ref": "schema://answer-review@1"
+      }
+    },
+    {
+      "op": "remove_edge",
+      "source": "{agent}",
+      "target": "{output}"
+    },
+    {
+      "op": "add_edge",
+      "kind": "approval",
+      "source": {
+        "node": "{agent}",
+        "port": "response"
+      },
+      "target": {
+        "node": "{new:gate}",
+        "port": "review"
+      }
+    },
+    {
+      "op": "add_edge",
+      "kind": "control",
+      "source": {
+        "node": "{new:gate}",
+        "port": "approved"
+      },
+      "target": {
+        "node": "{output}",
+        "port": "input"
+      }
+    }
+  ],
+  "router": [
+    {
+      "op": "add_node",
+      "node": "{new:router}",
+      "type": "llm.router",
+      "config": {}
+    },
+    {
+      "op": "add_edge",
+      "kind": "data",
+      "source": {
+        "node": "{input}",
+        "port": "*"
+      },
+      "target": {
+        "node": "{new:router}",
+        "port": "input"
+      }
+    },
+    {
+      "op": "add_edge",
+      "kind": "control",
+      "source": {
+        "node": "{new:router}",
+        "port": "route"
+      },
+      "target": {
+        "node": "{agent}",
+        "port": "messages"
+      }
+    }
+  ]
+}
