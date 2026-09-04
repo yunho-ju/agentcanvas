@@ -250,7 +250,11 @@ export const createRunSlice: StateCreator<EditorState, [], [], RunSlice> = (set,
       if (get().startingRun || isRunning(get())) return;
       // 실행 전 검증 — 설정이 빈 노드가 있으면 실패를 보여주는 대신 그 자리로 데려간다
       // (디자인 언어 §1.5 놓침 방지 ④).
-      const waiting = nodesNeedingSetup(get().nodes, get().spec?.skills ?? []);
+      const waiting = nodesNeedingSetup(
+        get().nodes,
+        get().spec?.skills ?? [],
+        get().spec?.resources ?? [],
+      );
       if (waiting.length > 0) {
         set({ notice: msg("run.waiting.notice", { count: waiting.length }) });
         get().select("node", waiting[0].id);

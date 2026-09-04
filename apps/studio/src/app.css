@@ -4888,6 +4888,7 @@ button:disabled {
 .skill-wear__explain,
 .skill-wear__empty,
 .skill-wear__what,
+.binding-wear__what,
 .tool-wrap-card__label,
 .tool-wrap-card__secret,
 .tool-wrap-card__status,
@@ -5603,6 +5604,7 @@ button:disabled {
 /* 넣어도 되지만 알고는 있어야 할 것 — 붉은 바탕 없이 글자만 말한다 (§9). */
 .skill-import-card__warn,
 .skills-panel__warn,
+.binding-wear__warn,
 .skill-wear__warn {
   font-size: var(--text-caption);
   color: var(--warn-ink);
@@ -5783,13 +5785,15 @@ button:disabled {
   gap: var(--space-2);
 }
 
-/* 입는 skill 칸 — 셀렉트가 아니라 체크 목록이다 (DESIGN §7 skill-wear). */
+/* 체크 목록 두 칸 — 입는 skill과 쓸 도구는 같은 규칙을 쓴다 (DESIGN §7 skill-wear·agent-turns). */
+.binding-wear,
 .skill-wear {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
+.binding-wear__list,
 .skill-wear__list {
   list-style: none;
   margin: 0;
@@ -5799,12 +5803,14 @@ button:disabled {
   gap: var(--space-2);
 }
 
+.binding-wear__row,
 .skill-wear__row {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
+.binding-wear__pick,
 .skill-wear__pick {
   display: flex;
   align-items: center;
@@ -5812,11 +5818,13 @@ button:disabled {
   cursor: pointer;
 }
 
+.binding-wear__name,
 .skill-wear__name {
   font-size: var(--text-label);
   color: var(--ink);
 }
 
+.binding-wear__remove,
 .skill-wear__import {
   align-self: flex-start;
   margin-top: var(--space-1);
@@ -5830,21 +5838,25 @@ button:disabled {
   cursor: pointer;
 }
 
+.binding-wear__remove:hover:not(:disabled),
 .skill-wear__import:hover:not(:disabled) {
   background: var(--surface-hover);
   color: var(--ink);
 }
 
+.binding-wear__remove:active:not(:disabled),
 .skill-wear__import:active:not(:disabled) {
   background: var(--surface-active);
   transform: scale(0.98);
 }
 
+.binding-wear__remove:focus-visible,
 .skill-wear__import:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
 }
 
+.binding-wear__remove:disabled,
 .skill-wear__import:disabled {
   opacity: 0.4;
   cursor: not-allowed;

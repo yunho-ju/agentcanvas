@@ -44,7 +44,7 @@ describe("the settings panel while a run is on screen", () => {
 
     expect(screen.getByLabelText(/사용할 모델/)).toBeDisabled();
     expect(screen.getByLabelText(/최대 주고받기 횟수/)).toBeDisabled();
-    expect(screen.getByLabelText(/쓸 수 있는 연결/)).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /clinical-reference/ })).toBeDisabled();
   });
 
   it("hands the settings back when the run is closed", async () => {
@@ -64,14 +64,15 @@ describe("the settings panel while a run is on screen", () => {
     expect(configOf("clinical-agent")).toEqual(before);
   });
 
-  it("shows the stored value again once editing is possible", async () => {
+  // 잠긴 체크는 눌러도 아무 일이 없다 — 실행이 끝나면 문서가 들고 있던 그대로다.
+  it("shows the stored picks again once editing is possible", async () => {
     await watchAgent();
-    const tools = screen.getByLabelText(/쓸 수 있는 연결/);
+    const tools = screen.getByRole("checkbox", { name: /clinical-reference/ });
 
-    await userEvent.type(tools, "sneaked-in");
+    await userEvent.click(tools);
     act(() => store().stopRun());
 
-    expect(tools).toHaveValue("clinical-reference");
+    expect(tools).toBeChecked();
     expect(configOf("clinical-agent")).toEqual(example.nodes[2].config);
   });
 });

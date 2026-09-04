@@ -79,7 +79,7 @@ describe("문서에 없는 skill을 입은 단계", () => {
     const spec = withStaleSkill();
     act(() => store().loadSpec(spec));
 
-    const waiting = nodesNeedingSetup(store().nodes, spec.skills ?? []);
+    const waiting = nodesNeedingSetup(store().nodes, spec.skills ?? [], spec.resources ?? []);
     const steps = firstSteps({
       nodeCount: store().nodes.length,
       edgeCount: store().edges.length,
@@ -113,7 +113,11 @@ describe("문서에 없는 skill을 입은 단계", () => {
     );
     render(<App />);
 
-    expect(nodesNeedingSetup(store().nodes, store().spec?.skills ?? [])).toEqual([]);
+    expect(nodesNeedingSetup(
+        store().nodes,
+        store().spec?.skills ?? [],
+        store().spec?.resources ?? [],
+      )).toEqual([]);
     expect(screen.queryByRole("button", { name: /확인이 필요해요/ })).not.toBeInTheDocument();
 
     const node = store().nodes.find((one) => one.id === AGENT);

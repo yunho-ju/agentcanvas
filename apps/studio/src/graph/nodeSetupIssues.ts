@@ -1,10 +1,15 @@
 // 이 노드는 아직 손볼 곳이 있는가 — 카드의 "설정 필요" 뱃지와 실행 전 검증이 함께 보는 판정.
 // Python `agentcanvas_contracts.node_registry.config_issues`의 broken bindings 규칙을 품고,
 // config_schema가 요구하는(required) 값이 비었는지까지 함께 본다. 순수 함수다.
-import type { Node1 as SpecNode } from "../generated/agent_spec";
+import type { ResourceBinding, Node1 as SpecNode } from "../generated/agent_spec";
 import type { NodeType } from "../generated/node_type";
 import type { SkillDef } from "../generated/skill_def";
 import { type Message, msg } from "../i18n/messages";
+import {
+  bindingPickFields,
+  pickedRefs,
+  unresolvedPicks,
+} from "../inspector/bindingPicks";
 import { fieldTitle } from "../inspector/schemaForm";
 import { INPUT_NODE_TYPE, skillRefField } from "../registry/registry";
 import type { FlowNode } from "./serialize";
@@ -82,6 +87,24 @@ export function skillWearIssues(
 }
 
 /**
+ * 이 노드가 고른 연결 가운데 이 문서가 지킬 수 없는 이름 — 서버 `node.unknown_binding`과
+ * 같은 판정을 그릴 때 한다. 도구가 없어 고를 수 없었던 연결도 지킬 수 없는 이름이다.
+ */
+function unknownBindingIssues(
+  node: SpecNode,
+  nodeType: NodeType,
+  bindings: ResourceBinding[],
+): SetupIssue[] {
+  const config = (node.config ?? {}) as Record<string, unknown>;
+  return bindingPickFields(nodeType.config_schema).flatMap((field) =>
+    unresolvedPicks(pickedRefs(config[field.name]), bindings, field.filter).map((ref) => ({
+      field: field.name,
+      message: msg("setup.bindingUnknown", { name: ref }),
+    })),
+  );
+}
+
+/**
  * 이 노드가 아직 설정을 기다리는 이유들. 비어 있으면 준비가 끝난 노드다.
  * 문서가 가진 skill을 함께 받는다 — 입은 skill이 문서에 있는지는 문서를 봐야 아는 일이고,
  * 뱃지·pill·실행 게이트·첫 걸음이 모두 이 한 판정을 읽어야 서로 어긋나지 않는다.
@@ -90,6 +113,7 @@ export function nodeSetupIssues(
   node: SpecNode,
   nodeType: NodeType | undefined,
   skills: SkillDef[],
+  bindings: ResourceBinding[],
 ): SetupIssue[] {
   if (!nodeType) {
     return [{ field: null, message: msg("setup.unknownType", { type: node.type }) }];
@@ -106,12 +130,21 @@ export function nodeSetupIssues(
     }
     return [];
   });
-  return [...waiting, ...skillWearIssues(node, nodeType, skills)];
+  return [
+    ...waiting,
+    ...unknownBindingIssues(node, nodeType, bindings),
+    ...skillWearIssues(node, nodeType, skills),
+  ];
 }
 
 /** 캔버스에서 확인이 필요한 노드들 — 집계 pill과 실행 전 검증이 세는 대상. */
-export function nodesNeedingSetup(nodes: FlowNode[], skills: SkillDef[]): FlowNode[] {
+export function nodesNeedingSetup(
+  nodes: FlowNode[],
+  skills: SkillDef[],
+  bindings: ResourceBinding[],
+): FlowNode[] {
   return nodes.filter(
-    (node) => nodeSetupIssues(node.data.spec, node.data.nodeType, skills).length > 0,
+    (node) =>
+      nodeSetupIssues(node.data.spec, node.data.nodeType, skills, bindings).length > 0,
   );
 }

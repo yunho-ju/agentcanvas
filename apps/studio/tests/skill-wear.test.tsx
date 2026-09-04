@@ -1,6 +1,6 @@
 // 이 단계가 따를 skill을 고르는 칸 (DESIGN §7 skill-wear).
 import { ReactFlowProvider } from "@xyflow/react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
@@ -112,7 +112,10 @@ describe("입는 skill 칸", () => {
     expect(
       screen.getByText(/이 문서에는 아직 skill이 없어요 — 가져오면/),
     ).toBeInTheDocument();
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    // 옆 칸('쓸 도구')의 체크는 이 칸의 것이 아니다 — 이 무리 안에서만 센다.
+    expect(
+      within(screen.getByRole("group", { name: /입는 skill/ })).queryAllByRole("checkbox"),
+    ).toHaveLength(0);
   });
 
   it("가져오기 버튼이 그 카드를 연다", async () => {

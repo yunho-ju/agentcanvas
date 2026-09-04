@@ -7,6 +7,7 @@ import {
   type ServerCatalog,
   modelPicking,
   serverCatalogOf,
+  toolsUnsupported,
 } from "../src/registry/modelOptions";
 
 const OPENAI = "model://openai";
@@ -147,5 +148,50 @@ describe("reading what the server said", () => {
     ],
   ])("says it does not know rather than guessing when the answer is %s", (_what, body) => {
     expect(serverCatalogOf(body)).toBeNull();
+  });
+});
+
+// 도구를 못 쓰는 모델에게 도구를 건네겠다고 화면이 약속하지 않는다 (DESIGN §7 agent-turns).
+describe("whether the chosen model can be handed tools", () => {
+  const WITH_TOOLS = { ...aModel(DEFAULT_MODEL, true), toolCalling: true };
+  const WITHOUT_TOOLS = { ...aModel(OPENAI, true), toolCalling: false };
+
+  it("reads what the server said about each model", () => {
+    const said = serverCatalogOf({
+      mode: "live",
+      models: [
+        {
+          ref: OPENAI,
+          title: { ko: "이름", en: "title" },
+          callable: true,
+          reason: null,
+          tool_calling: false,
+        },
+      ],
+    });
+    expect(said?.models[0].toolCalling).toBe(false);
+  });
+
+  // 예전 서버는 이 말을 하지 않는다 — 말하지 않은 것을 "못 한다"로 읽지 않는다.
+  it("leaves it unknown when the server said nothing about it", () => {
+    const said = serverCatalogOf({
+      mode: "live",
+      models: [
+        { ref: OPENAI, title: { ko: "이름", en: "title" }, callable: true, reason: null },
+      ],
+    });
+    expect(said?.models[0].toolCalling).toBeUndefined();
+  });
+
+  it("says tools are out of reach only for a model the server called toolless", () => {
+    expect(toolsUnsupported(OPENAI, live(WITH_TOOLS, WITHOUT_TOOLS))).toBe(true);
+    expect(toolsUnsupported(DEFAULT_MODEL, live(WITH_TOOLS, WITHOUT_TOOLS))).toBe(false);
+  });
+
+  // 모르는 것을 없다고 말하지 않는다 — 안 고른 모델도, 못 물은 서버도 잠그지 않는다.
+  it("says nothing about a model this server never mentioned", () => {
+    expect(toolsUnsupported("model://elsewhere", live(WITHOUT_TOOLS))).toBe(false);
+    expect(toolsUnsupported(OPENAI, null)).toBe(false);
+    expect(toolsUnsupported(undefined, live(WITHOUT_TOOLS))).toBe(false);
   });
 });

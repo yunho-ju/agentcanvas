@@ -157,19 +157,28 @@
           "type": "string",
           "x-i18n": {
             "ko": {
-              "description": "이 단계가 무엇을 어떻게 하면 되는지 적는다. 적은 그대로 모델에게 전달된다.",
+              "description": "이 단계가 무엇을 어떻게 하면 되는지 적어요. 적은 그대로 모델에게 전달돼요",
               "title": "지시문"
             }
           }
         },
         "max_turns": {
-          "description": "The most times the model may go back and forth with tools while working on its answer. A large number takes a long time.",
+          "default": 1,
+          "description": "How many times it may call tools while shaping its answer. 1 means it answers in one go — each turn costs a model call",
           "minimum": 1,
           "title": "How many turns at most",
           "type": "integer",
+          "x-enabled-when": {
+            "field": "toolset_refs",
+            "hint": {
+              "en": "Pick a tool first to allow more than one turn",
+              "ko": "도구를 고르면 여러 번 시도할 수 있어요"
+            },
+            "when": "non_empty"
+          },
           "x-i18n": {
             "ko": {
-              "description": "모델이 도구를 쓰며 답을 다듬을 수 있는 최대 횟수다. 너무 크면 오래 걸린다.",
+              "description": "도구를 부르며 답을 다듬는 횟수예요. 1이면 한 번에 답해요 — 턴마다 모델 호출 비용이 들어요",
               "title": "최대 주고받기 횟수"
             }
           }
@@ -181,7 +190,7 @@
           "type": "string",
           "x-i18n": {
             "ko": {
-              "description": "답을 만들 AI 모델을 가리키는 이름이다. 예: model://default",
+              "description": "답을 만들 AI 모델을 가리키는 이름이에요. 예: model://default",
               "title": "사용할 모델"
             }
           }
@@ -192,7 +201,7 @@
           "type": "string",
           "x-i18n": {
             "ko": {
-              "description": "나중에 여러 문서가 같은 지시문을 함께 쓰게 될 이름 자리다. 지금은 이름표일 뿐이다. 예: prompt://clinical@7",
+              "description": "나중에 여러 문서가 같은 지시문을 함께 쓰게 될 이름 자리예요. 지금은 이름표일 뿐이에요. 예: prompt://clinical@7",
               "title": "지시문 이름 (고급)"
             }
           }
@@ -207,23 +216,24 @@
           "type": "array",
           "x-i18n": {
             "ko": {
-              "description": "이 단계가 따를 skill(일하는 방법을 적어 둔 글)을 고른다. 이 문서에 든 skill만 고를 수 있다 — 목록이 비어 있으면 먼저 가져온다.",
+              "description": "이 단계가 따를 skill(일하는 방법을 적어 둔 글)을 골라요. 이 문서에 든 skill만 고를 수 있어요 — 목록이 비어 있으면 먼저 가져와요",
               "title": "입는 skill"
             }
           }
         },
         "toolset_refs": {
-          "description": "Write the name of each connection whose tools this agent may use, one per line. Use the names from this agent's list of connections, not server addresses.",
+          "description": "Tick the connections whose tools this step may reach for. Only this document's connections that carry tools can be ticked",
           "items": {
             "type": "string",
+            "x-binding-filter": "with_tools",
             "x-binding-ref": true
           },
-          "title": "Connections it may use",
+          "title": "Tools it may use",
           "type": "array",
           "x-i18n": {
             "ko": {
-              "description": "이 에이전트가 도구를 쓸 수 있는 연결의 이름을 한 줄에 하나씩 적는다. 서버 주소가 아니라 이 에이전트의 연결 목록에 있는 이름을 적는다.",
-              "title": "쓸 수 있는 연결"
+              "description": "이 단계가 쓸 수 있는 도구가 든 연결을 골라요. 이 문서의 연결 가운데 도구가 든 것만 고를 수 있어요",
+              "title": "쓸 도구"
             }
           }
         }

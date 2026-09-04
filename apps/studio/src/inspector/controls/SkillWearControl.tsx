@@ -30,6 +30,7 @@ export function SkillWearControl(props: ControlProps) {
   const openSkillImport = useEditor((state) => state.openSkillImport);
   const running = useEditor(isRunning);
 
+  const locked = props.disabled === true || running;
   const worn = wornRefs(props.value);
   const held = new Set(skills.map((skill) => skill.ref));
   const rows: WearRow[] = [
@@ -77,6 +78,8 @@ export function SkillWearControl(props: ControlProps) {
                   type="checkbox"
                   className="control control--check"
                   checked={worn.includes(row.ref)}
+                  disabled={locked}
+                  title={props.disabled ? props.title : undefined}
                   onChange={(event) => toggle(row.ref, event.target.checked)}
                 />
                 <span className="skill-wear__name">{row.name}</span>
@@ -95,8 +98,8 @@ export function SkillWearControl(props: ControlProps) {
       <button
         type="button"
         className="button-ghost skill-wear__import"
-        disabled={running}
-        title={running ? t(LOCKED_HINT) : t("skills.new.hint")}
+        disabled={locked}
+        title={running ? t(LOCKED_HINT) : (props.title ?? t("skills.new.hint"))}
         onClick={openSkillImport}
       >
         {t("control.skillWear.import")}

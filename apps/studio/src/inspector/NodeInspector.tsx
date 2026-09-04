@@ -9,6 +9,7 @@ import { useEditor } from "../store/editor";
 import { isRunning } from "../store/runSlice";
 import { docSkills } from "../store/skillSlice";
 import { ConfigForm } from "./ConfigForm";
+import { turnsCaptions } from "./turnsCaption";
 
 export function NodeInspector({ node }: { node: FlowNode }) {
   const updateNodeConfig = useEditor((state) => state.updateNodeConfig);
@@ -50,6 +51,7 @@ export function NodeInspector({ node }: { node: FlowNode }) {
         config={spec.config ?? {}}
         onChange={(config, options) => updateNodeConfig(node.id, config, options)}
         extraErrors={skillWearIssues(spec, nodeType, skills)}
+        extraCaptions={turnsCaptions()}
       />
       {/* 지우는 길은 폼 맨 아래에 있다 — Delete 키가 가던 그 길로 간다 (DESIGN §7).
           잠그는 일은 이 폼을 감싼 fieldset이 이미 한다 — 이유만 여기서 말한다. */}

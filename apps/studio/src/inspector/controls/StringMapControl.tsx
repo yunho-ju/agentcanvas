@@ -28,14 +28,19 @@ function useMapRows(value: unknown, onChange: (next: Record<string, string>) => 
   };
 }
 
-export function StringMapControl({ field, value, onChange, id }: ControlProps) {
+export function StringMapControl({ field, value, onChange, id, disabled }: ControlProps) {
   const { rows, setRow, removeRow, addRow } = useMapRows(value, onChange);
   const duplicated = duplicateNames(rows);
   const locale = useLocale();
   const t = useT();
 
   return (
-    <fieldset className="control control--map" id={id} aria-label={localized(field.label, locale)}>
+    <fieldset
+      className="control control--map"
+      id={id}
+      disabled={disabled}
+      aria-label={localized(field.label, locale)}
+    >
       <ul className="control__rows">
         {rows.map((row, index) => (
           // 이름은 편집 중에 계속 바뀌므로 줄을 가리키는 이름은 순서뿐이다.

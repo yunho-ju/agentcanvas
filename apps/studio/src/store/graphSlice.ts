@@ -445,3 +445,11 @@ export const createGraphSlice: StateCreator<EditorState, [], [], GraphSlice> = (
     },
   };
 };
+
+/** 아직 연결이 없는 문서가 늘 같은 빈 목록을 내어 주는 자리 — 그리기를 흔들지 않는다. */
+const NO_BINDINGS: ResourceBinding[] = [];
+
+/** 지금 이 문서가 가진 연결들 — 화면이 목록을 읽는 하나뿐인 자리 (docSkills와 같은 문법). */
+export function docBindings(state: EditorState): ResourceBinding[] {
+  return state.spec?.resources ?? NO_BINDINGS;
+}

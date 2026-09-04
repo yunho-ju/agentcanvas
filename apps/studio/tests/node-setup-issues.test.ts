@@ -13,8 +13,8 @@ function node(type: string, config: Record<string, unknown> = {}): SpecNode {
 }
 
 function issuesOf(type: string, config: Record<string, unknown> = {}) {
-  // 문서가 가진 skill은 이 판정의 재료다 — 여기 규칙들은 skill 없는 문서에서의 이야기다.
-  return nodeSetupIssues(node(type, config), nodeTypes[type], []);
+  // 문서가 가진 skill·연결은 이 판정의 재료다 — 여기 규칙들은 둘 다 없는 문서의 이야기다.
+  return nodeSetupIssues(node(type, config), nodeTypes[type], [], []);
 }
 
 function messagesOf(type: string, config: Record<string, unknown> = {}, locale: Locale = "ko") {
@@ -111,14 +111,60 @@ describe("망가진 bindings는 값이 있어도 문제다", () => {
         node("llm.agent", { ...FILLED["llm.agent"], bindings: 5 }),
         nodeTypes["llm.agent"],
         [],
+        [],
       ),
     ).toEqual([]);
   });
 });
 
+// 고른 연결이 문서에 없으면 그릴 때 막는다 — 서버 node.unknown_binding과 같은 판정이다.
+describe("이 문서가 지킬 수 없는 연결을 고른 노드", () => {
+  const WITH_TOOLS = {
+    id: "clinical",
+    kind: "mcp.toolset" as const,
+    server_ref: "mcp://clinical",
+    tools: [
+      {
+        name: "search",
+        plain_description: { ko: "찾기", en: "search" },
+        input_schema: {},
+        output_schema: {},
+        timeout_ms: 1000,
+        call: { transport: "mcp" as const, remote_name: "search" },
+      },
+    ],
+  };
+
+  function agentIssues(picks: string[], bindings = [WITH_TOOLS]) {
+    return nodeSetupIssues(
+      node("llm.agent", { ...FILLED["llm.agent"], toolset_refs: picks }),
+      nodeTypes["llm.agent"],
+      [],
+      bindings,
+    );
+  }
+
+  it("없는 이름을 그 칸의 손볼 곳으로 짚는다", () => {
+    const [issue] = agentIssues(["gone"]);
+    expect(issue.field).toBe("toolset_refs");
+    expect(translate("ko", issue.message)).toContain("gone");
+  });
+
+  it("문서가 지킬 수 있는 이름에는 아무 말도 하지 않는다", () => {
+    expect(agentIssues(["clinical"])).toEqual([]);
+  });
+
+  // 도구가 없는 연결은 고를 수 있는 것이 아니었다 — 골라 둔 것도 미해결이다.
+  it("도구가 없는 연결을 고른 것도 짚는다", () => {
+    expect(
+      agentIssues(["plain"], [{ ...WITH_TOOLS, id: "plain", tools: [] }]),
+    ).toHaveLength(1);
+  });
+});
+
 describe("registry가 모르는 노드", () => {
   it("설정을 판정할 수 없다는 사실을 숨기지 않는다", () => {
-    expect(nodeSetupIssues(node("custom.unknown"), undefined, [])).toHaveLength(1);
+    expect(nodeSetupIssues(node("custom.unknown"), undefined, [], [])).toHaveLength(1);
   });
 });
 
@@ -140,12 +186,15 @@ describe("캔버스 전체에서 확인이 필요한 노드", () => {
       flowNode("half", "tool.mcp", { resource_ref: "x" }),
     ];
 
-    expect(nodesNeedingSetup(nodes, []).map((node) => node.id)).toEqual(["empty", "half"]);
+    expect(nodesNeedingSetup(nodes, [], []).map((node) => node.id)).toEqual([
+      "empty",
+      "half",
+    ]);
   });
 
   it("다 채운 캔버스에서는 아무도 손들지 않는다", () => {
-    expect(nodesNeedingSetup([flowNode("ok", "core.output", FILLED["core.output"])], [])).toEqual(
-      [],
-    );
+    expect(
+      nodesNeedingSetup([flowNode("ok", "core.output", FILLED["core.output"])], [], []),
+    ).toEqual([]);
   });
 });

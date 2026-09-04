@@ -13,6 +13,11 @@ export interface ControlProps {
   id: string;
   describedBy?: string;
   invalid: boolean;
+  /** 지금은 손댈 수 없는 칸 — 까닭은 보이는 줄이 말하고, title이 거든다 */
+  disabled?: boolean;
+  title?: string;
+  /** 비어 있을 때 그 자리가 뜻하는 값 */
+  placeholder?: string;
 }
 
 export interface ControlEntry {

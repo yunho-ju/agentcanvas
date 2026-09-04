@@ -62,7 +62,7 @@ function useRows(stored: InputRow[], write: (rows: InputRow[]) => void) {
   return { rows, problem: rowsProblem(rows), draft, commit };
 }
 
-export function InputRowsControl({ field, id }: ControlProps) {
+export function InputRowsControl({ field, id, disabled }: ControlProps) {
   const node = useEditor(selectedNode);
   const inputSchema = useEditor((state) => state.spec?.input_schema);
   const setInputRows = useEditor((state) => state.setInputRows);
@@ -82,6 +82,7 @@ export function InputRowsControl({ field, id }: ControlProps) {
     <fieldset
       className="control control--rows"
       id={id}
+      disabled={disabled}
       aria-label={localized(field.label, locale)}
     >
       <ul className="control__rows">

@@ -54,6 +54,13 @@ SKILL_REF_MARKER = "x-skill-ref"
 # config_schema 확장 키워드 — 이 노드의 포트는 config가 고른 도구(ToolDef)를 입는다.
 # 어느 자리에 도구 이름을 적고 어느 포트가 무엇을 입는지는 여기 적힌 대로다
 # (노드 타입 이름으로 분기하지 않는다).
+# config_schema 확장 키워드 — 이 자리가 고를 수 있는 바인딩을 거르는 규칙의 이름이다.
+BINDING_FILTER_MARKER = "x-binding-filter"
+
+# config_schema 확장 키워드 — 이 칸은 같은 config의 다른 칸이 비어 있지 않을 때만 켜진다.
+# 잠긴 까닭(hint)도 여기 두 언어로 적는다: 폼은 표식만 읽고 노드 타입을 보지 않는다.
+ENABLED_WHEN_MARKER = "x-enabled-when"
+
 TOOL_PORTS_MARKER = "x-tool-ports"
 TOOL_NAME_FIELD = "tool_name_field"
 TOOL_INPUT_PORT = "input_port"
@@ -512,7 +519,7 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                                 "ko": {
                                     "title": "사용할 모델",
                                     "description": (
-                                        "답을 만들 AI 모델을 가리키는 이름이다. "
+                                        "답을 만들 AI 모델을 가리키는 이름이에요. "
                                         "예: model://default"
                                     ),
                                 }
@@ -532,8 +539,8 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                                 "ko": {
                                     "title": "지시문",
                                     "description": (
-                                        "이 단계가 무엇을 어떻게 하면 되는지 적는다. "
-                                        "적은 그대로 모델에게 전달된다."
+                                        "이 단계가 무엇을 어떻게 하면 되는지 적어요. "
+                                        "적은 그대로 모델에게 전달돼요"
                                     ),
                                 }
                             },
@@ -551,31 +558,36 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                                     "title": "지시문 이름 (고급)",
                                     "description": (
                                         "나중에 여러 문서가 같은 지시문을 함께 쓰게 될 이름 "
-                                        "자리다. 지금은 이름표일 뿐이다. 예: prompt://clinical@7"
+                                        "자리예요. 지금은 이름표일 뿐이에요. "
+                                        "예: prompt://clinical@7"
                                     ),
                                 }
                             },
                         },
                         "toolset_refs": {
                             "type": "array",
-                            "title": "Connections it may use",
+                            "title": "Tools it may use",
                             "description": (
-                                "Write the name of each connection whose tools this "
-                                "agent may use, one per line. Use the names from this "
-                                "agent's list of connections, not server addresses."
+                                "Tick the connections whose tools this step may reach "
+                                "for. Only this document's connections that carry "
+                                "tools can be ticked"
                             ),
                             "x-i18n": {
                                 "ko": {
-                                    "title": "쓸 수 있는 연결",
+                                    "title": "쓸 도구",
                                     "description": (
-                                        "이 에이전트가 도구를 쓸 수 있는 연결의 이름을 "
-                                        "한 줄에 하나씩 적는다. 서버 주소가 아니라 이 "
-                                        "에이전트의 연결 목록에 있는 이름을 적는다."
+                                        "이 단계가 쓸 수 있는 도구가 든 연결을 골라요. "
+                                        "이 문서의 연결 가운데 도구가 든 것만 고를 수 "
+                                        "있어요"
                                     ),
                                 }
                             },
                             # 원소 하나하나가 spec.resources 바인딩의 id다.
-                            "items": {"type": "string", BINDING_REF_MARKER: True},
+                            "items": {
+                                "type": "string",
+                                BINDING_REF_MARKER: True,
+                                BINDING_FILTER_MARKER: "with_tools",
+                            },
                         },
                         "skill_refs": {
                             "type": "array",
@@ -591,8 +603,8 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                                     "title": "입는 skill",
                                     "description": (
                                         "이 단계가 따를 skill(일하는 방법을 적어 둔 글)을 "
-                                        "고른다. 이 문서에 든 skill만 고를 수 있다 — "
-                                        "목록이 비어 있으면 먼저 가져온다."
+                                        "골라요. 이 문서에 든 skill만 고를 수 있어요 — "
+                                        "목록이 비어 있으면 먼저 가져와요"
                                     ),
                                 }
                             },
@@ -603,20 +615,32 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                             "type": "integer",
                             "title": "How many turns at most",
                             "description": (
-                                "The most times the model may go back and forth with "
-                                "tools while working on its answer. A large number "
-                                "takes a long time."
+                                "How many times it may call tools while shaping its "
+                                "answer. 1 means it answers in one go — each turn "
+                                "costs a model call"
                             ),
                             "x-i18n": {
                                 "ko": {
                                     "title": "최대 주고받기 횟수",
                                     "description": (
-                                        "모델이 도구를 쓰며 답을 다듬을 수 있는 최대 횟수다. "
-                                        "너무 크면 오래 걸린다."
+                                        "도구를 부르며 답을 다듬는 횟수예요. 1이면 한 번에 "
+                                        "답해요 — 턴마다 모델 호출 비용이 들어요"
                                     ),
                                 }
                             },
                             "minimum": 1,
+                            # 엔진은 아직 모델을 한 번 부른다 (AGENT_PATTERNS P3 전).
+                            "default": 1,
+                            ENABLED_WHEN_MARKER: {
+                                "field": "toolset_refs",
+                                "when": "non_empty",
+                                "hint": {
+                                    "ko": "도구를 고르면 여러 번 시도할 수 있어요",
+                                    "en": (
+                                        "Pick a tool first to allow more than one turn"
+                                    ),
+                                },
+                            },
                         },
                     },
                     "required": ["model_ref"],

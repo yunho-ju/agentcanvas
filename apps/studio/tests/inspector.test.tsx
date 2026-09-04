@@ -38,6 +38,38 @@ function labelledExactly(label: string) {
   return new RegExp(`^${spelled}( \\*)?$`);
 }
 
+/** 글자 목록 칸 하나만 가진 노드 — 지금 registry에는 그런 칸이 없다. */
+function listNode() {
+  store().loadSpec({
+    ...example,
+    nodes: [{ id: "listy", type: "custom.list", position: { x: 0, y: 0 }, config: {} }],
+    edges: [],
+  } as unknown as AgentSpec);
+  useEditor.setState({
+    nodes: store().nodes.map((node) => ({
+      ...node,
+      selected: true,
+      data: {
+        ...node.data,
+        nodeType: {
+          type: "custom.list",
+          version: "1.0",
+          runtime: "custom",
+          display_name: { ko: "목록 노드", en: "List node" },
+          plain_description: { ko: "설명", en: "A description" },
+          ports: { inputs: [], outputs: [] },
+          config_schema: {
+            type: "object",
+            properties: {
+              names: { type: "array", items: { type: "string" }, title: "이름들" },
+            },
+          },
+        },
+      },
+    })),
+  });
+}
+
 describe("a form built from config_schema", () => {
   it.each(Object.keys(nodeTypes))("labels every config field of %s", (type) => {
     store().addNode(type, { x: 0, y: 0 });
@@ -82,15 +114,15 @@ describe("a form built from config_schema", () => {
     expect(configOf("clinical-agent")).toMatchObject({ max_turns: 7 });
   });
 
+  // 글자 목록 칸은 한 줄에 하나다 — 어느 노드 타입이 그런 칸을 가지든 같은 문법이다.
   it("keeps a list field a list of strings, one per line", async () => {
-    store().select("node", "clinical-agent");
+    listNode();
     render(<Inspector />);
 
-    const list = screen.getByLabelText(/쓸 수 있는 연결/);
-    await userEvent.clear(list);
+    const list = screen.getByLabelText(labelledExactly("이름들"));
     await userEvent.type(list, "one{enter}two");
 
-    expect(configOf("clinical-agent")).toMatchObject({ toolset_refs: ["one", "two"] });
+    expect(configOf("listy")).toMatchObject({ names: ["one", "two"] });
   });
 
   it("shows the schema problem next to the field that has it", async () => {
@@ -759,5 +791,210 @@ describe("the review form a gate asks for", () => {
       }),
     ).toBeInTheDocument();
     act(() => setLocale("ko"));
+  });
+});
+
+// 화면이 약속하는 것은 엔진이 지키는 것뿐이다 (DESIGN §7 agent-turns).
+describe("how many turns an agent may take", () => {
+  const AGENT = "clinical-agent";
+  const LOCKED = "도구를 고르면 여러 번 시도할 수 있어요";
+
+  function turnsField() {
+    return screen.getByLabelText(labelledExactly("최대 주고받기 횟수"));
+  }
+
+  /** 아직 아무것도 고르지 않은 새 에이전트 — 도구도, 턴 수도 적힌 것이 없다. */
+  function freshAgent() {
+    act(() => store().addNode("llm.agent", { x: 0, y: 0 }));
+    act(() => store().select("node", store().nodes.at(-1)?.id ?? ""));
+  }
+
+  it("shows the one turn the engine actually takes, not an empty box", () => {
+    freshAgent();
+    render(<Inspector />);
+
+    expect(turnsField()).toHaveValue(1);
+  });
+
+  it("locks the turns of an agent with no tools", () => {
+    freshAgent();
+    render(<Inspector />);
+
+    expect(turnsField()).toBeDisabled();
+    expect(turnsField()).toHaveAttribute("title", LOCKED);
+  });
+
+  // 잠긴 컨트롤에는 툴팁이 뜨지 않는다 — 까닭은 보이는 줄로 말한다 (DESIGN §7).
+  it("says why in a line anyone can read, not only in a tooltip", () => {
+    freshAgent();
+    render(<Inspector />);
+
+    const reason = screen.getByText(LOCKED);
+    expect(reason).toBeInTheDocument();
+    expect(turnsField().getAttribute("aria-describedby")).toContain(reason.id);
+  });
+
+  it("unlocks the turns as soon as a tool of this document is ticked", async () => {
+    store().select("node", AGENT);
+    act(() => store().updateNodeConfig(AGENT, { model_ref: "model://default" }));
+    render(<Inspector />);
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /clinical-reference/ }));
+
+    expect(turnsField()).toBeEnabled();
+    expect(screen.queryByText(LOCKED)).not.toBeInTheDocument();
+  });
+
+  // 오타 이름은 고른 것이 아니다 — 그것으로 잠금이 풀리면 화면이 거짓을 말한다.
+  it("keeps the turns locked while the only pick is a name the document lacks", () => {
+    act(() => store().updateNodeConfig(AGENT, { toolset_refs: ["typo-name"] }));
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(turnsField()).toBeDisabled();
+  });
+
+  it("leaves the turns of an agent that already ticked a tool alone", () => {
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(turnsField()).toBeEnabled();
+    expect(turnsField()).toHaveValue(4);
+  });
+
+  // 엔진이 반복하기 전까지는 저장되는 값일 뿐이다 — 그 사실을 캡션 끝에 붙여 말한다.
+  it("admits in the caption that this server still answers in one go", () => {
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    const caption = document.getElementById("config-max_turns-hint");
+    expect(caption).toHaveTextContent("턴마다 모델 호출 비용이 들어요");
+    expect(caption).toHaveTextContent("(이 서버는 아직 한 번에 답해요)");
+  });
+
+  // 빈 상자는 뜻을 잃는다 — 지운 자리에는 기본값이 초대말로 남는다.
+  it("shows the default as a placeholder once someone empties the box", async () => {
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    await userEvent.clear(turnsField());
+
+    expect(turnsField()).toHaveValue(null);
+    expect(turnsField()).toHaveAttribute("placeholder", "1");
+  });
+
+  // 기본값은 사람이 바꾸기 전에는 문서에 실리지 않는다 — 보이는 것과 저장되는 것은 다르다.
+  it("never writes the default into the document by itself", async () => {
+    freshAgent();
+    const id = store().nodes.at(-1)?.id ?? "";
+    render(<Inspector />);
+
+    await userEvent.click(screen.getByRole("checkbox", { name: /clinical-reference/ }));
+
+    expect(store().nodes.find((node) => node.id === id)?.data.spec.config).not.toHaveProperty(
+      "max_turns",
+    );
+  });
+});
+
+// '쓸 도구'는 글자로 적는 칸이 아니라 이 문서의 도구를 고르는 체크 목록이다 (DESIGN §7 agent-turns).
+describe("the tools an agent may use", () => {
+  const AGENT = "clinical-agent";
+
+  function toolRow(name: string | RegExp) {
+    return screen.getByRole("checkbox", { name });
+  }
+
+  it("offers this document's connections that carry tools, and how many", () => {
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(toolRow(/clinical-reference/)).toBeChecked();
+    expect(screen.getByText("도구 2개")).toBeInTheDocument();
+  });
+
+  it("keeps the pick as one step to undo", async () => {
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    await userEvent.click(toolRow(/clinical-reference/));
+
+    expect(configOf(AGENT)).toMatchObject({ toolset_refs: [] });
+    act(() => store().undo());
+    expect(configOf(AGENT)).toMatchObject({ toolset_refs: ["clinical-reference"] });
+  });
+
+  // 화면이 모르는 이름을 조용히 지우지 않는다 — 줄로 남고, 뺄 손잡이를 준다.
+  it("shows a name this document lacks as an unknown connection, with a way out", async () => {
+    act(() => store().updateNodeConfig(AGENT, { toolset_refs: ["gone"] }));
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(screen.getByText("알 수 없는 연결 'gone'")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /빼기/ }));
+    expect(configOf(AGENT)).toMatchObject({ toolset_refs: [] });
+  });
+
+  it("says where connections come from when this document has none", () => {
+    act(() => store().loadSpec({ ...example, resources: [] }));
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(
+      screen.getByText("이 문서에는 아직 연결이 없어요 — 왼쪽 연결 패널에서 만들 수 있어요"),
+    ).toBeInTheDocument();
+  });
+
+  it("says the connections it has carry no tools yet", () => {
+    act(() =>
+      store().loadSpec({
+        ...example,
+        resources: [{ id: "plain", kind: "mcp.toolset", server_ref: "mcp://plain" }],
+      } as unknown as AgentSpec),
+    );
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(
+      screen.getByText("도구가 있는 연결이 아직 없어요 — 연결 패널에서 도구를 붙일 수 있어요"),
+    ).toBeInTheDocument();
+  });
+
+  // 고른 모델이 도구를 못 쓰면 도구를 고르게 두지 않는다 — 실행 실패와 같은 말로 (DESIGN §7).
+  it("locks the whole list when this server says the model cannot use tools", () => {
+    act(() =>
+      useEditor.setState({
+        serverModels: {
+          mode: "live",
+          models: [
+            {
+              ref: "model://default",
+              title: { ko: "기본 모델", en: "Default model" },
+              callable: true,
+              reason: null,
+              toolCalling: false,
+            },
+          ],
+        },
+      }),
+    );
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(toolRow(/clinical-reference/)).toBeDisabled();
+    expect(
+      screen.getByText(
+        "이 모델은 도구를 쓸 수 없어요 — 도구를 쓸 수 있는 모델을 고르거나, 이 단계에서 도구를 빼 주세요",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  // 서버가 모델 사정을 말하지 않았으면 잠그지 않는다 — 모르는 것을 없다고 말하지 않는다.
+  it("locks nothing while this server said nothing about its models", () => {
+    act(() => useEditor.setState({ serverModels: null }));
+    store().select("node", AGENT);
+    render(<Inspector />);
+
+    expect(toolRow(/clinical-reference/)).toBeEnabled();
   });
 });

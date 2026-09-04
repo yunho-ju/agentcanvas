@@ -17,7 +17,13 @@ function useWearingNode() {
 }
 
 /** 적어 둔 지시문을 skill로 만들러 가는 손잡이 — 적힌 것이 없으면 잠그고 까닭을 말한다. */
-export function SkillMakeEntry({ instruction }: { instruction: string }) {
+export function SkillMakeEntry({
+  instruction,
+  disabled,
+}: {
+  instruction: string;
+  disabled?: boolean;
+}) {
   const node = useWearingNode();
   const running = useEditor(isRunning);
   const openSkillMake = useEditor((state) => state.openSkillMake);
@@ -36,7 +42,7 @@ export function SkillMakeEntry({ instruction }: { instruction: string }) {
     <button
       type="button"
       className="button-ghost control__make-skill"
-      disabled={blocked !== undefined}
+      disabled={disabled === true || blocked !== undefined}
       title={t(blocked ?? { key: "skillMake.entry.hint" })}
       onClick={() => openSkillMake(node.id, instruction)}
     >

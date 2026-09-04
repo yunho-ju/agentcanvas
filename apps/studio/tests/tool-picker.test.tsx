@@ -309,13 +309,10 @@ describe("fields no marker points at", () => {
     });
     render(<Inspector />);
 
-    // 이름 자리(prompt_ref)와 연결 목록(toolset_refs)은 마커가 없다 — 지금 그대로다.
+    // 이름 자리(prompt_ref)는 어떤 마커도 가리키지 않는다 — 지금 그대로 글 상자다.
     expect(
       screen.getByRole("textbox", { name: /^지시문 이름 \(고급\)( \*)?$/ }).tagName,
     ).toBe("INPUT");
-    expect(
-      screen.getByRole("textbox", { name: /^쓸 수 있는 연결( \*)?$/ }).tagName,
-    ).toBe("TEXTAREA");
   });
 });
 

@@ -7,6 +7,7 @@ import { useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 import { modePanelOpen } from "../store/modePanels";
 import { sawRunToTheEnd } from "../store/runSlice";
+import { docBindings } from "../store/graphSlice";
 import { docSkills } from "../store/skillSlice";
 import { type FirstStep, type FirstStepKey, currentStep, firstSteps } from "./firstSteps";
 
@@ -23,6 +24,7 @@ export function FirstStepsCard() {
   const edges = useEditor((state) => state.edges);
   // 채울 것이 남았는지에는 입은 skill이 문서에 있는지도 든다 — 뱃지·pill과 같은 판정이다.
   const skills = useEditor(docSkills);
+  const bindings = useEditor(docBindings);
   const runFinished = useEditor(sawRunToTheEnd);
   // 우측 스택에 모드 패널이 서 있으면 안내는 한 줄로 물러난다 (DESIGN §1 우측 레이어의 자리 나눔).
   const panelOpen = useEditor(modePanelOpen);
@@ -38,7 +40,7 @@ export function FirstStepsCard() {
       firstSteps({
         nodeCount: nodes.length,
         edgeCount: edges.length,
-        needsSetupCount: nodesNeedingSetup(nodes, skills).length,
+        needsSetupCount: nodesNeedingSetup(nodes, skills, bindings).length,
         runFinished,
       }),
     [nodes, edges, skills, runFinished],

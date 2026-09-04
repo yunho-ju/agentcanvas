@@ -1,11 +1,21 @@
 // config_schema가 그리는 폼. 노드 타입을 보지 않는다 — schema만 본다 (설계 §4.2).
+import { useState } from "react";
 import type { EditOptions } from "../history/graphCommands";
 import { localized } from "../i18n/locale";
+import type { Message } from "../i18n/messages";
 import { useLocale, useT } from "../i18n/useT";
+import { resolvedPicks } from "./bindingPicks";
 import { CONTROLS, JsonControl } from "./controls";
-import { type FormField, describeForm } from "./schemaForm";
+import {
+  type ConfigCaption,
+  type EnabledState,
+  type FormField,
+  describeForm,
+  enabledState,
+} from "./schemaForm";
+import { useDocResources } from "./useDocResources";
 import { type ConfigError, validateConfig } from "./validateConfig";
-import { parseJson, withValue } from "./values";
+import { asText, parseJson, withValue } from "./values";
 
 type Config = Record<string, unknown>;
 
@@ -18,27 +28,40 @@ interface ConfigFormProps {
    * (예: 입은 skill이 이 문서에 있는가). 붙는 자리는 schema 오류와 같다.
    */
   extraErrors?: ConfigError[];
+  /** schema의 설명만으로는 정직하지 않은 칸에 덧붙이는 말 (예: 이 서버가 못 하는 일) */
+  extraCaptions?: ConfigCaption[];
 }
 
 function ConfigFieldRow({
   field,
   value,
   error,
+  caption,
+  enabled,
   onChange,
 }: {
   field: FormField;
   value: unknown;
   error?: ConfigError;
+  caption?: Message;
+  enabled: EnabledState;
   onChange: (value: unknown, options?: EditOptions) => void;
 }) {
   const { Component, selfLabelled } = CONTROLS[field.control];
+  // 빈 상자는 뜻을 잃지만, 손댄 뒤에 비운 칸을 다시 채우면 지우고 다시 적는 길이 막힌다.
+  const [touched, setTouched] = useState(false);
   const locale = useLocale();
   const t = useT();
   const id = `config-${field.name}`;
-  const description = localized(field.description, locale);
-  const hintId = field.description ? `${id}-hint` : undefined;
+  const description = [localized(field.description, locale), caption ? t(caption) : ""]
+    .filter((part) => part !== "")
+    .join(" ");
+  const hintId = description === "" ? undefined : `${id}-hint`;
   const title = localized(field.label, locale);
   const label = field.required ? `${title} *` : title;
+  const lockedBecause = enabled.enabled ? undefined : localized(enabled.hint, locale);
+  // 잠긴 컨트롤에는 툴팁이 뜨지 않는다 — 까닭은 보이는 줄로도 말한다 (DESIGN §7 agent-turns).
+  const lockedId = lockedBecause === undefined ? undefined : `${id}-locked`;
 
   return (
     <div className="inspector__field">
@@ -58,12 +81,23 @@ function ConfigFieldRow({
       )}
       <Component
         field={field}
-        value={value}
-        onChange={onChange}
+        value={value === undefined && !touched ? field.fallback : value}
+        onChange={(next, options) => {
+          setTouched(true);
+          onChange(next, options);
+        }}
         id={id}
-        describedBy={hintId}
+        describedBy={[hintId, lockedId].filter(Boolean).join(" ") || undefined}
         invalid={error !== undefined}
+        disabled={lockedBecause !== undefined}
+        title={lockedBecause}
+        placeholder={field.fallback === undefined ? undefined : asText(field.fallback)}
       />
+      {lockedBecause ? (
+        <p className="inspector__hint" id={lockedId}>
+          {lockedBecause}
+        </p>
+      ) : null}
       {description ? (
         <p className="inspector__hint" id={hintId}>
           {description}
@@ -123,10 +157,14 @@ export function ConfigForm({
   config,
   onChange,
   extraErrors = [],
+  extraCaptions = [],
 }: ConfigFormProps) {
   const t = useT();
+  const { bindings } = useDocResources();
   const form = describeForm(schema);
   const errors = [...validateConfig(schema, config), ...extraErrors];
+  // 잠금을 푸는 것은 이 문서가 지킬 수 있는 고름뿐이다 — 오타 이름은 고른 것이 아니다.
+  const standing = resolvedPicks(schema, config, bindings);
 
   if (form.raw) return <RawConfigEditor config={config} onChange={onChange} />;
 
@@ -145,6 +183,8 @@ export function ConfigForm({
           field={field}
           value={config[field.name]}
           error={errors.find((error) => error.field === field.name)}
+          caption={extraCaptions.find((one) => one.field === field.name)?.message}
+          enabled={enabledState(field, standing)}
           onChange={(value, options) =>
             onChange(withValue(config, field.name, value), options)
           }

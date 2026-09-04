@@ -21,6 +21,10 @@ export const INPUT_NODE_TYPE = "core.input";
 export const BINDING_REF_MARKER = "x-binding-ref";
 // 입은 skill의 표식은 연결과 갈라져 있다 — skill이 끊긴 연결로 잘못 잡히면 안 된다.
 export const SKILL_REF_MARKER = "x-skill-ref";
+// 다른 칸이 비어 있으면 잠기는 칸 — 잠긴 까닭도 이 표식이 두 언어로 들고 있다.
+export const ENABLED_WHEN_MARKER = "x-enabled-when";
+// 이 자리가 고를 수 있는 연결을 거르는 규칙의 이름 — 규칙 자체는 폼이 안다.
+export const BINDING_FILTER_MARKER = "x-binding-filter";
 export const TOOL_PORTS_MARKER = "x-tool-ports";
 export const TOOL_NAME_FIELD = "tool_name_field";
 const TOOL_INPUT_PORT = "input_port";
@@ -76,6 +80,19 @@ function markedRefs(node: SpecNode, nodeType: NodeType, marker: string): string[
 /** 이 노드가 쓰겠다고 적은 연결(spec.resources)의 id들 — x-binding-ref 자리. */
 export function bindingRefs(node: SpecNode, nodeType: NodeType): string[] {
   return markedRefs(node, nodeType, BINDING_REF_MARKER);
+}
+
+/**
+ * 이 노드가 어느 모델에게 맡기는가 — 모델 이름을 적는 칸(format: model-ref)의 값이다.
+ * 화면은 어느 칸이 그 칸인지 외우지 않는다: registry에게 묻는다.
+ */
+export function modelRefOf(node: SpecNode, nodeType: NodeType): string | undefined {
+  const properties = asRecord(nodeType.config_schema.properties) ?? {};
+  const field = Object.entries(properties).find(
+    ([, schema]) => asRecord(schema)?.format === "model-ref",
+  )?.[0];
+  const value = field === undefined ? undefined : node.config?.[field];
+  return typeof value === "string" ? value : undefined;
 }
 
 /** 이 노드가 입겠다고 적은 skill(spec.skills)의 ref들 — x-skill-ref 자리. */

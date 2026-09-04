@@ -13,6 +13,7 @@ import { useFocusInspector } from "../inspector/inspectorFocus";
 import { GateCard } from "../run/GateCard";
 import { elapsedWords, STATUS_WORDS } from "../run/statusWords";
 import { useEditor } from "../store/editor";
+import { docBindings } from "../store/graphSlice";
 import { docSkills } from "../store/skillSlice";
 import { NodeTypeChip } from "./NodeTypeChip";
 import { type PortAddress, type PortLinkState, portLinkState } from "./portLink";
@@ -63,6 +64,7 @@ export function NodeCard({ id, data }: NodeCardProps) {
   const { nodeType, ports, runStatus, runElapsedMs, runError } = data;
   const select = useEditor((state) => state.select);
   const skills = useEditor(docSkills);
+  const bindings = useEditor(docBindings);
   const halting = useEditor((state) => state.breakpoints.includes(id));
   // 이 카드 위에 오른쪽 클릭 메뉴가 펴져 있는가 — 한 자리에 두 카드를 겹치지 않는다
   // (DESIGN §7 context-menu, gate-card가 툴팁을 물리는 것과 같은 규칙).
@@ -98,7 +100,7 @@ export function NodeCard({ id, data }: NodeCardProps) {
   // 실행을 보는 동안에는 상태가 카드의 말이다 — 설정 이야기는 편집으로 돌아왔을 때 한다.
   // 손볼 곳은 한 판정이 센다 — 이 칸이 비었는가, 입은 skill이 문서에 있는가(skill.missing).
   // 아무도 안 입은 skill(validator INFO)은 세지 않는다: 그것은 손볼 곳이 아니다.
-  const issues = runStatus ? [] : nodeSetupIssues(data.spec, nodeType, skills);
+  const issues = runStatus ? [] : nodeSetupIssues(data.spec, nodeType, skills, bindings);
 
   // 이을 수 있는지는 계약이 정한다 (checkConnection) — 끌고 있지 않으면 묻지도 않는다.
   const linkStateOf = useMemo(() => {

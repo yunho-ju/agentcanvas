@@ -12,6 +12,8 @@ export interface ModelChoice {
   callable: boolean;
   /** 부를 수 없는 까닭 — 부를 수 있으면 없다 */
   reason: string | null;
+  /** 이 모델에게 도구를 건넬 수 있는가 — 서버가 말하지 않았으면 모른다 */
+  toolCalling?: boolean;
 }
 
 /** 이 서버가 도는 자리 — 진짜 모델에게 묻거나(live), 연습용 답으로 돌거나(stand_in). */
@@ -58,13 +60,21 @@ function asModelChoice(item: unknown): ModelChoice | null {
     title?: unknown;
     callable?: unknown;
     reason?: unknown;
+    tool_calling?: unknown;
   };
   const title = asLocalizedText(said.title);
   if (typeof said.ref !== "string" || title === null) return null;
   if (typeof said.callable !== "boolean") return null;
   const reason = said.reason;
   if (reason !== null && reason !== undefined && typeof reason !== "string") return null;
-  return { ref: said.ref, title, callable: said.callable, reason: reason ?? null };
+  return {
+    ref: said.ref,
+    title,
+    callable: said.callable,
+    reason: reason ?? null,
+    // 예전 서버는 이 말을 하지 않는다 — 못 들은 것은 모르는 것으로 둔다.
+    ...(typeof said.tool_calling === "boolean" ? { toolCalling: said.tool_calling } : {}),
+  };
 }
 
 function asLocalizedText(value: unknown): LocalizedText | null {
@@ -97,6 +107,18 @@ export function modelPicking(server: ServerCatalog | null): ModelPicking {
     options: [...callable, ...server.models.filter((model) => !model.callable)],
     note: callable.length === 0 ? "none_callable" : null,
   };
+}
+
+/**
+ * 고른 모델이 도구를 못 쓴다고 이 서버가 **말했는가**.
+ * 모르는 것(안 고른 모델·못 물은 서버·모르는 이름)은 못 한다고 말하지 않는다.
+ */
+export function toolsUnsupported(
+  modelRef: unknown,
+  server: ServerCatalog | null,
+): boolean {
+  if (server === null || typeof modelRef !== "string") return false;
+  return server.models.find((model) => model.ref === modelRef)?.toolCalling === false;
 }
 
 function bundledChoices(): ModelChoice[] {

@@ -1,8 +1,10 @@
 // config_schema(JSON Schema) -> inspector 폼. 노드 타입은 여기서 쳐다보지 않는다 (설계 §4.2).
 // 읽을 수 없는 조각은 버리지 않고 raw JSON 편집으로 넘긴다 — 어떤 schema가 와도 UI는 살아 있다.
 import type { Locale } from "../i18n/locale";
+import type { Message } from "../i18n/messages";
 import {
   BINDING_REF_MARKER,
+  ENABLED_WHEN_MARKER,
   SKILL_REF_MARKER,
   TOOL_NAME_FIELD,
   TOOL_PORTS_MARKER,
@@ -26,6 +28,7 @@ export type ControlKind =
   | "schemaRef"
   | "modelRef"
   | "bindingSelect"
+  | "bindingWear"
   | "skillWear"
   | "toolSelect"
   | "json";
@@ -38,8 +41,19 @@ export interface FormField {
   control: ControlKind;
   /** select에서 고를 수 있는 값 */
   options?: string[];
+  /** 아직 아무도 적지 않았을 때 이 칸이 뜻하는 값 — 계약이 default로 말한 것 */
+  fallback?: unknown;
   schema: JsonSchema;
 }
+
+/** schema의 설명 뒤에 덧붙일 한 줄 — 지금 이 서버의 사정처럼 schema가 모르는 말이다. */
+export interface ConfigCaption {
+  field: string;
+  message: Message;
+}
+
+/** 지금 이 칸이 켜져 있는가 — 꺼져 있으면 계약이 적어 둔 까닭을 함께 들고 온다. */
+export type EnabledState = { enabled: true } | { enabled: false; hint: FieldText };
 
 export interface ConfigForm {
   fields: FormField[];
@@ -92,6 +106,7 @@ const CONTROL_BY_MARKER: Record<string, ControlKind> = {
  */
 const CONTROL_BY_ITEM_MARKER: Record<string, ControlKind> = {
   [SKILL_REF_MARKER]: "skillWear",
+  [BINDING_REF_MARKER]: "bindingWear",
 };
 
 /**
@@ -176,8 +191,48 @@ function describeField(
     required: required.includes(name),
     control,
     ...(control === "select" ? { options: stringList(schema.enum) ?? [] } : {}),
+    ...(schema.default !== undefined ? { fallback: schema.default } : {}),
     schema,
   };
+}
+
+/** 사람이 적은 것이 있는가 — 빈 목록도, 공백뿐인 줄도 적은 것이 아니다. */
+function written(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(written);
+  if (typeof value === "string") return value.trim() !== "";
+  return value !== undefined && value !== null;
+}
+
+/**
+ * 표식이 물을 수 있는 조건들.
+ * 새 조건을 지원할 때 여기 한 줄을 더한다 — 읽는 쪽 코드는 그대로다.
+ */
+const ENABLED_WHEN: Record<string, (value: unknown) => boolean> = {
+  non_empty: written,
+};
+
+function fieldText(value: unknown): FieldText | undefined {
+  const text = asObject(value);
+  return typeof text?.ko === "string" && typeof text.en === "string"
+    ? { ko: text.ko, en: text.en }
+    : undefined;
+}
+
+/**
+ * 이 칸이 지금 켜져 있는가 — 계약의 `x-enabled-when`이 다른 칸에 걸어 둔 의존을 읽는다.
+ * 표식이 없거나 읽을 수 없으면 켜 둔다: 모르는 조건으로 사람의 손을 묶지 않는다.
+ */
+export function enabledState(
+  field: FormField,
+  values: Record<string, unknown>,
+): EnabledState {
+  const marker = asObject((field.schema as Record<string, unknown>)[ENABLED_WHEN_MARKER]);
+  const asks = typeof marker?.when === "string" ? ENABLED_WHEN[marker.when] : undefined;
+  const hint = fieldText(marker?.hint);
+  if (!marker || !asks || !hint || typeof marker.field !== "string") {
+    return { enabled: true };
+  }
+  return asks(values[marker.field]) ? { enabled: true } : { enabled: false, hint };
 }
 
 /**

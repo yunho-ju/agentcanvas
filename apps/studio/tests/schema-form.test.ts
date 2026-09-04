@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { describeForm, missingRequired } from "../src/inspector/schemaForm";
+import {
+  describeForm,
+  enabledState,
+  missingRequired,
+} from "../src/inspector/schemaForm";
 import { nodeTypes } from "../src/registry/registry";
 
 function controlsOf(schema: unknown): Record<string, string> {
@@ -36,7 +40,8 @@ describe("describeForm on the six base node types", () => {
       model_ref: "modelRef",
       instruction: "instructionText",
       prompt_ref: "text",
-      toolset_refs: "array",
+      // 연결 이름을 적는 목록은 문서의 연결을 아는 편집기다 — 없으면 어디서 만드는지 말한다.
+      toolset_refs: "bindingWear",
       skill_refs: "skillWear",
       max_turns: "number",
     });
@@ -294,5 +299,82 @@ describe("missingRequired", () => {
 
   it("says nothing is missing when the form asks for nothing", () => {
     expect(missingRequired([], {})).toEqual([]);
+  });
+});
+
+// 어떤 칸이 지금 켜져 있는가 — 의존은 계약의 표식이 말하고 폼은 읽기만 한다 (DESIGN §7 agent-turns).
+describe("enabledState", () => {
+  function fieldOf(properties: Record<string, unknown>, name: string) {
+    const form = describeForm({ type: "object", properties });
+    const field = form.fields.find((one) => one.name === name);
+    if (!field) throw new Error(`no field named ${name}`);
+    return field;
+  }
+
+  const TURNS = {
+    max_turns: {
+      type: "integer",
+      "x-enabled-when": {
+        field: "toolset_refs",
+        when: "non_empty",
+        hint: { ko: "도구를 고르면 여러 번 시도할 수 있어요", en: "Pick a tool first" },
+      },
+    },
+    toolset_refs: { type: "array", items: { type: "string" } },
+  };
+
+  it("leaves a field with no marker on", () => {
+    expect(enabledState(fieldOf(TURNS, "toolset_refs"), {})).toEqual({ enabled: true });
+  });
+
+  it("turns a field off while the field it depends on is unwritten", () => {
+    expect(enabledState(fieldOf(TURNS, "max_turns"), {})).toEqual({
+      enabled: false,
+      hint: { ko: "도구를 고르면 여러 번 시도할 수 있어요", en: "Pick a tool first" },
+    });
+  });
+
+  it("counts an empty list as unwritten", () => {
+    expect(
+      enabledState(fieldOf(TURNS, "max_turns"), { toolset_refs: [] }).enabled,
+    ).toBe(false);
+  });
+
+  // 한 줄에 하나씩 적는 칸이라 공백만 적힌 줄이 남는다 — 그것은 고른 것이 아니다.
+  it("counts a list of nothing but blank lines as unwritten", () => {
+    expect(
+      enabledState(fieldOf(TURNS, "max_turns"), { toolset_refs: ["  "] }).enabled,
+    ).toBe(false);
+  });
+
+  it("turns the field on as soon as the field it depends on holds one entry", () => {
+    expect(
+      enabledState(fieldOf(TURNS, "max_turns"), { toolset_refs: ["clinical"] }),
+    ).toEqual({ enabled: true });
+  });
+
+  // 모르는 조건으로 칸을 잠그지 않는다 — 읽을 수 없는 표식은 아무 말도 하지 않은 것과 같다.
+  it("leaves a field on when the marker asks a question it cannot read", () => {
+    const field = fieldOf(
+      { odd: { type: "string", "x-enabled-when": { field: "other", when: "someday" } } },
+      "odd",
+    );
+    expect(enabledState(field, {}).enabled).toBe(true);
+  });
+});
+
+// 계약이 정한 기본값은 화면에도 보인다 — 빈칸은 "아무 일도 안 한다"로 읽힌다.
+describe("describeForm defaults", () => {
+  it("carries the default the schema declares", () => {
+    const form = describeForm({
+      type: "object",
+      properties: { max_turns: { type: "integer", default: 1 } },
+    });
+    expect(form.fields[0].fallback).toBe(1);
+  });
+
+  it("carries no default when the schema declares none", () => {
+    const form = describeForm({ type: "object", properties: { a: { type: "string" } } });
+    expect(form.fields[0].fallback).toBeUndefined();
   });
 });

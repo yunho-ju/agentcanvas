@@ -1800,6 +1800,11 @@ const TEXTS = {
     ko: "되돌리기로 언제든 살릴 수 있어요",
     en: "Undo brings it back any time",
   },
+  // 엔진이 도구를 부르며 반복하기 전까지 '최대 몇 턴'은 저장되는 값일 뿐이다 (DESIGN §7 agent-turns).
+  "agent.turns.oneShot": {
+    ko: "(이 서버는 아직 한 번에 답해요)",
+    en: "(this server still answers in one go)",
+  },
   "edge.title": { ko: "연결", en: "Connection" },
   "edge.kind.label": { ko: "연결 종류", en: "Kind of connection" },
   "edge.kind.data": { ko: "값 전달 (data)", en: "Carries a value (data)" },
@@ -1856,6 +1861,17 @@ const TEXTS = {
   "control.modelRef.noneCallable": {
     ko: "이 서버에 부를 수 있는 모델이 아직 없어요 — 서버 설정에서 열쇠를 넣어 주세요",
     en: "This server cannot call any model yet — add a key in the server's settings",
+  },
+  // 쓸 도구는 체크 목록이다 — 줄마다 이름과 도구 수를 말한다 (DESIGN §7 agent-turns).
+  "control.bindingWear.tools": { ko: "도구 {count}개", en: "{count} tools" },
+  "control.bindingWear.unknown": {
+    ko: "알 수 없는 연결 '{name}'",
+    en: "Unknown connection '{name}'",
+  },
+  "control.bindingWear.remove": { ko: "빼기", en: "Remove" },
+  "control.bindingWear.noTools": {
+    ko: "도구가 있는 연결이 아직 없어요 — 연결 패널에서 도구를 붙일 수 있어요",
+    en: "No connection carries tools yet — the connections panel can add tools to one",
   },
   "control.toolSelect.needsBinding": {
     ko: "먼저 연결을 고르세요",
@@ -1954,6 +1970,11 @@ const TEXTS = {
   "setup.bindings.path": {
     ko: "'{name}'의 위치를 글자로 적어야 해요",
     en: "Write where '{name}' comes from as text",
+  },
+  // 고른 연결이 문서에 없을 때 (서버 node.unknown_binding과 같은 판정).
+  "setup.bindingUnknown": {
+    ko: "'{name}' 연결이 이 문서에 없어요",
+    en: "'{name}' is not among this document's connections",
   },
   // 입은 skill이 문서에 없을 때 (validator skill.missing) — 이름표가 아니라 이름으로 말한다.
   "setup.skillMissing": {

@@ -1,7 +1,9 @@
 import pytest
 from agentcanvas_contracts.agent_spec import Node, ResourceBinding
 from agentcanvas_contracts.node_registry import (
+    BINDING_FILTER_MARKER,
     DEFAULT_NODE_TYPES,
+    ENABLED_WHEN_MARKER,
     SKILL_REF_MARKER,
     NodeType,
     PortSpec,
@@ -226,17 +228,71 @@ def test_binding_reference_fields_say_they_want_a_binding_id(node_type, field_na
     assert "연결" in field["x-i18n"]["ko"]["description"]
 
 
-@pytest.mark.parametrize(
-    ("node_type", "field_name"),
-    [("tool.mcp", "resource_ref"), ("llm.agent", "toolset_refs")],
-)
-def test_binding_reference_labels_use_the_same_word_as_their_description(
-    node_type, field_name
-):
+def test_binding_reference_labels_use_the_same_word_as_their_description():
     """라벨과 설명이 다른 말을 쓰면 사용자는 다른 것을 적는다 — 둘 다 '연결'이다."""
-    field = DEFAULT_NODE_TYPES[node_type].config_schema["properties"][field_name]
+    field = DEFAULT_NODE_TYPES["tool.mcp"].config_schema["properties"]["resource_ref"]
     assert "Connection" in field["title"]
     assert "연결" in field["x-i18n"]["ko"]["title"]
+
+
+def test_agent_tool_field_is_called_what_it_gives_the_step():
+    """사람이 고르는 것은 도구다 — 화면과 계약이 두 이름을 쓰지 않는다 (DESIGN §7)."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["toolset_refs"]
+    assert field["title"] == "Tools it may use"
+    assert field["x-i18n"]["ko"]["title"] == "쓸 도구"
+
+
+def test_agent_tool_field_offers_only_connections_that_carry_tools():
+    """고를 것을 거르는 규칙도 표식이다 — 폼은 노드 타입을 보지 않는다."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["toolset_refs"]
+    assert field["items"][BINDING_FILTER_MARKER] == "with_tools"
+
+
+@pytest.mark.parametrize(
+    "field_name", sorted(DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"])
+)
+def test_agent_card_speaks_in_one_voice(field_name):
+    """한 카드 안의 말투는 하나다 — 이 노드의 모든 칸 설명은 해요체다 (DESIGN §7 agent-turns)."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"][field_name]
+    # 예시("예: model://default")는 말투를 가진 문장이 아니다 — 그 앞까지를 본다.
+    said = field["x-i18n"]["ko"]["description"].split("예:")[0]
+    assert said.strip().rstrip(".").endswith("요")
+
+
+def test_agent_turns_default_to_the_one_turn_the_engine_actually_runs():
+    """엔진은 아직 모델을 한 번 부른다 — 기본값이 그 사실을 말한다."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["max_turns"]
+    assert field["default"] == 1
+
+
+def test_agent_turns_explain_what_a_turn_costs_in_both_languages():
+    """턴마다 모델 호출 비용이 든다는 것은 hover 뒤에 숨기지 않는다 (DESIGN §7 agent-turns)."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["max_turns"]
+    assert "each turn costs a model call" in field["description"]
+    assert "턴마다 모델 호출 비용이 들어요" in field["x-i18n"]["ko"]["description"]
+
+
+def test_agent_turns_are_only_open_while_a_tool_is_picked():
+    """도구 없이 여러 턴은 뜻이 없다 — 의존을 표식으로 선언하고 폼이 읽는다."""
+    field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["max_turns"]
+    assert field[ENABLED_WHEN_MARKER] == {
+        "field": "toolset_refs",
+        "when": "non_empty",
+        "hint": {
+            "ko": "도구를 고르면 여러 번 시도할 수 있어요",
+            "en": "Pick a tool first to allow more than one turn",
+        },
+    }
+
+
+def test_enabled_when_marker_points_at_a_field_that_exists():
+    """가리키는 칸이 없으면 폼은 영영 잠긴 칸을 그린다."""
+    for node_type in DEFAULT_NODE_TYPES.values():
+        properties = node_type.config_schema.get("properties", {})
+        for field in properties.values():
+            marker = field.get(ENABLED_WHEN_MARKER)
+            if marker is not None:
+                assert marker["field"] in properties
 
 
 def test_default_registry_keys_match_node_type_field():
@@ -713,4 +769,4 @@ def test_the_skill_field_shows_the_shape_of_what_goes_in_it(language: str):
         else field["x-i18n"]["ko"]["description"]
     )
     assert "skill://" not in description
-    assert ("Tick" in description) or ("고른다" in description)
+    assert ("Tick" in description) or ("골라요" in description)

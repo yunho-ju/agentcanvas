@@ -22,6 +22,7 @@ import {
   parseJson,
   toNumber,
 } from "../values";
+import { BindingWearControl } from "./BindingWearControl";
 import { InputRowsControl } from "./InputRowsControl";
 import { SkillMakeEntry, SkillMadeNote } from "./SkillMakeEntry";
 import { SkillWearControl } from "./SkillWearControl";
@@ -30,11 +31,14 @@ import type { ControlEntry, ControlProps } from "./types";
 
 export type { ControlProps } from "./types";
 
-function common({ id, describedBy, invalid }: ControlProps) {
+function common({ id, describedBy, invalid, disabled, title, placeholder }: ControlProps) {
   return {
     id,
     "aria-describedby": describedBy,
     "aria-invalid": invalid || undefined,
+    disabled,
+    title,
+    placeholder,
   };
 }
 
@@ -160,7 +164,7 @@ const TYPE_IT_MYSELF = "__type_it_myself__";
  * 저장되는 것은 언제나 값 하나 — 고름/적음은 화면의 상태일 뿐이라 undo에 남지 않는다.
  */
 function PresetRefControl(
-  props: ControlProps & { choices: Choice[]; disabled?: boolean },
+  props: ControlProps & { choices: Choice[] },
 ) {
   const t = useT();
   const current = asText(props.value);
@@ -327,7 +331,7 @@ function ToolSelectControl(props: ControlProps) {
       <PresetRefControl
         {...props}
         describedBy={describedBy(props, reason ? reasonId : undefined)}
-        disabled={waiting}
+        disabled={waiting || props.disabled}
         choices={tools.map((tool) => ({
           value: tool.name,
           label: tool.name,
@@ -374,6 +378,8 @@ function InstructionTextControl(props: ControlProps) {
           // 셀렉트도 이 필드의 것이다 — 필드의 이름과 같은 설명을 받는다.
           aria-label={t("control.presetFill.name", { field: props.field.label })}
           aria-describedby={props.describedBy}
+          disabled={props.disabled}
+          title={props.title}
           // 고름은 행동이라 남지 않는다 — 채우고 나면 다시 쉬는 자리로 돌아온다.
           value=""
           onPointerDown={() => {
@@ -402,7 +408,7 @@ function InstructionTextControl(props: ControlProps) {
           ))}
         </select>
         {/* 적어 둔 글은 그 단계만의 것이 아니어도 된다 — skill로 저장하면 문서의 것이 된다. */}
-        <SkillMakeEntry instruction={asText(props.value)} />
+        <SkillMakeEntry instruction={asText(props.value)} disabled={props.disabled} />
       </span>
       <TextareaControl
         {...props}
@@ -481,6 +487,7 @@ export const CONTROLS: Record<ControlKind, ControlEntry> = {
   schemaRef: { Component: SchemaRefControl },
   modelRef: { Component: ModelRefControl },
   bindingSelect: { Component: BindingSelectControl },
+  bindingWear: { Component: BindingWearControl, selfLabelled: true },
   skillWear: { Component: SkillWearControl, selfLabelled: true },
   toolSelect: { Component: ToolSelectControl },
   json: { Component: JsonControl },
