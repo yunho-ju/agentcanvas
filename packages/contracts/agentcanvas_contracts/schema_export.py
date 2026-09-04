@@ -11,6 +11,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from .agent_spec import AgentSpec
+from .architect_asks import PatternAnswer, PatternAsk, SkippedPattern
 from .architect_patch import AgentSpecPatch
 from .chat import CHAT_SAID_BINDING
 from .eval_case import EvalCase, EvalDataset
@@ -43,12 +44,15 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "model_def": ModelDef,
     "node_type": NodeType,
     "optimization_proposal": OptimizationProposal,
+    "pattern_answer": PatternAnswer,
+    "pattern_ask": PatternAsk,
     "pattern_def": PatternDef,
     "release_manifest": ReleaseManifest,
     "run": Run,
     "run_event": RunEvent,
     "schema_def": SchemaDef,
     "skill_def": SkillDef,
+    "skipped_pattern": SkippedPattern,
     "spec_publication": SpecPublication,
 }
 

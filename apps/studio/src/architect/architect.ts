@@ -1,6 +1,6 @@
 import type { AgentSpec } from "../generated/agent_spec";
 import { skillRefs } from "../registry/registry";
-import { fakeRun } from "../run/fakeRun";
+import { fakeRun, resumeFakeRun } from "../run/fakeRun";
 import { nodeSetupIssues } from "../graph/nodeSetupIssues";
 import { validateSpec } from "../graph/validateSpec";
 import { nodeTypes } from "../registry/registry";
@@ -94,11 +94,25 @@ function graphProblems(spec: AgentSpec): number {
   return orphanEdges + unreachableNodes + cycles;
 }
 
+/**
+ * 가짜 실행이 끝까지 걸어지는가 — 사람 확인 앞에서 멈추면 승인으로 이어 걷는다
+ * (DESIGN §7 guided-architect-card: 이 검사가 묻는 것은 구조의 사실이지 승인 정책이 아니다).
+ * 한 걸음도 나아가지 못하는 자리에서는 멈춘다 — 끝나지 않는 되풀이를 만들지 않는다.
+ */
+function walksToTheEnd(spec: AgentSpec): boolean {
+  let events = fakeRun(spec, { runId: `dry-run:${spec.id}`, startedAt: ARCHITECT_REVIEW_TIME });
+  while (events.at(-1)?.event_type === "run.paused") {
+    const walked = resumeFakeRun(spec, events, { approved: true });
+    if (walked.length === events.length) break;
+    events = walked;
+  }
+  return events.some((event) => event.event_type === "run.completed");
+}
+
 export function reviewArchitectSpec(spec: AgentSpec): ArchitectReview {
   const schemaErrors = validateSpec(spec);
   const graphErrorCount = graphProblems(spec);
-  const events = fakeRun(spec, { runId: `dry-run:${spec.id}`, startedAt: ARCHITECT_REVIEW_TIME });
-  const dryRunPassed = events.some((event) => event.event_type === "run.completed");
+  const dryRunPassed = walksToTheEnd(spec);
   const result = {
     schema: { passed: schemaErrors.length === 0, count: schemaErrors.length },
     graph: { passed: graphErrorCount === 0, count: graphErrorCount },

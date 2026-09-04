@@ -55,7 +55,7 @@ export function App() {
   useCoverReport(layerRightRef, "layer-right", "right");
   useCoverReport(layerBottomRef, "layer-bottom", "bottom");
   const dock = useDockPanel();
-  const architectOpen = useEditor((state) => state.architectMode === "guided" && state.spec === null && state.nodes.length === 0);
+  const architectOpen = useEditor((state) => state.architectMode !== "closed" && state.spec === null && state.nodes.length === 0);
   // 재생 중에는 밖의 시계가 store에 시간을 흘려 넣는다.
   useRunClock();
 
@@ -112,6 +112,7 @@ export function App() {
         onToolWrapField: isToolWrapFieldFocused(event.target),
         skillImportOpen: skillImportIsOpen(editor),
         onSkillImportField: isSkillImportFieldFocused(event.target),
+        architectAsking: editor.architectMode === "asking",
         chatOpen: editor.chatOpen,
         onChatField: isChatFieldFocused(event.target),
         chatDeleteAsking: editor.chatDeleteAsking,

@@ -21,11 +21,14 @@ export const GENERATED_SCHEMAS = [
   "model_def",
   "node_type",
   "optimization_proposal",
+  "pattern_answer",
+  "pattern_ask",
   "pattern_def",
   "run",
   "run_event",
   "schema_def",
   "skill_def",
+  "skipped_pattern",
   "spec_publication",
 ];
 

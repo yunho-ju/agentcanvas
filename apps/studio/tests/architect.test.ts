@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { reviewArchitectSpec } from "../src/architect/architect";
-import { makeArchitectSpec } from "./architect-fixtures";
+import { makeArchitectSpec, withAHumanGate } from "./architect-fixtures";
 import { chatBindings } from "../src/chat/chatEntry";
 
 describe("local Architect preview", () => {
@@ -44,6 +44,30 @@ describe("local Architect preview", () => {
     const result = reviewArchitectSpec(mutate(makeArchitectSpec("request", "draft-fixed")));
     expect(result.graph.passed).toBe(false);
     expect(result.passed).toBe(false);
+  });
+
+  it("walks a draft that stops for a person all the way to the end", () => {
+    // 이 검사가 묻는 것은 구조의 사실이지 사람이 승인할지가 아니다 (DESIGN §7).
+    const gated = withAHumanGate(makeArchitectSpec("answer questions", "draft-gated"));
+
+    expect(reviewArchitectSpec(gated).dryRun).toEqual({ passed: true, count: 1 });
+    expect(reviewArchitectSpec(gated).passed).toBe(true);
+  });
+
+  it("keeps walking through every stop, not only the first", () => {
+    const twice = withAHumanGate(
+      withAHumanGate(makeArchitectSpec("answer questions", "draft-gated"), "first-gate"),
+      "second-gate",
+    );
+
+    expect(reviewArchitectSpec(twice).dryRun.passed).toBe(true);
+  });
+
+  it("still fails the walk when the graph never reaches the end", () => {
+    const spec = makeArchitectSpec("answer questions", "draft-gated");
+    const cut = { ...spec, nodes: spec.nodes.filter((node) => node.id !== "llm-agent") };
+
+    expect(reviewArchitectSpec(cut).passed).toBe(false);
   });
 
   it("makes a draft that can be talked to once it is published", () => {

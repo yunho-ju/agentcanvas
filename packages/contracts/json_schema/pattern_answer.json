@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "description": "그 물음에 사람이 한 답 — 모른다(\"skipped\")는 아니오와 다른 답이다.",
+  "properties": {
+    "answer": {
+      "enum": [
+        "yes",
+        "no",
+        "skipped"
+      ],
+      "title": "Answer",
+      "type": "string"
+    },
+    "pattern_id": {
+      "minLength": 1,
+      "title": "Pattern Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "pattern_id",
+    "answer"
+  ],
+  "title": "PatternAnswer",
+  "type": "object"
+}

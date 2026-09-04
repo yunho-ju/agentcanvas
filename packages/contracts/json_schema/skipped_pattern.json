@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "예라고 했는데 넣지 못한 모양 — 무엇이 모자랐는지 사람이 읽는 말로 말한다.",
+  "properties": {
+    "pattern_id": {
+      "minLength": 1,
+      "title": "Pattern Id",
+      "type": "string"
+    },
+    "why": {
+      "$ref": "#/$defs/LocalizedText"
+    }
+  },
+  "required": [
+    "pattern_id",
+    "why"
+  ],
+  "title": "SkippedPattern",
+  "type": "object"
+}

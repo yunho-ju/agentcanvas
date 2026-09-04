@@ -121,11 +121,10 @@ export const createOptimizeSlice: StateCreator<EditorState, [], [], OptimizeSlic
       }),
 
     applyOptimizeCandidate: () => {
-      // 후보는 서버가 이미 validate_graph로 통과시킨 것이다(preview_of) — 그래서 앉힐 수 있다.
-      // 화면의 검사 3종은 사람이 읽으라고 보여 줄 뿐, 승인의 게이트가 아니다(빈 캔버스가
-      // 아니라 사람 확인 밸브가 있는 기존 그래프도 고칠 수 있어야 한다).
-      const { optimizeCandidate, spec } = get();
-      if (!optimizeCandidate || spec === null) return false;
+      // 검사 3종은 초안 카드와 같은 게이트다 — 하나라도 실패한 후보는 앉히지 않는다
+      // (DESIGN §7: 두 카드가 같은 검사를 두 기준으로 읽지 않는다).
+      const { optimizeCandidate, optimizeReview, spec } = get();
+      if (!optimizeCandidate || !optimizeReview?.passed || spec === null) return false;
       // 지금 그래프를 후보로 갈아 앉힌다 — 지난 실행을 채택할 때와 같은 명령(1 undo 걸음).
       get().runCommand(adoptSpec(sceneOf(get()), get().exportSpec(), optimizeCandidate));
       buildSequence += 1;

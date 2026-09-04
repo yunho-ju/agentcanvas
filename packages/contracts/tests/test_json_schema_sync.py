@@ -55,12 +55,15 @@ def test_schema_models_cover_the_published_contracts():
         "model_def",
         "node_type",
         "optimization_proposal",
+        "pattern_answer",
+        "pattern_ask",
         "pattern_def",
         "release_manifest",
         "run",
         "run_event",
         "schema_def",
         "skill_def",
+        "skipped_pattern",
         "spec_publication",
     ]
 
@@ -444,6 +447,14 @@ def test_generated_typescript_carries_the_pattern_template_shape():
     assert '"add_node"' in generated
     assert '"remove_edge"' in generated
     assert '"tool_calling"' in generated
+
+
+def test_generated_typescript_carries_the_asking_round_shapes():
+    """되묻기의 세 모양도 화면에서 손으로 적히지 않는다 — 스키마에서 나온다."""
+    generated = Path(__file__).resolve().parents[3] / "apps/studio/src/generated"
+    assert "question" in (generated / "pattern_ask.ts").read_text(encoding="utf-8")
+    assert '"skipped"' in (generated / "pattern_answer.ts").read_text(encoding="utf-8")
+    assert "why" in (generated / "skipped_pattern.ts").read_text(encoding="utf-8")
 
 
 def test_committed_starter_skills_match_the_ones_we_ship():

@@ -13,8 +13,10 @@ import pytest
 from agentcanvas_contracts.patterns import (
     ANY_PORT,
     DEFAULT_PATTERNS,
+    AddNodeTemplateOp,
     Capability,
     PatternDef,
+    ReplaceNodeConfigTemplateOp,
     resolve_pattern,
 )
 from pydantic import ValidationError
@@ -166,3 +168,19 @@ class TestFindingOneByName:
     @pytest.mark.parametrize("pattern_id", ["", "React", "supervisor", "  react  "])
     def test_it_says_nothing_rather_than_raising(self, pattern_id: str):
         assert resolve_pattern(pattern_id) is None
+
+
+def test_no_template_writes_a_model_name_of_its_own():
+    """모델 이름은 서버가 채운다 — 템플릿이 적어 두면 이 서버가 못 부르는 모델이 실릴 수 있다.
+
+    검사 3개를 통과했는데 실행이 거절되는 거짓 통과를 만들지 않는다 (DESIGN §7 채워야 할 칸).
+    """
+    written = [
+        (pattern.id, op.node)
+        for pattern in DEFAULT_PATTERNS.values()
+        for op in pattern.template
+        if isinstance(op, AddNodeTemplateOp | ReplaceNodeConfigTemplateOp)
+        and "model_ref" in op.config
+    ]
+
+    assert written == []

@@ -121,9 +121,7 @@
     },
     "template": [
       {
-        "config": {
-          "model_ref": "model://default"
-        },
+        "config": {},
         "node": "{new:router}",
         "op": "add_node",
         "type": "llm.router"

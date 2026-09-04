@@ -82,7 +82,8 @@ def test_fixture_api_returns_candidate_and_keeps_specs_empty():
     status = client.get("/__fixture/status").json()
     assert status["fixture_only"] is True
     assert status["provenance"] == "scripted_candidate_not_real_provider_evidence"
-    assert status["model_calls"] == 1
+    # 빈 캔버스 초안은 두 번 묻는다 — 무엇을 되물을까(P6a), 그리고 그림(patch).
+    assert status["model_calls"] == 2
     assert status["saved_spec_ids"] == []
     assert model.metrics is metrics
 

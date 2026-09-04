@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from typing import get_args
+
 import pytest
 from agentcanvas_contracts.agent_spec import AgentSpec
 from agentcanvas_contracts.architect_patch import (
@@ -20,6 +22,7 @@ from agentcanvas_contracts.patterns import DEFAULT_PATTERNS, PatchTemplate
 from agentcanvas_engine.architect_patch import apply_patch
 from agentcanvas_engine.patterns.apply import (
     NEW_NODE_DROP_Y,
+    CannotFillReason,
     TemplateCannotFill,
     fill_template,
 )
@@ -30,6 +33,19 @@ A_CONNECTION = {
     "kind": "mcp",
     "server_ref": "mcp://records",
     "approval_policy": "read_only_auto",
+}
+A_CONNECTION_WITH_A_TOOL = {
+    **A_CONNECTION,
+    "tools": [
+        {
+            "name": "look-up",
+            "plain_description": {"ko": "찾아본다.", "en": "Looks it up."},
+            "input_schema": {"type": "object"},
+            "output_schema": {"type": "object"},
+            "timeout_ms": 5000,
+            "call": {"transport": "mcp", "remote_name": "look-up"},
+        }
+    ],
 }
 AN_INPUT = {
     "id": "start",
@@ -58,7 +74,11 @@ AN_EDGE_TO_THE_ANSWER = {
 }
 
 
-def a_document(nodes: list[dict], edges: list[dict] | None = None) -> AgentSpec:
+def a_document(
+    nodes: list[dict],
+    edges: list[dict] | None = None,
+    resources: list[dict] | None = None,
+) -> AgentSpec:
     spec = AgentSpec.model_validate(
         {
             "schema_version": "agent.spec/v1",
@@ -73,7 +93,7 @@ def a_document(nodes: list[dict], edges: list[dict] | None = None) -> AgentSpec:
             "state_schema": {"type": "object"},
             "nodes": nodes,
             "edges": edges or [],
-            "resources": [A_CONNECTION],
+            "resources": [A_CONNECTION] if resources is None else resources,
         }
     )
     return spec.model_copy(update={"revision": spec.computed_revision()})
@@ -120,20 +140,60 @@ class TestLookingThingsUp:
             )
         ]
 
-    def test_an_agent_with_no_tools_yet_is_told_to_pick_them_first(self):
+    def test_an_agent_that_picked_no_tool_is_told_to_pick_one(self):
         """못 쓰는 칸을 켜 두지 않는다 — 도구가 없으면 턴을 늘려도 달라지는 것이 없다."""
         tool_less = {**AN_AGENT, "config": {"model_ref": "model://claude-sonnet"}}
 
-        cannot = filled("react", a_document([AN_INPUT, tool_less, AN_OUTPUT]))
+        cannot = filled(
+            "react",
+            a_document(
+                [AN_INPUT, tool_less, AN_OUTPUT], resources=[A_CONNECTION_WITH_A_TOOL]
+            ),
+        )
 
         assert isinstance(cannot, TemplateCannotFill)
         assert cannot.reason == "needs_tools"
-        assert "도구" in cannot.message.ko and "tools" in cannot.message.en
+        assert "골라" in cannot.message.ko and "Pick" in cannot.message.en
+
+    def test_a_document_with_no_tool_anywhere_says_where_to_make_one(self):
+        """고를 것이 없는데 고르라고 하지 않는다 — 만드는 길을 가리킨다 (DESIGN §7)."""
+        tool_less = {**AN_AGENT, "config": {"model_ref": "model://claude-sonnet"}}
+
+        cannot = filled(
+            "react", a_document([AN_INPUT, tool_less, AN_OUTPUT], resources=[])
+        )
+
+        assert isinstance(cannot, TemplateCannotFill)
+        assert cannot.reason == "no_tools_anywhere"
+        assert "연결 패널" in cannot.message.ko
+        assert "connections panel" in cannot.message.en
+
+    def test_the_two_tool_troubles_do_not_answer_to_the_same_name(self):
+        """부르는 쪽은 이름으로 문구를 고른다 — 다른 사정이면 이름도 달라야 한다."""
+        tool_less = {**AN_AGENT, "config": {"model_ref": "model://claude-sonnet"}}
+        nothing_to_pick = filled(
+            "react", a_document([AN_INPUT, tool_less, AN_OUTPUT], resources=[])
+        )
+        picked_none = filled(
+            "react",
+            a_document(
+                [AN_INPUT, tool_less, AN_OUTPUT], resources=[A_CONNECTION_WITH_A_TOOL]
+            ),
+        )
+
+        assert isinstance(nothing_to_pick, TemplateCannotFill)
+        assert isinstance(picked_none, TemplateCannotFill)
+        assert nothing_to_pick.reason != picked_none.reason
 
     def test_an_agent_naming_a_connection_this_document_lacks_has_no_tools(self):
         stranger = {**AN_AGENT, "config": {"toolset_refs": ["somewhere-else"]}}
 
-        cannot = filled("react", a_document([AN_INPUT, stranger, AN_OUTPUT]))
+        cannot = filled(
+            "react",
+            a_document(
+                [AN_INPUT, stranger, AN_OUTPUT], resources=[A_CONNECTION_WITH_A_TOOL]
+            ),
+        )
 
         assert isinstance(cannot, TemplateCannotFill)
         assert cannot.reason == "needs_tools"
@@ -293,12 +353,64 @@ class TestATemplateThatPointsAtWhatIsNotThereYet:
         assert cannot.reason == "missing_node"
 
 
+def a_tool_less_agent() -> dict:
+    return {**AN_AGENT, "config": {"model_ref": "model://claude-sonnet"}}
+
+
+#: 못 채우는 까닭마다 그것을 실제로 만드는 문서 한 벌 — 이름과 문구가 함께 산다.
+TROUBLES: dict[str, tuple[str, AgentSpec]] = {
+    "missing_node": ("react", a_document([AN_INPUT, AN_OUTPUT])),
+    "ambiguous_anchor": (
+        "react",
+        a_document([AN_INPUT, AN_AGENT, ANOTHER_AGENT, AN_OUTPUT]),
+    ),
+    "unknown_port": (
+        "router",
+        a_document([{**AN_INPUT, "config": {"bindings": {}}}, AN_AGENT, AN_OUTPUT]),
+    ),
+    "needs_tools": (
+        "react",
+        a_document(
+            [AN_INPUT, a_tool_less_agent(), AN_OUTPUT],
+            resources=[A_CONNECTION_WITH_A_TOOL],
+        ),
+    ),
+    "no_tools_anywhere": (
+        "react",
+        a_document([AN_INPUT, a_tool_less_agent(), AN_OUTPUT], resources=[]),
+    ),
+}
+
+
+def test_every_reason_a_template_can_give_is_one_a_document_really_makes():
+    """이름만 늘어나는 일을 막는다 — 새 까닭에는 그것을 만드는 문서가 있어야 한다."""
+    assert set(TROUBLES) == set(get_args(CannotFillReason.__value__))
+
+
+@pytest.mark.parametrize("reason", sorted(TROUBLES))
+def test_every_reason_carries_a_message_in_both_languages(reason: str):
+    pattern_id, spec = TROUBLES[reason]
+
+    cannot = filled(pattern_id, spec)
+
+    assert isinstance(cannot, TemplateCannotFill)
+    assert cannot.reason == reason
+    assert cannot.message.ko.strip() and cannot.message.en.strip()
+
+
+#: 아직 채우지 않은 설정 — 미리보기 게이트가 막지 않는 그 한 가지다 (api preview_of).
+UNFINISHED_CONFIG = "node.invalid_config"
+
+
 @pytest.mark.parametrize("pattern_id", sorted(DEFAULT_PATTERNS))
 def test_the_document_each_pattern_makes_is_one_the_validator_accepts(pattern_id: str):
+    """템플릿이 놓은 그림에는 구조의 잘못이 없다 — 빈 설정 칸은 서버나 사람이 채운다."""
     after = applied(pattern_id, a_whole_document())
 
     assert [
-        issue for issue in validate_graph(after) if issue.severity is Severity.ERROR
+        issue
+        for issue in validate_graph(after)
+        if issue.severity is Severity.ERROR and issue.code != UNFINISHED_CONFIG
     ] == []
 
 

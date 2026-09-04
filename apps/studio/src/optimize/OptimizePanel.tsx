@@ -11,6 +11,8 @@ export function OptimizePanel() {
   const objective = useEditor((state) => state.optimizeObjective);
   const proposal = useEditor((state) => state.optimizeProposal);
   const review = useEditor((state) => state.optimizeReview);
+  // 두 카드가 같은 검사를 두 기준으로 읽지 않는다 (DESIGN §7 guided-architect-card).
+  const canApply = Boolean(review?.passed);
   const candidate = useEditor((state) => state.optimizeCandidate);
   const error = useEditor((state) => state.optimizeError);
   const loading = useEditor((state) => state.optimizeLoading);
@@ -149,7 +151,8 @@ export function OptimizePanel() {
               type="button"
               className="button-primary"
               onClick={apply}
-              title={t("optimize.apply.hint")}
+              disabled={!canApply}
+              title={canApply ? t("optimize.apply.hint") : t("architect.apply.disabled")}
             >
               {t("optimize.apply")}
             </button>

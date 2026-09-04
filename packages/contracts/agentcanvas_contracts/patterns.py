@@ -232,10 +232,12 @@ DEFAULT_PATTERNS: dict[str, PatternDef] = {
                 "needs": ["router"],
                 "template": [
                     {
+                        # 부를 모델은 서버가 채운다 — 템플릿이 적어 두면 이 서버가 못 부르는
+                        # 이름이 실려 검사는 통과하고 실행만 거절된다 (DESIGN §7 채워야 할 칸).
                         "op": "add_node",
                         "node": "{new:router}",
                         "type": "llm.router",
-                        "config": {"model_ref": "model://default"},
+                        "config": {},
                     },
                     {
                         "op": "add_edge",

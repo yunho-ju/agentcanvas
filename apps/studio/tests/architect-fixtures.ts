@@ -132,3 +132,24 @@ export async function draftWithTwoStepsWearingSkillsFixture(
     },
   };
 }
+
+/** 사람 확인 카드가 든 초안 — 가짜 실행은 여기서 멈춘 뒤 승인으로 이어 걸어야 한다 (DESIGN §7). */
+export function withAHumanGate(spec: AgentSpec, gateId = "answer-gate"): AgentSpec {
+  return {
+    ...spec,
+    nodes: [
+      ...spec.nodes,
+      {
+        id: gateId,
+        type: "control.human_gate",
+        position: { x: 1120, y: 0 },
+        config: { approval_schema_ref: "schema://answer-review@1" },
+      },
+    ],
+    edges: [
+      ...spec.edges.filter((edge) => edge.target.node !== "core-output"),
+      { id: `edge-agent-${gateId}`, kind: "approval", source: { node: "llm-agent", port: "response" }, target: { node: gateId, port: "review" } },
+      { id: `edge-${gateId}-output`, kind: "control", source: { node: gateId, port: "approved" }, target: { node: "core-output", port: "input" } },
+    ],
+  };
+}

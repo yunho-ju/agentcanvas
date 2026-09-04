@@ -177,6 +177,8 @@ export interface ShortcutContext {
   skillImportOpen: boolean;
   /** 손이 그 카드의 적는 칸 안에 있는가 */
   onSkillImportField: boolean;
+  /** Architect가 사람에게 되묻고 있는가 */
+  architectAsking: boolean;
   /** 대화 패널이 열려 있는가 */
   chatOpen: boolean;
   /** 손이 대화에서 할 말을 적는 칸 안에 있는가 */
@@ -245,6 +247,12 @@ const ESCAPE_CHAIN: RetreatStep[] = [
   // skill을 가져오는 카드도 같은 자리에서, 같은 순서로 물러난다.
   { when: (it) => it.onSkillImportField, step: ({ blurField }) => blurField() },
   { when: (it) => it.skillImportOpen, step: ({ editor }) => editor.closeSkillImport() },
+  // 되묻는 카드도 다른 카드와 같은 자리에서 물러난다 — 물음은 버리고 적던 부탁은 남긴다
+  // (DESIGN §7 pattern-asks).
+  {
+    when: (it) => it.architectAsking,
+    step: ({ editor }) => editor.closeArchitectAsks(),
+  },
   { when: (it) => it.panelOpen, step: ({ closePanel }) => closePanel() },
   { when: (it) => it.comparing, step: ({ editor }) => editor.clearCompare() },
   { when: (it) => it.running, step: ({ editor }) => editor.stopRun() },

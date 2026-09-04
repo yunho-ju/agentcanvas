@@ -60,8 +60,15 @@ NEW_NODE_DROP_Y = 64.0
 #: 사이에 앉을 두 노드를 템플릿에서 찾지 못했을 때, 지금 노드들의 오른쪽으로 물러앉는 걸음.
 NEW_NODE_STEP_X = 220.0
 
+#: 못 채우는 까닭의 이름들 — 부르는 쪽(화면·서비스)은 이 이름으로 제 문구를 고른다.
+#: 도구 사정이 둘인 것은 사람이 할 일이 다르기 때문이다: 고르기(needs_tools)와
+#: 만들기(no_tools_anywhere)는 같은 이름을 쓸 수 없다.
 type CannotFillReason = Literal[
-    "missing_node", "ambiguous_anchor", "unknown_port", "needs_tools"
+    "missing_node",
+    "ambiguous_anchor",
+    "unknown_port",
+    "needs_tools",
+    "no_tools_anywhere",
 ]
 
 
@@ -279,18 +286,32 @@ def _fill_replace_node_config(
     ]
 
 
+#: 이 단계가 고르지 않았을 뿐, 고를 것은 문서에 있다.
+PICK_THE_TOOLS = LocalizedText(
+    ko="먼저 이 단계가 쓸 도구를 골라 주세요.",
+    en="Pick the tools this step may use first.",
+)
+
+#: 고를 것 자체가 없다 — 고르라고 하지 않고 만드는 길을 가리킨다 (DESIGN §7 agent-turns).
+NO_TOOLS_TO_PICK = LocalizedText(
+    ko="이 문서에는 도구가 붙은 연결이 아직 없어요 — 연결 패널에서 만들면 이 단계가 쓸 수 있어요.",
+    en=(
+        "this document has no connection with tools yet — make one in the "
+        "connections panel and this step can use it."
+    ),
+)
+
+
 def _fill_requires_tools(
     op: RequireToolsTemplateOp, filling: _Filling
 ) -> list[PatchOperation]:
     node = filling.node(op.node)
     if not reaches_for_tools(node, filling.spec.resources):
+        there_are_tools = any(binding.tools for binding in filling.spec.resources)
         raise _NothingToFillWith(
             TemplateCannotFill(
-                reason="needs_tools",
-                message=LocalizedText(
-                    ko="먼저 이 단계가 쓸 도구를 골라 주세요.",
-                    en="Pick the tools this step may use first.",
-                ),
+                reason="needs_tools" if there_are_tools else "no_tools_anywhere",
+                message=PICK_THE_TOOLS if there_are_tools else NO_TOOLS_TO_PICK,
             )
         )
     return []
@@ -355,6 +376,8 @@ __all__ = [
     "FILLERS",
     "NEW_NODE_DROP_Y",
     "NEW_NODE_STEP_X",
+    "NO_TOOLS_TO_PICK",
+    "PICK_THE_TOOLS",
     "CannotFillReason",
     "TemplateCannotFill",
     "fill_template",

@@ -40,6 +40,11 @@ from agentcanvas_adapters.skill_search import (
 from agentcanvas_adapters.tool_adapters import tools_from
 from agentcanvas_adapters.tool_wrapper import ToolSource
 from agentcanvas_contracts.agent_spec import AgentSpec, NonEmptyText
+from agentcanvas_contracts.architect_asks import (
+    PatternAnswer,
+    PatternAsk,
+    SkippedPattern,
+)
 from agentcanvas_contracts.architect_patch import AgentSpecPatch
 from agentcanvas_contracts.eval_case import EvalDataset
 from agentcanvas_contracts.eval_result import EvalBatch
@@ -68,6 +73,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from .architect_service import (
+    ArchitectAsking,
+    ArchitectDraftOutcome,
     ArchitectPreview,
     ArchitectPreviewRefused,
     ArchitectRefusal,
@@ -295,13 +302,17 @@ class ArchitectPatchRequest(BaseModel):
 
 
 class ArchitectDraftRequest(BaseModel):
-    """빈 캔버스 Guided preview 요청 — seed와 id는 서버 경계에서 고정한다."""
+    """빈 캔버스 Guided preview 요청 — seed와 id는 서버 경계에서 고정한다.
+
+    답을 함께 보내는 부름은 되묻기의 두 번째 판이다: 그때는 초안이 와야 한다 (D11).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     model_ref: ModelRef
     request: NonEmptyText
     draft_id: NonEmptyText
+    answers: list[PatternAnswer] = Field(default_factory=list)
 
 
 class SkillMarkdown(BaseModel):
@@ -402,6 +413,8 @@ class ArchitectEvidence(BaseModel):
     model_ref: ModelRef
     model_id: str
     request_id: str | None = None
+    #: 그림을 그린 그 한 번의 부름이 쓴 토큰이다. 빈 캔버스 초안은 그 앞에 "무엇을 되물을까"를
+    #: 따로 한 번 더 묻는데(P6a), 그 부름은 이 수에 들어 있지 않다.
     input_tokens: int | None = None
     output_tokens: int | None = None
     latency_ms: int | None = None
@@ -422,6 +435,22 @@ class ArchitectPatchResponse(BaseModel):
     evidence: ArchitectEvidence | None = None
     #: 아무도 모르는 이름표라 단계에서 빼낸 skill들 — 검토 카드가 그 사실을 말한다.
     dropped_skill_refs: list[str] = Field(default_factory=list)
+
+
+class ArchitectDraftResponse(BaseModel):
+    """빈 캔버스 초안의 답 — 되묻기와 초안 중 하나만 실려 온다 (DESIGN §7 pattern-asks).
+
+    `asks`가 비어 있지 않으면 아직 그림이 없다: 화면은 두 상태를 동시에 만나지 않는다.
+    """
+
+    asks: list[PatternAsk] = Field(default_factory=list)
+    patch: AgentSpecPatch | None = None
+    candidate: AgentSpec | None = None
+    issues: list[ValidationIssue] = Field(default_factory=list)
+    evidence: ArchitectEvidence | None = None
+    dropped_skill_refs: list[str] = Field(default_factory=list)
+    #: 예라고 했는데 넣지 못한 모양들 — 검토 카드가 그 한 줄을 보인다.
+    skipped_patterns: list[SkippedPattern] = Field(default_factory=list)
 
 
 class OptimizePreviewResponse(ArchitectPatchResponse):
@@ -834,7 +863,7 @@ def create_app(
     patterns_on_offer = ServerPatterns(
         patterns=patterns_this_server_can_do(catalog_in(os.environ))
     )
-    architect = ArchitectService(asks_a_model)
+    architect = ArchitectService(asks_a_model, patterns=patterns_on_offer.patterns)
     tool_wrapper = ToolWrapperService(asks_a_model)
     # 초안은 부를 모델이 없어도 답한다 — 물을 곳이 있는가만 조립 때 한 번 정해 둔다
     # (심판 자리와 같은 갈림: 지어낸 판단은 모델이 지은 초안이 아니다).
@@ -905,7 +934,9 @@ def create_app(
         if eval_batch_store is not None
         else _default_eval_batch_store(database_path)
     )
-    optimizer = OptimizerService(asks_a_model, eval_batch_store_used)
+    optimizer = OptimizerService(
+        asks_a_model, eval_batch_store_used, patterns=patterns_on_offer.patterns
+    )
     eval_batches = EvalBatchService(
         datasets=eval_dataset_store_used,
         specs=specs,
@@ -1100,18 +1131,35 @@ def create_app(
                 detail="architect provider is not configured",
             )
 
-    @app.post("/architect/draft", response_model=ArchitectPatchResponse)
-    def architect_draft(asked: ArchitectDraftRequest) -> ArchitectPatchResponse:
+    def _drafted(
+        outcome: ArchitectDraftOutcome, *, model_ref: str, request: str
+    ) -> ArchitectDraftResponse:
+        if isinstance(outcome, ArchitectAsking):
+            return ArchitectDraftResponse(asks=list(outcome.asks))
+        drafted = _architected(
+            outcome, model_ref=model_ref, request=request, guided=True
+        )
+        return ArchitectDraftResponse(
+            patch=drafted.patch,
+            candidate=drafted.candidate,
+            issues=drafted.issues,
+            evidence=drafted.evidence,
+            dropped_skill_refs=drafted.dropped_skill_refs,
+            skipped_patterns=list(outcome.skipped_patterns),
+        )
+
+    @app.post("/architect/draft", response_model=ArchitectDraftResponse)
+    def architect_draft(asked: ArchitectDraftRequest) -> ArchitectDraftResponse:
         _live_provider_or_503(asked.model_ref)
-        return _architected(
+        return _drafted(
             architect.preview_new(
                 draft_id=asked.draft_id,
                 request=asked.request,
                 model_ref=asked.model_ref,
+                answers=asked.answers,
             ),
             model_ref=asked.model_ref,
             request=asked.request,
-            guided=True,
         )
 
     @app.post("/tools/wrap", response_model=ArchitectPatchResponse)

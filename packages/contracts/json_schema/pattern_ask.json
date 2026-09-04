@@ -1,0 +1,48 @@
+{
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "사람에게 던지는 물음 하나 — 무엇을 묻는가와 그 대가.",
+  "properties": {
+    "cost": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "pattern_id": {
+      "minLength": 1,
+      "title": "Pattern Id",
+      "type": "string"
+    },
+    "question": {
+      "$ref": "#/$defs/LocalizedText"
+    }
+  },
+  "required": [
+    "pattern_id",
+    "question",
+    "cost"
+  ],
+  "title": "PatternAsk",
+  "type": "object"
+}

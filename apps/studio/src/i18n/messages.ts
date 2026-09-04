@@ -69,6 +69,12 @@ const TEXTS = {
   "architect.summary": { ko: "노드 {nodes}개 · 연결 {edges}개", en: "{nodes} nodes · {edges} connections" },
   "architect.toFill": { ko: "채워야 할 칸: {count}개", en: "Fields still to fill: {count}" },
   "architect.toFill.hint": { ko: "적용한 뒤 노드를 눌러 채우면 돼요", en: "Apply it, then click the node to fill them in" },
+  // 되묻기 (AGENT_PATTERNS P6a) — 물음·대가·까닭은 서버 카탈로그의 문장이라 여기 없다.
+  "architect.ask.yes": { ko: "네", en: "Yes" },
+  "architect.ask.no": { ko: "아니요", en: "No" },
+  "architect.ask.skip": { ko: "잘 모르겠어요", en: "Not sure" },
+  "architect.ask.progress": { ko: "{total}개 중 {index}번째", en: "{index} of {total}" },
+  "architect.ask.skipped": { ko: "이 모양은 넣지 못했어요 — {why}", en: "This shape was not added — {why}" },
 
   // 고치기 패널 (OPT-1 optimize-card — guided-architect-card 상속, 제안문 표시가 핵심)
   "optimize.title": { ko: "고치기", en: "Improve" },

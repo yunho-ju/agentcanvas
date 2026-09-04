@@ -47,7 +47,7 @@ describe("provider-backed Architect API", () => {
     expect(JSON.parse(calls[0].init.body ?? "null")).toEqual({ model_ref: "model://default", request: "make an answer", draft_id: "draft-api" });
     expect(calls[0].init.signal).toBeInstanceOf(AbortSignal);
     // 서버가 빼낸 skill이 없으면 빈 목록이다 — 말하지 않은 것과 없는 것을 가르지 않는다.
-    expect(outcome).toEqual({ draft: candidate, patch, issues: [], droppedSkillRefs: [] });
+    expect(outcome).toEqual({ draft: candidate, patch, issues: [], droppedSkillRefs: [], skippedPatterns: [] });
   });
 
   it("keeps transport failures distinct from malformed server answers", async () => {
