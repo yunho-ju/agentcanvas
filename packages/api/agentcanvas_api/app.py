@@ -110,6 +110,7 @@ from .job_store import DurableJobStore, IdempotencyConflict
 from .job_worker import DurableJobWorker
 from .model_catalog_service import RunMode, ServerModels, models_standing
 from .optimizer_service import OptimizerService
+from .pattern_catalog_service import ServerPatterns, patterns_this_server_can_do
 from .run_service import (
     RevisionSource,
     RunIdMaker,
@@ -828,6 +829,11 @@ def create_app(
     models_on_offer = _models_on_offer(
         asks_a_model, os.environ if model is None else None
     )
+    # 모양의 목록도 조립 때 닫아 둔다 — 뒤에 바뀐 환경을 다시 읽으면 화면이 실행과 다른
+    # 말을 하게 된다(모델 사정과 같은 갈림).
+    patterns_on_offer = ServerPatterns(
+        patterns=patterns_this_server_can_do(catalog_in(os.environ))
+    )
     architect = ArchitectService(asks_a_model)
     tool_wrapper = ToolWrapperService(asks_a_model)
     # 초안은 부를 모델이 없어도 답한다 — 물을 곳이 있는가만 조립 때 한 번 정해 둔다
@@ -1416,6 +1422,11 @@ def create_app(
     @app.get("/models", response_model=ServerModels)
     def list_models() -> ServerModels:
         return models_on_offer
+
+    # 화면과 Architect가 이 서버가 놓아 줄 수 있는 모양을 아는 유일한 길.
+    @app.get("/patterns", response_model=ServerPatterns)
+    def list_patterns() -> ServerPatterns:
+        return patterns_on_offer
 
     # 화면이 이 서버의 판정 층을 아는 유일한 길 — 답은 조립 때 세운 사다리 하나에서 나온다.
     @app.get("/eval/evaluators", response_model=list[EvaluatorStanding])

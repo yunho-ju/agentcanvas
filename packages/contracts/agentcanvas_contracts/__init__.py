@@ -57,6 +57,7 @@ from .node_registry import (
     skill_refs,
 )
 from .optimization import OptimizationProposal, ProposalEvidence
+from .patterns import DEFAULT_PATTERNS, Capability, PatternDef, resolve_pattern
 from .publication import SpecPublication
 from .refs import (
     McpRef,
@@ -99,6 +100,7 @@ __all__ = [
     "DEFAULT_INSTRUCTION_CATALOG",
     "DEFAULT_MODEL_CATALOG",
     "DEFAULT_NODE_TYPES",
+    "DEFAULT_PATTERNS",
     "DEFAULT_SCHEMA_CATALOG",
     "INPUT_NODE_TYPE",
     "RUN_ENDINGS",
@@ -112,6 +114,7 @@ __all__ = [
     "Approval",
     "ApprovalAnswer",
     "ApprovalPolicy",
+    "Capability",
     "ChunkRule",
     "DigestResult",
     "Edge",
@@ -143,6 +146,7 @@ __all__ = [
     "NonEmptyText",
     "OptimizationProposal",
     "PatchOperation",
+    "PatternDef",
     "PortSpec",
     "Ports",
     "Position",
@@ -184,6 +188,7 @@ __all__ = [
     "resolve_evaluator",
     "resolve_instruction_preset",
     "resolve_model",
+    "resolve_pattern",
     "resolve_ports",
     "resolve_schema",
     "resolve_starter_skill",

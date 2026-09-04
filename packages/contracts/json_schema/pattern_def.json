@@ -1,0 +1,269 @@
+{
+  "$defs": {
+    "AddEdgeTemplateOp": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/EdgeKind"
+        },
+        "op": {
+          "const": "add_edge",
+          "title": "Op",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/TemplateEndpoint"
+        },
+        "target": {
+          "$ref": "#/$defs/TemplateEndpoint"
+        }
+      },
+      "required": [
+        "op",
+        "kind",
+        "source",
+        "target"
+      ],
+      "title": "AddEdgeTemplateOp",
+      "type": "object"
+    },
+    "AddNodeTemplateOp": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "node": {
+          "$ref": "#/$defs/NodeAnchor"
+        },
+        "op": {
+          "const": "add_node",
+          "title": "Op",
+          "type": "string"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "node",
+        "type"
+      ],
+      "title": "AddNodeTemplateOp",
+      "type": "object"
+    },
+    "EdgeKind": {
+      "enum": [
+        "data",
+        "control",
+        "approval"
+      ],
+      "title": "EdgeKind",
+      "type": "string"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "description": "화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "NodeAnchor": {
+      "pattern": "^\\{(agent|input|output|new:[a-z][a-z0-9_]*)\\}$",
+      "type": "string"
+    },
+    "PatchTemplate": {
+      "items": {
+        "$ref": "#/$defs/TemplateOp"
+      },
+      "type": "array"
+    },
+    "RemoveEdgeTemplateOp": {
+      "additionalProperties": false,
+      "description": "두 앵커 사이의 연결을 걷어낸다 — 연결의 id는 문서마다 다르므로 양 끝으로 적는다.",
+      "properties": {
+        "op": {
+          "const": "remove_edge",
+          "title": "Op",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/NodeAnchor"
+        },
+        "target": {
+          "$ref": "#/$defs/NodeAnchor"
+        }
+      },
+      "required": [
+        "op",
+        "source",
+        "target"
+      ],
+      "title": "RemoveEdgeTemplateOp",
+      "type": "object"
+    },
+    "ReplaceNodeConfigTemplateOp": {
+      "additionalProperties": false,
+      "description": "앵커가 가리키는 노드의 설정에 이 값들을 얹는다.\n\n`agent.patch/v1`의 replace_node_config는 설정을 통째로 갈아 끼우므로, 앵커를 채우는\n쪽이 문서의 설정 위에 이 값을 얹어 온전한 작업을 만든다 (모델 이름을 잃지 않는다).",
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        },
+        "node": {
+          "$ref": "#/$defs/NodeAnchor"
+        },
+        "op": {
+          "const": "replace_node_config",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "node",
+        "config"
+      ],
+      "title": "ReplaceNodeConfigTemplateOp",
+      "type": "object"
+    },
+    "RequireToolsTemplateOp": {
+      "additionalProperties": false,
+      "description": "이 앵커의 노드가 쓸 도구를 이미 고른 문서에서만 템플릿이 채워진다.\n\n작업이 아니라 조건이다: 도구가 없는 에이전트의 턴만 늘리면 쓰지 못하는 칸을 켜 두게 되고,\n사람은 무엇이 모자란지 듣지 못한다.",
+      "properties": {
+        "node": {
+          "$ref": "#/$defs/NodeAnchor"
+        },
+        "op": {
+          "const": "requires_tools",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "node"
+      ],
+      "title": "RequireToolsTemplateOp",
+      "type": "object"
+    },
+    "TemplateEndpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "node": {
+          "$ref": "#/$defs/NodeAnchor"
+        },
+        "port": {
+          "minLength": 1,
+          "title": "Port",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node",
+        "port"
+      ],
+      "title": "TemplateEndpoint",
+      "type": "object"
+    },
+    "TemplateOp": {
+      "discriminator": {
+        "mapping": {
+          "add_edge": "#/$defs/AddEdgeTemplateOp",
+          "add_node": "#/$defs/AddNodeTemplateOp",
+          "remove_edge": "#/$defs/RemoveEdgeTemplateOp",
+          "replace_node_config": "#/$defs/ReplaceNodeConfigTemplateOp",
+          "requires_tools": "#/$defs/RequireToolsTemplateOp"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AddNodeTemplateOp"
+        },
+        {
+          "$ref": "#/$defs/ReplaceNodeConfigTemplateOp"
+        },
+        {
+          "$ref": "#/$defs/RequireToolsTemplateOp"
+        },
+        {
+          "$ref": "#/$defs/AddEdgeTemplateOp"
+        },
+        {
+          "$ref": "#/$defs/RemoveEdgeTemplateOp"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "description": "카탈로그의 한 항목 — 물음과 근거와 대가, 그리고 그것을 문서에 놓는 방법.",
+  "properties": {
+    "applies_when": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "cost": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "detects": {
+      "minLength": 1,
+      "title": "Detects",
+      "type": "string"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "needs": {
+      "items": {
+        "enum": [
+          "tool_calling",
+          "human_gate",
+          "router"
+        ],
+        "type": "string"
+      },
+      "title": "Needs",
+      "type": "array"
+    },
+    "question": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "template": {
+      "$ref": "#/$defs/PatchTemplate"
+    }
+  },
+  "required": [
+    "id",
+    "question",
+    "applies_when",
+    "cost",
+    "needs",
+    "template",
+    "detects"
+  ],
+  "title": "PatternDef",
+  "type": "object"
+}

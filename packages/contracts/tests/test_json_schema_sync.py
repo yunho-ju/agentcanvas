@@ -9,6 +9,7 @@ from agentcanvas_contracts.evaluator_catalog import DEFAULT_EVALUATOR_CATALOG
 from agentcanvas_contracts.instruction_catalog import DEFAULT_INSTRUCTION_CATALOG
 from agentcanvas_contracts.model_catalog import DEFAULT_MODEL_CATALOG
 from agentcanvas_contracts.node_registry import DEFAULT_NODE_TYPES
+from agentcanvas_contracts.patterns import DEFAULT_PATTERNS
 from agentcanvas_contracts.schema_catalog import DEFAULT_SCHEMA_CATALOG
 from agentcanvas_contracts.schema_export import (
     CHAT_CONTRACT_NAME,
@@ -17,6 +18,7 @@ from agentcanvas_contracts.schema_export import (
     JSON_SCHEMA_DIR,
     MODEL_CATALOG_NAME,
     NODE_REGISTRY_NAME,
+    PATTERN_CATALOG_NAME,
     SCHEMA_CATALOG_NAME,
     SCHEMA_MODELS,
     STARTER_SKILLS_NAME,
@@ -24,6 +26,7 @@ from agentcanvas_contracts.schema_export import (
     render_evaluator_catalog,
     render_instruction_catalog,
     render_model_catalog,
+    render_patterns,
     render_schema,
     render_schema_catalog,
     render_starter_skills,
@@ -31,6 +34,7 @@ from agentcanvas_contracts.schema_export import (
     write_evaluator_catalog,
     write_instruction_catalog,
     write_model_catalog,
+    write_patterns,
     write_schema_catalog,
     write_schemas,
     write_starter_skills,
@@ -51,6 +55,7 @@ def test_schema_models_cover_the_published_contracts():
         "model_def",
         "node_type",
         "optimization_proposal",
+        "pattern_def",
         "release_manifest",
         "run",
         "run_event",
@@ -77,6 +82,7 @@ def test_no_stale_schema_files_are_committed():
         INSTRUCTION_CATALOG_NAME,
         MODEL_CATALOG_NAME,
         NODE_REGISTRY_NAME,
+        PATTERN_CATALOG_NAME,
         SCHEMA_CATALOG_NAME,
         STARTER_SKILLS_NAME,
     }
@@ -358,6 +364,7 @@ def test_regenerating_everything_twice_writes_exactly_the_same_bytes(tmp_path):
             write_evaluator_catalog(tmp_path),
             write_instruction_catalog(tmp_path),
             write_model_catalog(tmp_path),
+            write_patterns(tmp_path),
             write_schema_catalog(tmp_path),
             write_starter_skills(tmp_path),
         ]
@@ -395,6 +402,48 @@ def test_generated_typescript_carries_the_resource_operations():
     assert '"add_resource"' in generated
     assert '"replace_resource"' in generated
     assert '"remove_resource"' in generated
+
+
+def test_committed_pattern_catalog_matches_the_default_catalog():
+    path = JSON_SCHEMA_DIR / f"{PATTERN_CATALOG_NAME}.json"
+    assert path.exists(), (
+        f"{path} is missing — run python -m agentcanvas_contracts.schema_export"
+    )
+    assert path.read_text(encoding="utf-8") == render_patterns()
+
+
+def test_committed_pattern_catalog_holds_every_pattern_keyed_by_id():
+    committed = json.loads(
+        (JSON_SCHEMA_DIR / f"{PATTERN_CATALOG_NAME}.json").read_text(encoding="utf-8")
+    )
+    assert sorted(committed) == sorted(DEFAULT_PATTERNS)
+    assert all(entry["id"] == pattern_id for pattern_id, entry in committed.items())
+
+
+@pytest.mark.parametrize("pattern_id", sorted(DEFAULT_PATTERNS))
+def test_pattern_validates_against_the_committed_schema(pattern_id: str):
+    schema = json.loads(
+        (JSON_SCHEMA_DIR / "pattern_def.json").read_text(encoding="utf-8")
+    )
+    jsonschema.validate(
+        instance=DEFAULT_PATTERNS[pattern_id].model_dump(mode="json"), schema=schema
+    )
+
+
+def test_write_patterns_reports_the_file_it_wrote(tmp_path):
+    written = write_patterns(tmp_path)
+    assert written == tmp_path / f"{PATTERN_CATALOG_NAME}.json"
+    assert written.read_text(encoding="utf-8") == render_patterns()
+
+
+def test_generated_typescript_carries_the_pattern_template_shape():
+    """생성 타입은 계약의 투영이다 — 앵커를 쓰는 작업들이 손으로 적히지 않는다."""
+    generated = (
+        Path(__file__).resolve().parents[3] / "apps/studio/src/generated/pattern_def.ts"
+    ).read_text(encoding="utf-8")
+    assert '"add_node"' in generated
+    assert '"remove_edge"' in generated
+    assert '"tool_calling"' in generated
 
 
 def test_committed_starter_skills_match_the_ones_we_ship():

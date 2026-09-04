@@ -20,6 +20,7 @@ from .instruction_catalog import DEFAULT_INSTRUCTION_CATALOG, InstructionPresetD
 from .model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
 from .node_registry import DEFAULT_NODE_TYPES, NodeType
 from .optimization import OptimizationProposal
+from .patterns import DEFAULT_PATTERNS, PatternDef
 from .publication import SpecPublication
 from .release import ReleaseManifest
 from .run import ApprovalAnswer, Run
@@ -42,6 +43,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "model_def": ModelDef,
     "node_type": NodeType,
     "optimization_proposal": OptimizationProposal,
+    "pattern_def": PatternDef,
     "release_manifest": ReleaseManifest,
     "run": Run,
     "run_event": RunEvent,
@@ -64,6 +66,9 @@ INSTRUCTION_CATALOG_NAME = "instruction_catalog"
 
 # 마찬가지로 데이터 — 답이 맞았는지 무엇으로 확인할지 고르는 판정기 목록이다.
 EVALUATOR_CATALOG_NAME = "evaluator_catalog"
+
+# 마찬가지로 데이터 — 화면과 Architect가 말할 수 있는 에이전트의 모양 목록이다.
+PATTERN_CATALOG_NAME = "pattern_catalog"
 
 # 마찬가지로 데이터 — 빈 문서 앞에서 바로 입어 볼 수 있는 시작 skill 목록이다.
 # 문서 안 skill의 카탈로그가 아니다: 고르면 문서로 복사되어 그때부터 문서의 것이 된다.
@@ -156,6 +161,14 @@ def write_evaluator_catalog(directory: Path = JSON_SCHEMA_DIR) -> Path:
     return write_data(EVALUATOR_CATALOG_NAME, DEFAULT_EVALUATOR_CATALOG, directory)
 
 
+def render_patterns() -> str:
+    return render_data(DEFAULT_PATTERNS)
+
+
+def write_patterns(directory: Path = JSON_SCHEMA_DIR) -> Path:
+    return write_data(PATTERN_CATALOG_NAME, DEFAULT_PATTERNS, directory)
+
+
 def render_starter_skills() -> str:
     return render_data(starter_skills())
 
@@ -192,6 +205,7 @@ if __name__ == "__main__":  # pragma: no cover
         write_model_catalog(),
         write_instruction_catalog(),
         write_evaluator_catalog(),
+        write_patterns(),
         write_starter_skills(),
     ]:
         print(path)

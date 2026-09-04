@@ -44,6 +44,15 @@ def test_every_patch_operation_is_reachable_from_the_package_root():
     } <= set(contracts.__all__)
 
 
+def test_the_pattern_catalog_is_reachable_from_the_package_root():
+    """엔진·API가 카탈로그를 읽는 길은 다른 카탈로그와 같은 자리에 있다."""
+    assert {
+        "DEFAULT_PATTERNS",
+        "PatternDef",
+        "resolve_pattern",
+    } <= set(contracts.__all__)
+
+
 def test_exported_names_exist():
     assert all(hasattr(contracts, name) for name in contracts.__all__)
 

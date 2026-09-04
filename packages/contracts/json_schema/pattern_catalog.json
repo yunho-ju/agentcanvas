@@ -1,0 +1,145 @@
+{
+  "human_gate": {
+    "applies_when": {
+      "en": "When the request says things like approve, review first, or before it sends",
+      "ko": "부탁에 '승인·확인·검토 후·보내기 전' 같은 말이 있을 때"
+    },
+    "cost": {
+      "en": "The run stops at the check and waits for a person",
+      "ko": "실행이 사람 확인에서 멈춰 기다려요"
+    },
+    "detects": "acts_without_a_person",
+    "id": "human_gate",
+    "needs": [
+      "human_gate"
+    ],
+    "question": {
+      "en": "Should a person approve before it acts?",
+      "ko": "이 에이전트가 뭔가 하기 전에 사람이 확인해야 하나요?"
+    },
+    "template": [
+      {
+        "config": {
+          "approval_schema_ref": "schema://answer-review@1"
+        },
+        "node": "{new:gate}",
+        "op": "add_node",
+        "type": "control.human_gate"
+      },
+      {
+        "op": "remove_edge",
+        "source": "{agent}",
+        "target": "{output}"
+      },
+      {
+        "kind": "approval",
+        "op": "add_edge",
+        "source": {
+          "node": "{agent}",
+          "port": "response"
+        },
+        "target": {
+          "node": "{new:gate}",
+          "port": "review"
+        }
+      },
+      {
+        "kind": "control",
+        "op": "add_edge",
+        "source": {
+          "node": "{new:gate}",
+          "port": "approved"
+        },
+        "target": {
+          "node": "{output}",
+          "port": "input"
+        }
+      }
+    ]
+  },
+  "react": {
+    "applies_when": {
+      "en": "When the request says things like look up, check, fetch, or find out",
+      "ko": "부탁에 '찾아본다·조회한다·확인한다·가져온다' 같은 말이 있을 때"
+    },
+    "cost": {
+      "en": "Runs take longer, and calling a tool can ask a person to approve it — each turn costs a model call",
+      "ko": "실행이 길어지고, 도구를 부를 때 사람 승인이 생길 수 있어요 — 턴마다 모델 호출 비용이 들어요"
+    },
+    "detects": "agent_calls_tools_once",
+    "id": "react",
+    "needs": [
+      "tool_calling"
+    ],
+    "question": {
+      "en": "Does this agent need to look things up in your systems or outside?",
+      "ko": "이 에이전트가 회사 시스템이나 바깥에서 무언가 찾아봐야 하나요?"
+    },
+    "template": [
+      {
+        "node": "{agent}",
+        "op": "requires_tools"
+      },
+      {
+        "config": {
+          "max_turns": 3
+        },
+        "node": "{agent}",
+        "op": "replace_node_config"
+      }
+    ]
+  },
+  "router": {
+    "applies_when": {
+      "en": "When the request forks — if it is this, do A; if it is that, do B",
+      "ko": "부탁에 '~이면 A, ~이면 B' 같은 갈래가 있을 때"
+    },
+    "cost": {
+      "en": "Picking the way costs one more model call",
+      "ko": "갈림길 판단에 모델 호출이 한 번 더 들어요"
+    },
+    "detects": "one_path_only",
+    "id": "router",
+    "needs": [
+      "router"
+    ],
+    "question": {
+      "en": "Does it do several different jobs, each answered differently?",
+      "ko": "이 에이전트가 하는 일이 여러 갈래인가요? 갈래마다 다르게 답해야 하나요?"
+    },
+    "template": [
+      {
+        "config": {
+          "model_ref": "model://default"
+        },
+        "node": "{new:router}",
+        "op": "add_node",
+        "type": "llm.router"
+      },
+      {
+        "kind": "data",
+        "op": "add_edge",
+        "source": {
+          "node": "{input}",
+          "port": "*"
+        },
+        "target": {
+          "node": "{new:router}",
+          "port": "input"
+        }
+      },
+      {
+        "kind": "control",
+        "op": "add_edge",
+        "source": {
+          "node": "{new:router}",
+          "port": "route"
+        },
+        "target": {
+          "node": "{agent}",
+          "port": "messages"
+        }
+      }
+    ]
+  }
+}

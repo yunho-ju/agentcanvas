@@ -1,0 +1,186 @@
+[
+  {
+    "name": "an empty document says nothing",
+    "nodes": [],
+    "signals": []
+  },
+  {
+    "name": "an agent with tools that answers in one go",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": {
+          "model_ref": "model://default",
+          "toolset_refs": ["records"],
+          "max_turns": 1
+        }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "signals": [
+      { "pattern_id": "react", "node_ids": ["agent"], "strength": "strong" },
+      { "pattern_id": "human_gate", "node_ids": ["agent"], "strength": "strong" },
+      { "pattern_id": "router", "node_ids": ["agent"], "strength": "weak" }
+    ]
+  },
+  {
+    "name": "an agent that already takes several turns with its tools",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": {
+          "model_ref": "model://default",
+          "toolset_refs": ["records"],
+          "max_turns": 3
+        }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "signals": [
+      { "pattern_id": "human_gate", "node_ids": ["agent"], "strength": "strong" },
+      { "pattern_id": "router", "node_ids": ["agent"], "strength": "weak" }
+    ]
+  },
+  {
+    "name": "an agent whose every tool call already asks a person",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": {
+          "model_ref": "model://default",
+          "toolset_refs": ["records"],
+          "max_turns": 3
+        }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "ask_first" }],
+    "signals": [
+      { "pattern_id": "router", "node_ids": ["agent"], "strength": "weak" }
+    ]
+  },
+  {
+    "name": "an agent whose answer flows on into a person's check",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": {
+          "model_ref": "model://default",
+          "toolset_refs": ["records"],
+          "max_turns": 3
+        }
+      },
+      {
+        "id": "review",
+        "type": "control.human_gate",
+        "config": { "approval_schema_ref": "schema://answer-review@1" }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "edges": [["agent", "review"]],
+    "signals": [
+      { "pattern_id": "router", "node_ids": ["agent"], "strength": "weak" }
+    ]
+  },
+  {
+    "name": "a person's check that sits off to the side, on nobody's way",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": {
+          "model_ref": "model://default",
+          "toolset_refs": ["records"],
+          "max_turns": 3
+        }
+      },
+      {
+        "id": "review",
+        "type": "control.human_gate",
+        "config": { "approval_schema_ref": "schema://answer-review@1" }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "signals": [
+      { "pattern_id": "human_gate", "node_ids": ["agent"], "strength": "strong" },
+      { "pattern_id": "router", "node_ids": ["agent"], "strength": "weak" }
+    ]
+  },
+  {
+    "name": "an agent naming a connection this document does not have",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": {
+          "model_ref": "model://default",
+          "toolset_refs": ["records"],
+          "max_turns": 1
+        }
+      }
+    ],
+    "signals": [
+      { "pattern_id": "router", "node_ids": ["agent"], "strength": "weak" }
+    ]
+  },
+  {
+    "name": "an agent that reaches for nothing outside",
+    "nodes": [
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": { "model_ref": "model://default", "max_turns": 1 }
+      }
+    ],
+    "signals": [
+      { "pattern_id": "router", "node_ids": ["agent"], "strength": "weak" }
+    ]
+  },
+  {
+    "name": "a tool node acting with nobody checking",
+    "nodes": [
+      {
+        "id": "lookup",
+        "type": "tool.mcp",
+        "config": { "resource_ref": "records", "tool_name": "search" }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "signals": [
+      { "pattern_id": "human_gate", "node_ids": ["lookup"], "strength": "strong" }
+    ]
+  },
+  {
+    "name": "a document that already forks, waits and takes its turns",
+    "nodes": [
+      {
+        "id": "triage",
+        "type": "llm.router",
+        "config": { "model_ref": "model://default" }
+      },
+      {
+        "id": "agent",
+        "type": "llm.agent",
+        "config": {
+          "model_ref": "model://default",
+          "toolset_refs": ["records"],
+          "max_turns": 3
+        }
+      },
+      {
+        "id": "review",
+        "type": "control.human_gate",
+        "config": { "approval_schema_ref": "schema://answer-review@1" }
+      }
+    ],
+    "resources": [{ "id": "records", "approval_policy": "read_only_auto" }],
+    "edges": [
+      ["triage", "agent"],
+      ["agent", "review"]
+    ],
+    "signals": []
+  }
+]
