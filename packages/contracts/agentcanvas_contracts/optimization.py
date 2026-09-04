@@ -44,6 +44,8 @@ class OptimizationProposal(ContractModel):
     expected_effect: LocalizedText
     #: 무엇을 근거로 골랐나 (읽기 전용 eval 사실).
     evidence: ProposalEvidence
+    #: 이 제안이 가리키는 카탈로그의 모양 — 어느 모양도 가리키지 않으면 없음.
+    pattern_id: str | None = None
 
 
 __all__ = ["OptimizationProposal", "ProposalEvidence"]

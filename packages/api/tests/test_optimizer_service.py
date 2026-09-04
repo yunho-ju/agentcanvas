@@ -13,14 +13,21 @@ from pathlib import Path
 
 from agentcanvas_api.architect_service import ArchitectPreview, ArchitectPreviewRefused
 from agentcanvas_api.memory_eval_batch_store import InMemoryEvalBatchStore
-from agentcanvas_api.optimizer_service import OptimizerService
+from agentcanvas_api.optimizer_service import (
+    SHAPES_HEADER,
+    OptimizerService,
+    _evidence_prompt,
+)
+from agentcanvas_api.pattern_catalog_service import patterns_this_server_can_do
 from agentcanvas_contracts.agent_spec import AgentSpec
 from agentcanvas_contracts.eval_result import (
     EvalAttempt,
     EvalBatch,
     EvalCaseResult,
 )
+from agentcanvas_contracts.model_catalog import ModelDef
 from agentcanvas_contracts.optimization import OptimizationProposal
+from agentcanvas_contracts.patterns import PatternDef
 from agentcanvas_engine.model_call import ModelSaid
 
 EXAMPLE_PATH = (
@@ -34,7 +41,17 @@ def base_spec() -> AgentSpec:
     )
 
 
-def envelope(base_revision: str, op: dict | None = None) -> str:
+def envelope(
+    base_revision: str, op: dict | None = None, pattern_id: str | None = None
+) -> str:
+    proposal = {
+        "objective": {"ko": "비용", "en": "cut cost"},
+        "hypothesis": {"ko": "가설", "en": "hypothesis"},
+        "target_nodes": ["triage"],
+        "expected_effect": {"ko": "효과", "en": "effect"},
+    }
+    if pattern_id is not None:
+        proposal["pattern_id"] = pattern_id
     return json.dumps(
         {
             "patch": {
@@ -42,22 +59,39 @@ def envelope(base_revision: str, op: dict | None = None) -> str:
                 "base_revision": base_revision,
                 "operations": [op or {"op": "remove_edge", "edge_id": "human-output"}],
             },
-            "proposal": {
-                "objective": {"ko": "비용", "en": "cut cost"},
-                "hypothesis": {"ko": "가설", "en": "hypothesis"},
-                "target_nodes": ["triage"],
-                "expected_effect": {"ko": "효과", "en": "effect"},
-            },
+            "proposal": proposal,
         }
     )
 
 
+def a_model_that_takes_tools(tool_calling: bool) -> dict[str, ModelDef]:
+    return {
+        "model://made-up": ModelDef.model_validate(
+            {
+                "ref": "model://made-up",
+                "provider": "openai_compatible",
+                "model_id": "made-up",
+                "title": {"ko": "지어낸 모델", "en": "A made-up model"},
+                "tool_calling": tool_calling,
+            }
+        )
+    }
+
+
+def shapes_on_offer(tool_calling: bool = True) -> list[PatternDef]:
+    """이 서버가 실제로 해낼 수 있는 모양들 — /patterns가 화면에 주는 바로 그 목록."""
+    return patterns_this_server_can_do(a_model_that_takes_tools(tool_calling))
+
+
 def a_service(
-    text: str, batches: InMemoryEvalBatchStore | None = None
+    text: str,
+    batches: InMemoryEvalBatchStore | None = None,
+    patterns: list[PatternDef] | None = None,
 ) -> OptimizerService:
     return OptimizerService(
         lambda _ask: ModelSaid(input_tokens=1, output_tokens=1, text=text),
         batches if batches is not None else InMemoryEvalBatchStore(),
+        patterns=shapes_on_offer() if patterns is None else patterns,
     )
 
 
@@ -199,6 +233,123 @@ def test_the_evidence_the_model_sees_carries_the_missing_phrases():
 
     assert "refund" in seen[0]
     assert "policy" in seen[0]
+
+
+def instruction_for(spec: AgentSpec, patterns: list[PatternDef] | None = None) -> str:
+    seen: list[str] = []
+
+    def model(ask) -> ModelSaid:
+        seen.append(ask.instruction)
+        return ModelSaid(input_tokens=1, output_tokens=1, text=envelope(spec.revision))
+
+    OptimizerService(
+        model,
+        InMemoryEvalBatchStore(),
+        patterns=shapes_on_offer() if patterns is None else patterns,
+    ).preview(base_spec=spec, objective="cut cost", model_ref="model://x")
+    return seen[0]
+
+
+def spec_that_stops_after_one_go() -> AgentSpec:
+    """도구를 쥔 에이전트가 기본 턴 수로 도는 문서 — 'react'가 문서에서 보이는 사실이다."""
+    base = base_spec()
+    return base.model_copy(
+        update={
+            "nodes": [
+                node.model_copy(
+                    update={
+                        "config": {
+                            key: value
+                            for key, value in node.config.items()
+                            if key != "max_turns"
+                        }
+                    }
+                )
+                if node.id == "clinical-agent"
+                else node
+                for node in base.nodes
+            ]
+        }
+    )
+
+
+def spec_with_one_path() -> AgentSpec:
+    """갈림길이 없는 문서 — 'router'는 짐작(weak)일 뿐이다."""
+    base = base_spec()
+    return base.model_copy(
+        update={
+            "nodes": [node for node in base.nodes if node.id != "triage"],
+            "edges": [
+                edge
+                for edge in base.edges
+                if "triage" not in (edge.source.node, edge.target.node)
+            ],
+        }
+    )
+
+
+def test_a_shape_seen_in_the_graph_is_evidence_the_model_reads():
+    instruction = instruction_for(spec_that_stops_after_one_go())
+
+    assert "It can reach for tools, but it stops after one go." in instruction
+    assert "Does this agent need to look things up" in instruction
+    assert "look up, check, fetch, or find out" in instruction
+
+
+def test_a_guess_about_the_graph_is_not_carried_as_evidence():
+    instruction = instruction_for(spec_with_one_path())
+
+    assert "it goes down the one path" not in instruction
+    assert SHAPES_HEADER not in instruction
+
+
+def test_a_graph_that_shows_nothing_is_asked_exactly_as_before():
+    """볼 것이 없으면 근거는 시험이 말한 그것뿐이다 — 모양 이야기가 덧붙지 않는다."""
+    instruction = instruction_for(base_spec())
+
+    assert _evidence_prompt(None) in instruction
+    assert SHAPES_HEADER not in instruction
+
+
+def test_a_shape_this_server_cannot_run_is_never_evidence():
+    """도구를 건넬 모델이 없는 서버는 '찾아보게 하기'를 근거로 싣지 않는다 — 못 하는 일이다."""
+    instruction = instruction_for(
+        spec_that_stops_after_one_go(), patterns=shapes_on_offer(tool_calling=False)
+    )
+
+    assert "It can reach for tools, but it stops after one go." not in instruction
+    assert SHAPES_HEADER not in instruction
+
+
+def test_a_shape_this_server_cannot_run_is_dropped_from_the_proposal():
+    base = base_spec()
+    _outcome, proposal = a_service(
+        envelope(base.revision, pattern_id="react"),
+        patterns=shapes_on_offer(tool_calling=False),
+    ).preview(base_spec=base, objective="cut cost", model_ref="model://x")
+
+    assert proposal is not None
+    assert proposal.pattern_id is None
+
+
+def test_the_shape_the_model_named_reaches_the_proposal():
+    base = base_spec()
+    _outcome, proposal = a_service(envelope(base.revision, pattern_id="react")).preview(
+        base_spec=base, objective="cut cost", model_ref="model://x"
+    )
+
+    assert proposal is not None
+    assert proposal.pattern_id == "react"
+
+
+def test_a_shape_the_catalog_does_not_know_is_dropped():
+    base = base_spec()
+    _outcome, proposal = a_service(
+        envelope(base.revision, pattern_id="supervisor")
+    ).preview(base_spec=base, objective="cut cost", model_ref="model://x")
+
+    assert proposal is not None
+    assert proposal.pattern_id is None
 
 
 def test_assembling_evidence_does_not_change_the_eval_store():

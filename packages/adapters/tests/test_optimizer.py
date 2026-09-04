@@ -133,6 +133,47 @@ def test_it_returns_the_patch_and_the_proposal_narrative():
     assert result.narrative.target_nodes == ["writer"]
 
 
+def a_narrative(**overrides) -> dict:
+    return {
+        "objective": {"ko": "비용을 줄인다", "en": "cut the cost"},
+        "hypothesis": {"ko": "큰 모델을 쓴다", "en": "it uses too large a model"},
+        "target_nodes": ["writer"],
+        "expected_effect": {"ko": "비용이 준다", "en": "cost goes down"},
+        **overrides,
+    }
+
+
+def test_the_prompt_asks_the_model_to_name_the_shape_it_chose():
+    spec = a_spec()
+    seen, optimize = asked_with(envelope(spec.revision))
+
+    optimize(a_request())
+
+    assert "pattern_id" in seen[0].instruction
+
+
+def test_the_proposal_carries_the_shape_the_model_named():
+    spec = a_spec()
+    _seen, optimize = asked_with(
+        envelope(spec.revision, proposal=a_narrative(pattern_id="react"))
+    )
+
+    result = optimize(a_request())
+
+    assert isinstance(result, OptimizerSaid)
+    assert result.narrative.pattern_id == "react"
+
+
+def test_a_proposal_that_names_no_shape_is_still_the_whole_envelope():
+    spec = a_spec()
+    _seen, optimize = asked_with(envelope(spec.revision, proposal=a_narrative()))
+
+    result = optimize(a_request())
+
+    assert isinstance(result, OptimizerSaid)
+    assert result.narrative.pattern_id is None
+
+
 def test_an_answer_that_is_not_the_envelope_balks_without_repeating_it():
     raw = "here is your plan, sk-never-return-this"
     _seen, optimize = asked_with(raw)

@@ -54,6 +54,16 @@ def test_evidence_defaults_to_no_test_results():
     assert evidence.cases_with_gaps == 0
 
 
+def test_a_proposal_can_name_the_shape_it_chose():
+    proposal = OptimizationProposal.model_validate(a_proposal(pattern_id="react"))
+
+    assert proposal.pattern_id == "react"
+
+
+def test_a_proposal_that_points_at_no_shape_says_nothing():
+    assert OptimizationProposal.model_validate(a_proposal()).pattern_id is None
+
+
 def test_a_one_language_narrative_is_not_a_valid_proposal():
     with pytest.raises(ValidationError):
         OptimizationProposal.model_validate(

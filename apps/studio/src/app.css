@@ -403,6 +403,16 @@ button:disabled {
 .optimize-panel__evidence { font-size: var(--text-caption); color: var(--ink-soft); }
 .optimize-panel__field-label { color: var(--ink-faint); }
 .optimize-panel__objective { min-height: calc(var(--space-6) * 3); resize: vertical; }
+.optimize-panel__shape {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border: var(--border-hair) solid var(--hairline);
+  border-radius: var(--radius-chip);
+  background: var(--surface-raised);
+  color: var(--ink-soft);
+  font-size: var(--text-caption);
+}
 .optimize-panel__proposal {
   display: flex;
   flex-direction: column;

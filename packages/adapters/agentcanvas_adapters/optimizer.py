@@ -40,6 +40,8 @@ class _Narrative(ContractModel):
     hypothesis: LocalizedText
     target_nodes: list[str] = Field(default_factory=list)
     expected_effect: LocalizedText
+    #: 근거에 실린 모양 중 무엇을 골랐나 — 카탈로그 밖 이름은 서버가 버린다.
+    pattern_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,11 @@ def _optimizer_prompt(asked: OptimizerRequest) -> str:
                 "hypothesis (why the graph is weak and what you change), the "
                 "target_nodes (ids you touch), and the expected_effect (a description "
                 "only — invent no numbers for cost or latency you did not measure)."
+            ),
+            (
+                "If the evidence above names shapes and your change is one of them, "
+                "put that shape's id in 'pattern_id'. Leave pattern_id out when your "
+                "change is not one of them — do not invent an id."
             ),
             (
                 "Every node you add must use a type from the list below, and every "

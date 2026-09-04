@@ -23,6 +23,7 @@ import { type GraphSlice, createGraphSlice } from "./graphSlice";
 import { type HintSlice, createHintSlice } from "./hintSlice";
 import { type HistorySlice, createHistorySlice } from "./historySlice";
 import { type ModelsSlice, createModelsSlice } from "./modelsSlice";
+import { type PatternsSlice, createPatternsSlice } from "./patternsSlice";
 import { type RunInputSlice, createRunInputSlice } from "./runInputSlice";
 import { type OpenSlice, createOpenSlice } from "./openSlice";
 import { type PickerSlice, createPickerSlice } from "./pickerSlice";

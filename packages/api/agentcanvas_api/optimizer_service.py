@@ -7,6 +7,8 @@ validate_graph는 여기서 다시 쓰지 않는다. 이 서비스가 하는 일
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+
 from agentcanvas_adapters.optimizer import (
     OptimizerRequest,
     OptimizerSaid,
@@ -15,7 +17,9 @@ from agentcanvas_adapters.optimizer import (
 from agentcanvas_contracts.agent_spec import AgentSpec
 from agentcanvas_contracts.eval_result import EvalBatch
 from agentcanvas_contracts.optimization import OptimizationProposal, ProposalEvidence
+from agentcanvas_contracts.patterns import PatternDef
 from agentcanvas_engine.model_call import ModelCall
+from agentcanvas_engine.patterns.detect import detect_all
 
 from .architect_service import (
     ArchitectPreview,
@@ -62,12 +66,65 @@ def _evidence_prompt(batch: EvalBatch | None) -> str:
     return head + ("\n" + "\n".join(lines) if lines else "")
 
 
+SHAPES_HEADER = "Shapes read from this graph"
+
+
+def _shapes_prompt(spec: AgentSpec, offered: Mapping[str, PatternDef]) -> str:
+    """문서를 읽어 본 모양들 — 짐작(weak)도, 이 서버가 못 하는 모양도 싣지 않는다.
+
+    갈림길이 없다는 짐작은 거의 모든 문서에서 뜨므로 근거가 되지 못하고, 실으면 모델이 매번
+    같은 모양을 가리키게 된다. 볼 것이 없으면 빈 글자다 — 예전과 똑같이 묻는다.
+    """
+    lines = []
+    for signal in detect_all(spec):
+        pattern = offered.get(signal.pattern_id)
+        if signal.strength != "strong" or pattern is None:
+            continue
+        lines.append(
+            f"- {pattern.id}: {signal.why.en} It asks: {pattern.question.en} "
+            f"It applies when: {pattern.applies_when.en}"
+        )
+    if not lines:
+        return ""
+    return "\n".join([f"{SHAPES_HEADER} (read-only, do not invent more):", *lines])
+
+
+def _evidence_for(
+    spec: AgentSpec, batch: EvalBatch | None, offered: Mapping[str, PatternDef]
+) -> str:
+    return "\n".join(
+        part
+        for part in (_evidence_prompt(batch), _shapes_prompt(spec, offered))
+        if part
+    )
+
+
+def _named_shape(
+    pattern_id: str | None, offered: Mapping[str, PatternDef]
+) -> str | None:
+    """모델이 부른 모양의 이름 — 이 서버가 내놓은 목록에 없으면 버린다.
+
+    화면이 읽는 목록(`GET /patterns`)과 같은 목록으로 판정한다: 여기서만 아는 모양을
+    통과시키면 화면은 이름조차 못 찾고, 이 서버가 못 하는 일을 권한 셈이 된다.
+    """
+    if pattern_id is None or pattern_id not in offered:
+        return None
+    return pattern_id
+
+
 class OptimizerService:
     """모델에게 objective+증거로 후보 patch를 물어보고, 성립하는 candidate+제안문만 보여 준다."""
 
-    def __init__(self, model: ModelCall, batches: EvalBatchStore) -> None:
+    def __init__(
+        self,
+        model: ModelCall,
+        batches: EvalBatchStore,
+        *,
+        patterns: Sequence[PatternDef] = (),
+    ) -> None:
         self._optimize = optimizer_from(model)
         self._batches = batches
+        self._offered = {pattern.id: pattern for pattern in patterns}
 
     def preview(
         self, base_spec: AgentSpec, objective: str, model_ref: str
@@ -80,7 +137,7 @@ class OptimizerService:
             OptimizerRequest(
                 base_spec=base,
                 objective=objective,
-                evidence=_evidence_prompt(batch),
+                evidence=_evidence_for(base, batch, self._offered),
                 model_ref=model_ref,
             )
         )
@@ -95,6 +152,7 @@ class OptimizerService:
             target_nodes=result.narrative.target_nodes,
             expected_effect=result.narrative.expected_effect,
             evidence=_evidence_facts(batch),
+            pattern_id=_named_shape(result.narrative.pattern_id, self._offered),
         )
         return outcome, proposal
 

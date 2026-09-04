@@ -68,6 +68,18 @@
     "objective": {
       "$ref": "#/$defs/LocalizedText"
     },
+    "pattern_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pattern Id"
+    },
     "target_nodes": {
       "items": {
         "type": "string"

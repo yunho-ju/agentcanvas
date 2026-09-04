@@ -9,6 +9,7 @@ export type Cases = number;
 export type CasesWithGaps = number;
 export type En = string;
 export type Ko = string;
+export type PatternId = string | null;
 export type TargetNodes = string[];
 
 /**
@@ -19,6 +20,7 @@ export interface OptimizationProposal {
   expected_effect: LocalizedText;
   hypothesis: LocalizedText;
   objective: LocalizedText;
+  pattern_id?: PatternId;
   target_nodes?: TargetNodes;
 }
 /**

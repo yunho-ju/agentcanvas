@@ -3,6 +3,7 @@
 import { localized } from "../i18n/locale";
 import { useLocale, useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
+import { useShapeName } from "./useShapeName";
 
 export function OptimizePanel() {
   const spec = useEditor((state) => state.spec);
@@ -20,6 +21,7 @@ export function OptimizePanel() {
   const apply = useEditor((state) => state.applyOptimizeCandidate);
   const locale = useLocale();
   const t = useT();
+  const shapeName = useShapeName(proposal?.pattern_id);
 
   // 고칠 그래프가 없으면 서지 않는다 — Optimizer는 기존 그래프의 것이다(빈 캔버스는 Architect).
   if (mode === "closed" || spec === null) return null;
@@ -103,6 +105,10 @@ export function OptimizePanel() {
                   {t("optimize.targetNodes")}
                 </span>
                 {(proposal.target_nodes ?? []).join(", ") || t("optimize.targetNodes.none")}
+                {/* 모양 칩은 표시이지 손잡이가 아니다 — 누를 것이 없다(DESIGN §7). */}
+                {shapeName ? (
+                  <span className="optimize-panel__shape">{shapeName}</span>
+                ) : null}
               </p>
               <p className="optimize-panel__evidence">
                 {proposal.evidence.batch_id
