@@ -18,7 +18,7 @@ import { isRunning } from "../store/runSlice";
 import { captionFor, savedVersion, unsavedChanges } from "../store/saveSlice";
 import { LocaleToggle } from "../i18n/LocaleToggle";
 import { ThemeToggle } from "../theme/ThemeToggle";
-import { focusableMenuItemsIn, focusMenuItem, rovedMenuFocus } from "./docMenuFocus";
+import { focusMenuItem, rovedByKey } from "./docMenuFocus";
 import { DocMenuItem } from "./DocMenuItem";
 import { RevisionHistory } from "./RevisionHistory";
 import { type HistoryCommand, useHistoryCommands } from "./historyCommands";
@@ -137,14 +137,7 @@ export function DocCard() {
 
   // ↑↓Home/End로 항목 사이를 오간다(끝에서 반대편으로 순환) — roving tabindex.
   const onMenuKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
-    const rovingKeys = ["ArrowDown", "ArrowUp", "Home", "End"] as const;
-    const key = rovingKeys.find((candidate) => candidate === event.key);
-    const container = menu.current;
-    if (!key || !container) return;
-    event.preventDefault();
-    const items = focusableMenuItemsIn(container);
-    const current = items.indexOf(document.activeElement as HTMLElement);
-    focusMenuItem(container, rovedMenuFocus(current, key, items.length));
+    if (rovedByKey(menu.current, event.key)) event.preventDefault();
   }, []);
 
   // 되돌리기를 눌러 되돌릴 것이 다 떨어지면 그 항목은 잠긴다 — 잠긴 자리에 손을 두고 오지

@@ -259,6 +259,7 @@ describe("정보 위계 — 감춘 것은 반드시 다시 나타난다", () => 
       ".open-dialog__back",
       ".open-dialog__retry",
       ".doc-menu__open-server",
+      ".context-menu__item",
       ".revision-history__retry",
       ".first-steps__hide",
       ".resources-panel__new",
@@ -323,6 +324,25 @@ describe("포트를 잡는 손", () => {
 });
 
 // 캔버스가 손에 반응하는 방식 (브리프 A3·B4·B6).
+// 쌓이는 순서 (DESIGN §1·§7 connection-hint) — 잠깐 뜬 팝오버가 언제나 맨 위다.
+describe("팝오버는 언제나 맨 위다", () => {
+  function block(selector: string): string {
+    const at = appRules.indexOf(`${selector} {`);
+    return at === -1 ? "" : appRules.slice(at, appRules.indexOf("}", at));
+  }
+
+  it("오른쪽 클릭 메뉴는 팝오버 층에 선다", () => {
+    expect(block(".context-menu")).toContain("z-index: var(--z-popover)");
+  });
+
+  it("스스로 사라지는 안내는 그 아래다 — 메뉴의 항목을 가리지 않는다", () => {
+    expect(block(".connection-hint")).toContain("z-index: var(--z-dock-panel)");
+    expect(Number(tokenValue(tokens, "--z-dock-panel"))).toBeLessThan(
+      Number(tokenValue(tokens, "--z-popover")),
+    );
+  });
+});
+
 describe("캔버스의 새 장치들", () => {
   it("정렬 안내선은 브랜드색 얇은 선이다", () => {
     expect(appRules).toContain(".canvas__guide");

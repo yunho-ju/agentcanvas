@@ -30,3 +30,15 @@ export function focusMenuItem(container: Element, index: number): void {
   items.forEach((item) => item.setAttribute("tabindex", item === target ? "0" : "-1"));
   target?.focus();
 }
+
+/** 눌린 키가 오가는 키였으면 초점을 옮기고 그렇다고 답한다 — 아니면 그 키는 메뉴의 것이 아니다. */
+export function rovedByKey(container: Element | null, key: string): boolean {
+  const roving = (["ArrowDown", "ArrowUp", "Home", "End"] as const).find(
+    (candidate) => candidate === key,
+  );
+  if (!roving || !container) return false;
+  const items = focusableMenuItemsIn(container);
+  const current = items.indexOf(document.activeElement as HTMLElement);
+  focusMenuItem(container, rovedMenuFocus(current, roving, items.length));
+  return true;
+}

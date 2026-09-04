@@ -35,6 +35,8 @@ export const createPickerSlice: StateCreator<EditorState, [], [], PickerSlice> =
 
   openPicker: (request) => {
     set({ picker: request });
+    // 잠깐 뜨는 것은 한 번에 하나다 (DESIGN §7 context-menu 닫힘).
+    get().closeContextMenu();
     // 갈 곳이 없다던 안내는 여기까지가 제 할 일이다 — 예고한 일이 일어났으면 물러난다 (DESIGN §7).
     get().clearConnectionHint();
   },

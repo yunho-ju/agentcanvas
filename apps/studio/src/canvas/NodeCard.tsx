@@ -64,6 +64,12 @@ export function NodeCard({ id, data }: NodeCardProps) {
   const select = useEditor((state) => state.select);
   const skills = useEditor(docSkills);
   const halting = useEditor((state) => state.breakpoints.includes(id));
+  // 이 카드 위에 오른쪽 클릭 메뉴가 펴져 있는가 — 한 자리에 두 카드를 겹치지 않는다
+  // (DESIGN §7 context-menu, gate-card가 툴팁을 물리는 것과 같은 규칙).
+  const menuOnThisCard = useEditor((state) => {
+    const target = state.contextMenu?.target;
+    return target?.kind === "node" && target.id === id;
+  });
   const focusInspector = useFocusInspector();
   const updateNodeInternals = useUpdateNodeInternals();
   const locale = useLocale();
@@ -114,7 +120,11 @@ export function NodeCard({ id, data }: NodeCardProps) {
   const tooltipId = `node-tip-${id}`;
   return (
     // 카드 자신이 초점을 받는다 — 설명 툴팁에 마우스 없이도 닿기 위해서다.
-    <div className="node-card" tabIndex={0} aria-describedby={tooltipId}>
+    <div
+      className="node-card"
+      tabIndex={0}
+      aria-describedby={menuOnThisCard ? undefined : tooltipId}
+    >
       {/* 상태는 세 번 말한다: 왼쪽 상태 바, 기호, 글 (색맹 안전 — 디자인 언어 §2.3) */}
       {status ? (
         <span className="node-card__rail" data-status={runStatus} aria-hidden="true" />
@@ -174,14 +184,17 @@ export function NodeCard({ id, data }: NodeCardProps) {
       {runStatus === "waiting" ? <GateCard nodeId={id} /> : null}
       <PortList ports={ports.inputs} side="inputs" linkStateOf={linkStateOf} />
       <PortList ports={ports.outputs} side="outputs" linkStateOf={linkStateOf} />
-      {/* 설명은 사라진 것이 아니라 여기로 옮겨 왔다 — hover와 키보드 초점 양쪽에서 열린다. */}
-      <span role="tooltip" id={tooltipId} className="node-card__tooltip">
-        <span className="node-card__tooltip-name">{id}</span>
-        {localized(nodeType?.plain_description, locale)}
-        {issues.length > 0 ? (
-          <span className="node-card__tooltip-issues">{issueWords(issues, t)}</span>
-        ) : null}
-      </span>
+      {/* 설명은 사라진 것이 아니라 여기로 옮겨 왔다 — hover와 키보드 초점 양쪽에서 열린다.
+          메뉴가 이 카드 위에 펴져 있는 동안에는 물러난다. */}
+      {menuOnThisCard ? null : (
+        <span role="tooltip" id={tooltipId} className="node-card__tooltip">
+          <span className="node-card__tooltip-name">{id}</span>
+          {localized(nodeType?.plain_description, locale)}
+          {issues.length > 0 ? (
+            <span className="node-card__tooltip-issues">{issueWords(issues, t)}</span>
+          ) : null}
+        </span>
+      )}
     </div>
   );
 }

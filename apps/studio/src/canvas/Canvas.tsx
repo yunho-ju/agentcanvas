@@ -25,9 +25,13 @@ import { edgeFlowStates, nodeRunFacts } from "../run/player";
 import { markedForRun } from "../run/runMarks";
 import { useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
+import type { ContextTarget } from "../store/contextMenuSlice";
 import type { ViewRequest } from "../store/viewSlice";
 import { currentSeq, isRunning } from "../store/runSlice";
 import { ConnectionHint } from "./ConnectionHint";
+import { ContextMenu } from "./ContextMenu";
+import { keyboardMenuPoint } from "./contextMenuAnchor";
+import { drawnTarget } from "./drawnTarget";
 import { motionDurationMs, tokenLengthPx } from "./motion";
 import { NodeCard } from "./NodeCard";
 import { NodePicker } from "./NodePicker";
@@ -96,6 +100,7 @@ function CanvasSurface() {
   const onEdgesChange = useEditor((state) => state.onEdgesChange);
   const connect = useEditor((state) => state.connect);
   const openPicker = useEditor((state) => state.openPicker);
+  const openContextMenu = useEditor((state) => state.openContextMenu);
   const viewRequest = useEditor((state) => state.viewRequest);
   const viewRequestDone = useEditor((state) => state.viewRequestDone);
   // 기다린 프레임 수는 그 부탁의 것이다 — 부탁이 바뀌면 처음부터 다시 센다.
@@ -209,6 +214,34 @@ function CanvasSurface() {
     openPicker({ ...placeAt(pointerPosition(event)), from });
   }
 
+  // 손이 아니라 키보드로 부른 메뉴(Shift+F10)에는 가리키는 점이 없다 — 그때는 대상이 자리를 말한다
+  // (DESIGN §7 context-menu). 브라우저에 따라 키보드 메뉴도 대상의 좌표를 함께 주므로 그것을 먼저 믿는다.
+  function menuPoint(
+    event: { button?: number; clientX?: number; clientY?: number },
+    target: ContextTarget,
+  ) {
+    const pointer = pointerPosition(event);
+    if (event.button !== -1 && (pointer.x !== 0 || pointer.y !== 0)) return pointer;
+    return keyboardMenuPoint(
+      drawnTarget(target)?.getBoundingClientRect() ?? null,
+      surface.current?.getBoundingClientRect() ?? { left: 0, top: 0, width: 0, height: 0 },
+    );
+  }
+
+  // 브라우저 기본 메뉴는 캔버스 위에서만 막는다 (DESIGN §7 context-menu).
+  function openMenuOn(
+    event: {
+      preventDefault: () => void;
+      button?: number;
+      clientX?: number;
+      clientY?: number;
+    },
+    target: ContextTarget,
+  ) {
+    event.preventDefault();
+    openContextMenu({ target, ...placeAt(menuPoint(event, target)) });
+  }
+
   // 빈 캔버스를 두 번 누르면 같은 피커가 연결 없이 열린다 (브리프 B5).
   function onDoubleClick(event: MouseEvent<HTMLDivElement>) {
     if (running || !onEmptyCanvas(event.target)) return;
@@ -265,6 +298,8 @@ function CanvasSurface() {
         ) : null}
       </ReactFlow>
       <NodePicker />
+      {/* 오른쪽 클릭한 자리의 메뉴도 캔버스 위에 뜬다 — 설정으로 데려가는 길(Provider) 안이다. */}
+      <ContextMenu />
       {/* 이을 수 없는 이유는 손이 있는 이 자리에서 말한다 (DESIGN §7). */}
       <ConnectionHint />
     </div>

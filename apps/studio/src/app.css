@@ -640,7 +640,8 @@ button:disabled {
 .doc-menu__unpublish,
 .doc-menu__undo,
 .doc-menu__redo,
-.doc-menu__logout {
+.doc-menu__logout,
+.context-menu__item {
   padding: var(--space-2) var(--space-3);
   border: var(--border-hair) solid transparent;
   border-radius: var(--radius-control);
@@ -659,7 +660,8 @@ button:disabled {
 .doc-menu__unpublish:hover:not(:disabled),
 .doc-menu__undo:hover:not(:disabled),
 .doc-menu__redo:hover:not(:disabled),
-.doc-menu__logout:hover {
+.doc-menu__logout:hover,
+.context-menu__item:hover:not(:disabled) {
   background: var(--surface-hover);
 }
 
@@ -672,7 +674,8 @@ button:disabled {
 .doc-menu__unpublish:active:not(:disabled),
 .doc-menu__undo:active:not(:disabled),
 .doc-menu__redo:active:not(:disabled),
-.doc-menu__logout:active {
+.doc-menu__logout:active,
+.context-menu__item:active:not(:disabled) {
   background: var(--surface-active);
   transform: scale(0.99);
 }
@@ -686,7 +689,8 @@ button:disabled {
 .doc-menu__unpublish:focus-visible,
 .doc-menu__undo:focus-visible,
 .doc-menu__redo:focus-visible,
-.doc-menu__logout:focus-visible {
+.doc-menu__logout:focus-visible,
+.context-menu__item:focus-visible {
   outline: none;
   box-shadow: var(--ring-focus);
 }
@@ -704,12 +708,27 @@ button:disabled {
 .doc-menu__open-server:disabled,
 .doc-menu__publish:disabled,
 .doc-menu__undo:disabled,
-.doc-menu__redo:disabled {
+.doc-menu__redo:disabled,
+.context-menu__item:disabled {
   color: var(--ink-faint);
 }
 
 .doc-menu__file {
   display: none;
+}
+
+/* 오른쪽 클릭한 자리에 뜨는 메뉴 — 문서 메뉴와 같은 표면이고 항목은 같은 규칙을 함께 쓴다
+   (DESIGN §7 context-menu). 팝오버는 유리가 아니다 — 글자 뒤에 캔버스가 비치면 읽기가 방해된다. */
+.context-menu {
+  position: absolute;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: var(--node-width);
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  backdrop-filter: none;
 }
 
 .doc-card__problems {
@@ -3122,7 +3141,7 @@ button:disabled {
 
 .connection-hint {
   position: absolute;
-  z-index: 6;
+  z-index: var(--z-dock-panel);
   display: flex;
   align-items: center;
   gap: var(--space-2);

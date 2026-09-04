@@ -149,6 +149,8 @@ export interface ShortcutContext {
   comparing: boolean;
   /** 노드를 고르는 피커가 열려 있는가 */
   pickerOpen: boolean;
+  /** 캔버스에서 오른쪽 클릭해 연 메뉴가 떠 있는가 */
+  contextMenuOpen: boolean;
   /** 문서 카드 위의 팝오버(문서 메뉴·판 기록)가 떠 있는가 */
   docPopoverOpen: boolean;
   /** 실행에 넣을 값을 묻는 카드가 사람에게 묻고 있는가 */
@@ -200,6 +202,9 @@ interface RetreatStep {
  * 한 번의 Esc가 두 가지를 닫지 않는다. 새 단계는 이 표에 한 줄을 더한다.
  */
 const ESCAPE_CHAIN: RetreatStep[] = [
+  // 오른쪽 클릭 메뉴도 잠깐 뜬 팝오버다 — 노드 피커·문서 메뉴와 나란한 자리에서 물러난다
+  // (DESIGN §1 팝오버 예외, §7 context-menu).
+  { when: (it) => it.contextMenuOpen, step: ({ editor }) => editor.closeContextMenu() },
   { when: (it) => it.pickerOpen, step: ({ editor }) => editor.closePicker() },
   // 문서 메뉴·판 기록도 잠깐 뜬 팝오버다 — 맨 위에 떠 있으므로 가장 먼저 물러난다
   // (DESIGN §1 팝오버 예외, §7 doc-card).
@@ -251,13 +256,14 @@ export function findShortcut(
   context: ShortcutContext,
 ): ShortcutAction | undefined {
   // 글자를 치는 중이면 모든 키는 그 입력 상자의 것이다 (되돌리기도 마찬가지다).
-  // 예외 셋 (DESIGN §1·§7): 저장은 어디서든 저장이고, 잠깐 뜬 팝오버(노드 피커·문서 메뉴·판 기록)의
+  // 예외 셋 (DESIGN §1·§7): 저장은 어디서든 저장이고, 잠깐 뜬 팝오버(오른쪽 클릭 메뉴·노드 피커·문서 메뉴·판 기록)의
   // Esc는 글자를 치는 중에도 그 팝오버의 것이며, 값을 적는 칸(승인 폼·실행 입력)의 Esc는
   // 그 칸에서 손을 떼는 일이다.
   const typingException =
     WHILE_TYPING.has(name) ||
     (name === "Escape" &&
-      (context.pickerOpen ||
+      (context.contextMenuOpen ||
+        context.pickerOpen ||
         context.docPopoverOpen ||
         context.onGateField ||
         context.onRunInputField ||

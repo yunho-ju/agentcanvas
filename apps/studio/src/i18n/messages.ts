@@ -964,6 +964,16 @@ const TEXTS = {
     en: "No node fits here",
   },
 
+  // 캔버스에서 오른쪽 클릭한 자리의 메뉴 — 있는 조작에 입구를 하나 더 단다 (DESIGN §7 context-menu)
+  "context.label": { ko: "캔버스 메뉴", en: "Canvas menu" },
+  "context.addHere": { ko: "여기에 노드 놓기", en: "Put a node here" },
+  "context.fitAll": { ko: "전체 보기", en: "See everything" },
+  "context.openSettings": { ko: "설정 열기", en: "Open settings" },
+  "context.breakpoint.clear": { ko: "멈춤 풀기", en: "Don't stop here" },
+  "context.detach": { ko: "빼기", en: "Take it off" },
+  "context.editCondition": { ko: "조건 고치기", en: "Edit the condition" },
+  "context.removeEdge": { ko: "선 지우기", en: "Remove this link" },
+
   // 빼기 전에 보여주는 물음
   "impact.label": { ko: "빼기 전에 확인", en: "Check before taking it off" },
   "impact.title": { ko: "'{id}' 노드를 빼면", en: "If you take '{id}' off" },

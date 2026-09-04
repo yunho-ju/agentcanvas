@@ -20,9 +20,16 @@ export const createDocPopoverSlice: StateCreator<EditorState, [], [], DocPopover
 ) => ({
   docPopover: "closed",
 
-  toggleDocMenu: () => set({ docPopover: get().docPopover === "menu" ? "closed" : "menu" }),
+  toggleDocMenu: () => {
+    // 잠깐 뜨는 것은 한 번에 하나다 (DESIGN §7 context-menu 닫힘).
+    get().closeContextMenu();
+    set({ docPopover: get().docPopover === "menu" ? "closed" : "menu" });
+  },
 
-  openRevisionHistory: () => set({ docPopover: "history" }),
+  openRevisionHistory: () => {
+    get().closeContextMenu();
+    set({ docPopover: "history" });
+  },
 
   closeDocPopover: () => set({ docPopover: "closed" }),
 });

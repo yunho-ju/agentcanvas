@@ -447,6 +447,7 @@ describe("saving when saving is not possible", () => {
     chatGateConfirming: true,
     chatSwitchAsking: true,
     docPopoverOpen: true,
+    contextMenuOpen: true,
   };
 
   it("저장할 수 없는 자리에서도 그 키는 앱이 받는다 — 브라우저가 가져가지 않는다", () => {
@@ -494,6 +495,7 @@ describe("문서 열기가 떠 있을 때 Esc가 물러나는 순서", () => {
     panelOpen: false,
     comparing: false,
     pickerOpen: false,
+    contextMenuOpen: false,
     runInputAsking: false,
     onRunInputField: false,
     gateAsking: false,
