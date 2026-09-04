@@ -32,6 +32,7 @@ export interface PatternDef {
   id: Id;
   needs: Needs;
   question: LocalizedText;
+  short_name: LocalizedText;
   template: PatchTemplate;
 }
 /**

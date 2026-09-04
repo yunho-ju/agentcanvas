@@ -98,6 +98,8 @@ class PatternDef(ContractModel):
 
     #: 코드가 이 모양을 부르는 이름. 화면은 이 이름 대신 아래 세 문장을 읽는다.
     id: str = Field(min_length=1)
+    #: 목록·칩에 서는 짧은 이름 — 물음을 줄인 말이지 물음 자체가 아니다(화면이 문장을 자르지 않는다).
+    short_name: LocalizedText
     question: LocalizedText
     applies_when: LocalizedText
     cost: LocalizedText
@@ -113,6 +115,10 @@ DEFAULT_PATTERNS: dict[str, PatternDef] = {
         PatternDef.model_validate(
             {
                 "id": "react",
+                "short_name": {
+                    "ko": "도구를 쓰며 답 다듬기",
+                    "en": "Look things up while answering",
+                },
                 "question": {
                     "ko": "이 에이전트가 회사 시스템이나 바깥에서 무언가 찾아봐야 하나요?",
                     "en": (
@@ -154,6 +160,10 @@ DEFAULT_PATTERNS: dict[str, PatternDef] = {
         PatternDef.model_validate(
             {
                 "id": "human_gate",
+                "short_name": {
+                    "ko": "사람이 확인하고 넘어가기",
+                    "en": "Ask a person first",
+                },
                 "question": {
                     "ko": "이 에이전트가 뭔가 하기 전에 사람이 확인해야 하나요?",
                     "en": "Should a person approve before it acts?",
@@ -197,6 +207,10 @@ DEFAULT_PATTERNS: dict[str, PatternDef] = {
         PatternDef.model_validate(
             {
                 "id": "router",
+                "short_name": {
+                    "ko": "갈래 나누기",
+                    "en": "Split into branches",
+                },
                 "question": {
                     "ko": (
                         "이 에이전트가 하는 일이 여러 갈래인가요? "

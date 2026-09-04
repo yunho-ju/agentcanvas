@@ -251,12 +251,16 @@
     "question": {
       "$ref": "#/$defs/LocalizedText"
     },
+    "short_name": {
+      "$ref": "#/$defs/LocalizedText"
+    },
     "template": {
       "$ref": "#/$defs/PatchTemplate"
     }
   },
   "required": [
     "id",
+    "short_name",
     "question",
     "applies_when",
     "cost",

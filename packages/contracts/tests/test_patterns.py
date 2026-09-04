@@ -23,6 +23,7 @@ from pydantic import ValidationError
 def a_pattern(**changed: object) -> dict[str, object]:
     made: dict[str, object] = {
         "id": "made-up",
+        "short_name": {"ko": "짧은 이름", "en": "Short name"},
         "question": {"ko": "물음", "en": "A question"},
         "applies_when": {"ko": "이럴 때", "en": "When this"},
         "cost": {"ko": "이런 대가", "en": "This cost"},

@@ -17,6 +17,10 @@
       "en": "Should a person approve before it acts?",
       "ko": "이 에이전트가 뭔가 하기 전에 사람이 확인해야 하나요?"
     },
+    "short_name": {
+      "en": "Ask a person first",
+      "ko": "사람이 확인하고 넘어가기"
+    },
     "template": [
       {
         "config": {
@@ -75,6 +79,10 @@
       "en": "Does this agent need to look things up in your systems or outside?",
       "ko": "이 에이전트가 회사 시스템이나 바깥에서 무언가 찾아봐야 하나요?"
     },
+    "short_name": {
+      "en": "Look things up while answering",
+      "ko": "도구를 쓰며 답 다듬기"
+    },
     "template": [
       {
         "node": "{agent}",
@@ -106,6 +114,10 @@
     "question": {
       "en": "Does it do several different jobs, each answered differently?",
       "ko": "이 에이전트가 하는 일이 여러 갈래인가요? 갈래마다 다르게 답해야 하나요?"
+    },
+    "short_name": {
+      "en": "Split into branches",
+      "ko": "갈래 나누기"
     },
     "template": [
       {
