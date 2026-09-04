@@ -38,8 +38,14 @@ function offeredWays(spec: AgentSpec, node: SpecNode): boolean {
   return picksAWay(node) && waysFrom(spec, node.id).length > 0;
 }
 
+/** 이 턴이 도구를 시켰는가 — 시킨 것이 하나라도 있으면 그 말은 답이 아니다 (engine D5). */
+function askedForATool(event: RunEvent): boolean {
+  const calls = event.payload.tool_calls;
+  return Array.isArray(calls) && calls.length > 0;
+}
+
 /**
- * 말하는 노드들이 낸 말 — 갈림길 봉투는 빼고, 일어난 순서 그대로.
+ * 말하는 노드들이 낸 말 — 갈림길 봉투와 도구를 시킨 턴의 생각은 빼고, 일어난 순서 그대로.
  * 노드가 적히지 않았거나 그래프에 없는 노드의 말은 세지 않는다 (engine과 같은 규칙).
  */
 export function spokenTexts(spec: AgentSpec, events: RunEvent[]): string[] {
@@ -50,6 +56,7 @@ export function spokenTexts(spec: AgentSpec, events: RunEvent[]): string[] {
     const node = byId.get(event.node_id);
     const text = event.payload.text;
     if (node === undefined || typeof text !== "string") continue;
+    if (askedForATool(event)) continue;
     if (!offeredWays(spec, node)) said.push(text);
   }
   return said;

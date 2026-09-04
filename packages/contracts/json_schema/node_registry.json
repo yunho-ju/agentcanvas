@@ -164,7 +164,7 @@
         },
         "max_turns": {
           "default": 1,
-          "description": "How many times it may call tools while shaping its answer. 1 means it answers in one go — each turn costs a model call",
+          "description": "How many times it may call tools while shaping its answer — then one more call to settle it. Each turn costs a model call",
           "minimum": 1,
           "title": "How many turns at most",
           "type": "integer",
@@ -178,7 +178,7 @@
           },
           "x-i18n": {
             "ko": {
-              "description": "도구를 부르며 답을 다듬는 횟수예요. 1이면 한 번에 답해요 — 턴마다 모델 호출 비용이 들어요",
+              "description": "도구를 부르며 답을 다듬는 횟수예요 — 그 뒤 한 번 더 답을 정리해요. 턴마다 모델 호출 비용이 들어요",
               "title": "최대 주고받기 횟수"
             }
           }

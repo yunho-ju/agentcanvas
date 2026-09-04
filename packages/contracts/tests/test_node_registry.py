@@ -259,17 +259,23 @@ def test_agent_card_speaks_in_one_voice(field_name):
     assert said.strip().rstrip(".").endswith("요")
 
 
-def test_agent_turns_default_to_the_one_turn_the_engine_actually_runs():
-    """엔진은 아직 모델을 한 번 부른다 — 기본값이 그 사실을 말한다."""
+def test_agent_turns_default_to_answering_in_one_go():
+    """아무도 적지 않은 노드는 한 번에 답한다 — 기본값이 그 사실을 말한다."""
     field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["max_turns"]
     assert field["default"] == 1
 
 
-def test_agent_turns_explain_what_a_turn_costs_in_both_languages():
-    """턴마다 모델 호출 비용이 든다는 것은 hover 뒤에 숨기지 않는다 (DESIGN §7 agent-turns)."""
+def test_agent_turns_say_what_a_turn_is_and_what_it_costs_in_both_languages():
+    """마무리 호출은 이 횟수 밖이다 — 그 사실과 비용을 hover 뒤에 숨기지 않는다."""
     field = DEFAULT_NODE_TYPES["llm.agent"].config_schema["properties"]["max_turns"]
-    assert "each turn costs a model call" in field["description"]
-    assert "턴마다 모델 호출 비용이 들어요" in field["x-i18n"]["ko"]["description"]
+    assert field["description"] == (
+        "How many times it may call tools while shaping its answer — then one "
+        "more call to settle it. Each turn costs a model call"
+    )
+    assert field["x-i18n"]["ko"]["description"] == (
+        "도구를 부르며 답을 다듬는 횟수예요 — 그 뒤 한 번 더 답을 정리해요. "
+        "턴마다 모델 호출 비용이 들어요"
+    )
 
 
 def test_agent_turns_are_only_open_while_a_tool_is_picked():

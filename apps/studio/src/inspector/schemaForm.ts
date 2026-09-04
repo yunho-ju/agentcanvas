@@ -1,7 +1,6 @@
 // config_schema(JSON Schema) -> inspector 폼. 노드 타입은 여기서 쳐다보지 않는다 (설계 §4.2).
 // 읽을 수 없는 조각은 버리지 않고 raw JSON 편집으로 넘긴다 — 어떤 schema가 와도 UI는 살아 있다.
 import type { Locale } from "../i18n/locale";
-import type { Message } from "../i18n/messages";
 import {
   BINDING_REF_MARKER,
   ENABLED_WHEN_MARKER,
@@ -44,12 +43,6 @@ export interface FormField {
   /** 아직 아무도 적지 않았을 때 이 칸이 뜻하는 값 — 계약이 default로 말한 것 */
   fallback?: unknown;
   schema: JsonSchema;
-}
-
-/** schema의 설명 뒤에 덧붙일 한 줄 — 지금 이 서버의 사정처럼 schema가 모르는 말이다. */
-export interface ConfigCaption {
-  field: string;
-  message: Message;
 }
 
 /** 지금 이 칸이 켜져 있는가 — 꺼져 있으면 계약이 적어 둔 까닭을 함께 들고 온다. */

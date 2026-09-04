@@ -2,12 +2,10 @@
 import { useState } from "react";
 import type { EditOptions } from "../history/graphCommands";
 import { localized } from "../i18n/locale";
-import type { Message } from "../i18n/messages";
 import { useLocale, useT } from "../i18n/useT";
 import { resolvedPicks } from "./bindingPicks";
 import { CONTROLS, JsonControl } from "./controls";
 import {
-  type ConfigCaption,
   type EnabledState,
   type FormField,
   describeForm,
@@ -28,22 +26,18 @@ interface ConfigFormProps {
    * (예: 입은 skill이 이 문서에 있는가). 붙는 자리는 schema 오류와 같다.
    */
   extraErrors?: ConfigError[];
-  /** schema의 설명만으로는 정직하지 않은 칸에 덧붙이는 말 (예: 이 서버가 못 하는 일) */
-  extraCaptions?: ConfigCaption[];
 }
 
 function ConfigFieldRow({
   field,
   value,
   error,
-  caption,
   enabled,
   onChange,
 }: {
   field: FormField;
   value: unknown;
   error?: ConfigError;
-  caption?: Message;
   enabled: EnabledState;
   onChange: (value: unknown, options?: EditOptions) => void;
 }) {
@@ -53,9 +47,7 @@ function ConfigFieldRow({
   const locale = useLocale();
   const t = useT();
   const id = `config-${field.name}`;
-  const description = [localized(field.description, locale), caption ? t(caption) : ""]
-    .filter((part) => part !== "")
-    .join(" ");
+  const description = localized(field.description, locale);
   const hintId = description === "" ? undefined : `${id}-hint`;
   const title = localized(field.label, locale);
   const label = field.required ? `${title} *` : title;
@@ -157,7 +149,6 @@ export function ConfigForm({
   config,
   onChange,
   extraErrors = [],
-  extraCaptions = [],
 }: ConfigFormProps) {
   const t = useT();
   const { bindings } = useDocResources();
@@ -183,7 +174,6 @@ export function ConfigForm({
           field={field}
           value={config[field.name]}
           error={errors.find((error) => error.field === field.name)}
-          caption={extraCaptions.find((one) => one.field === field.name)?.message}
           enabled={enabledState(field, standing)}
           onChange={(value, options) =>
             onChange(withValue(config, field.name, value), options)

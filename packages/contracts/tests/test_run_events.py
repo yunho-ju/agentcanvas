@@ -55,6 +55,17 @@ def test_node_id_is_optional():
     assert event(node_id="clinical-agent").node_id == "clinical-agent"
 
 
+def test_turn_says_which_round_inside_one_node_this_belongs_to():
+    assert event().turn is None
+    assert event(turn=2).turn == 2
+
+
+def test_negative_turn_is_rejected():
+    with pytest.raises(ValidationError) as exc:
+        event(turn=-1)
+    assert exc.value.errors()[0]["loc"] == ("turn",)
+
+
 def test_timestamp_is_parsed_as_utc():
     assert event().timestamp == datetime(2026, 8, 1, 12, 30, 4, 120000, tzinfo=UTC)
 

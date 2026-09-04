@@ -769,5 +769,339 @@
       }
     ],
     "expected_spoken": []
+  },
+  {
+    "name": "the turn that called a tool is a thought, not the answer",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "let me look that up",
+          "tool_calls": [
+            {
+              "call_id": "call-1",
+              "name": "shelf_count",
+              "arguments": {
+                "item": "apple"
+              }
+            }
+          ]
+        },
+        "node_id": "agent",
+        "turn": 0
+      },
+      {
+        "event_type": "tool.completed",
+        "seq": 2,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "call_id": "call-1",
+          "tool_name": "shelf_count",
+          "ok": true
+        },
+        "node_id": "agent",
+        "turn": 0
+      },
+      {
+        "event_type": "llm.completed",
+        "seq": 3,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "there are 3 apples",
+          "tool_calls": []
+        },
+        "node_id": "agent",
+        "turn": 1
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 4,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "there are 3 apples"
+    ]
+  },
+  {
+    "name": "what the closing turn says is the answer",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "tool_calls": [
+            {
+              "call_id": "call-1",
+              "name": "shelf_count",
+              "arguments": {
+                "item": "apple"
+              }
+            }
+          ]
+        },
+        "node_id": "agent",
+        "turn": 0
+      },
+      {
+        "event_type": "llm.completed",
+        "seq": 2,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "from what I found, 3 apples",
+          "tool_calls": [
+            {
+              "call_id": "call-1",
+              "name": "shelf_count",
+              "arguments": {
+                "item": "apple"
+              }
+            }
+          ]
+        },
+        "node_id": "agent",
+        "turn": 1
+      },
+      {
+        "event_type": "llm.completed",
+        "seq": 3,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "here is what I could find out",
+          "tool_calls": []
+        },
+        "node_id": "agent",
+        "turn": 2
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 4,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "here is what I could find out"
+    ]
+  },
+  {
+    "name": "a turn that asked for no tool at all is still the answer",
+    "spec": {
+      "schema_version": "agent.spec/v1",
+      "id": "spoken-cases",
+      "version": 1,
+      "revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "status": "draft",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "state_schema": {
+        "type": "object",
+        "properties": {
+          "route": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string"
+          }
+        }
+      },
+      "resources": [],
+      "nodes": [
+        {
+          "id": "agent",
+          "type": "llm.agent",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "config": {}
+        },
+        {
+          "id": "output",
+          "type": "core.output",
+          "position": {
+            "x": 400,
+            "y": 0
+          },
+          "config": {}
+        }
+      ],
+      "edges": [],
+      "execution": {
+        "checkpointer": "postgres",
+        "replay_policy": "recorded_tools_first",
+        "limits": {
+          "max_total_tokens": 20000,
+          "max_runtime_ms": 120000,
+          "max_tool_calls": 12
+        }
+      }
+    },
+    "events": [
+      {
+        "event_type": "llm.completed",
+        "seq": 1,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {
+          "text": "hello",
+          "tool_calls": []
+        },
+        "node_id": "agent",
+        "turn": 0
+      },
+      {
+        "event_type": "run.completed",
+        "seq": 2,
+        "run_id": "run_loop",
+        "spec_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "timestamp": "2026-08-01T12:30:00Z",
+        "payload": {}
+      }
+    ],
+    "expected_spoken": [
+      "hello"
+    ]
   }
 ]

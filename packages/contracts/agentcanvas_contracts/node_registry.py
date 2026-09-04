@@ -616,20 +616,20 @@ DEFAULT_NODE_TYPES: dict[str, NodeType] = {
                             "title": "How many turns at most",
                             "description": (
                                 "How many times it may call tools while shaping its "
-                                "answer. 1 means it answers in one go — each turn "
+                                "answer — then one more call to settle it. Each turn "
                                 "costs a model call"
                             ),
                             "x-i18n": {
                                 "ko": {
                                     "title": "최대 주고받기 횟수",
                                     "description": (
-                                        "도구를 부르며 답을 다듬는 횟수예요. 1이면 한 번에 "
-                                        "답해요 — 턴마다 모델 호출 비용이 들어요"
+                                        "도구를 부르며 답을 다듬는 횟수예요 — 그 뒤 한 번 더 "
+                                        "답을 정리해요. 턴마다 모델 호출 비용이 들어요"
                                     ),
                                 }
                             },
                             "minimum": 1,
-                            # 엔진은 아직 모델을 한 번 부른다 (AGENT_PATTERNS P3 전).
+                            # 아무도 적지 않은 노드는 예나 지금이나 한 번에 답한다.
                             "default": 1,
                             ENABLED_WHEN_MARKER: {
                                 "field": "toolset_refs",

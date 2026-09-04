@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -16,8 +16,17 @@ from agentcanvas_contracts.run import ApprovalAnswer
 from agentcanvas_contracts.run_events import EventType
 
 from .graph_walk import _ways_from
-from .model_call import ModelAsk, ModelBalked, ModelSaid
-from .run_log import _answer_payload, _Emission
+from .model_call import (
+    ModelAsk,
+    ModelBalked,
+    ModelSaid,
+    ModelTurn,
+    ToolBrief,
+    ToolCall,
+    ToolReply,
+    TranscriptItem,
+)
+from .run_log import _answer_payload, _Emission, _in_turn, _PickedUp
 from .skill_wear import followed_skills
 from .tool_call import ToolBalked
 
@@ -31,6 +40,18 @@ GATE = "control.human_gate"
 TOOL = "tool.mcp"
 
 
+#: 에이전트가 답을 낸 까닭 — 스스로 그쳤는가, 턴을 다 썼는가, 도구 예산이 다했는가.
+BY_ANSWER = "answer"
+BY_TURN_LIMIT = "turn_limit"
+BY_TOOL_BUDGET = "tool_budget"
+
+#: 마무리 호출에서도 답할 말이 없었다 — 실패의 까닭이지 결말이 아니다.
+NO_FINAL_ANSWER = "no_final_answer"
+
+#: 아무도 적지 않았을 때 에이전트가 모델에게 묻는 횟수 (registry의 default와 같은 값).
+DEFAULT_MAX_TURNS = 1
+
+
 class _Flowing(Protocol):
     """일하는 노드가 실행 흐름에게 부탁할 수 있는 것 — 딱 이만큼만 안다.
 
@@ -42,9 +63,18 @@ class _Flowing(Protocol):
         ...
 
     def asks_a_model(
-        self, node: Node, ways: tuple[str, ...] = ()
+        self,
+        node: Node,
+        ways: tuple[str, ...] = (),
+        *,
+        tools: tuple[ToolBrief, ...] = (),
+        transcript: tuple[TranscriptItem, ...] = (),
+        closing: bool | None = None,
     ) -> tuple[list[_Emission], ModelSaid | None]:
-        """모델에게 물어본다 — 못 들었으면 들은 것이 없음으로 온다."""
+        """모델에게 물어본다 — 못 들었으면 들은 것이 없음으로 온다.
+
+        `closing`이 있으면 루프 안의 물음이다: 마무리 호출인지가 기록에 함께 남는다.
+        """
         ...
 
     def picks_a_way(
@@ -57,17 +87,61 @@ class _Flowing(Protocol):
         """바깥 도구를 한 번 부른다 — 못 불렀으면 그 까닭이 흐름에 남는다."""
         ...
 
+    def tool_briefs(self, node: Node) -> tuple[ToolBrief, ...] | None:
+        """이 노드가 모델에게 내놓을 도구들 — 내놓을 수 없으면 없음(까닭은 흐름이 안다)."""
+        ...
+
+    def picks_up(self, node: Node) -> _PickedUp:
+        """이 노드가 멈춰 섰던 자리 — 처음 도는 실행에서는 아무것도 없다."""
+        ...
+
+    def has_tool_budget(self) -> bool:
+        """이 실행이 도구를 더 부를 수 있는가 — 예산은 실행 전체가 함께 쓴다."""
+        ...
+
+    def calls_a_named_tool(
+        self, node: Node, call: ToolCall
+    ) -> tuple[list[_Emission], ToolReply | None]:
+        """모델이 시킨 도구 하나를 부른다 — 회신이 없으면 루프는 거기서 멎는다.
+
+        멎는 까닭은 둘이다: 사람을 기다리거나(승인), 문서·정책의 문제로 실행이 끝나거나.
+        어느 쪽인지는 흐름이 안다.
+        """
+        ...
+
+    def answers(
+        self, node: Node, answer: str | None, *, turns: int, closed_by: str
+    ) -> None:
+        """이 노드의 답이 정해졌다 — 몇 번 만에, 무엇으로 그쳤는지 함께 적는다."""
+        ...
+
+    def found_no_answer(self, node: Node, *, turns: int) -> None:
+        """물을 만큼 물었는데 답할 말이 없었다 — 이 노드는 마쳤다고 말하지 않는다."""
+        ...
+
 
 def _ref_of(node: Node, key: str, fallback: str) -> str:
     value = node.config.get(key)
     return value if isinstance(value, str) else fallback
 
 
-def _heard(ask: ModelAsk, said: ModelSaid) -> list[_Emission]:
+def _asked_for(calls: tuple[ToolCall, ...]) -> list[dict[str, object]]:
+    """모델이 시킨 도구 호출들이 사건에 적히는 모습 — 표와 이름과 건넨 값 그대로."""
+    return [
+        {"call_id": call.call_id, "name": call.name, "arguments": dict(call.arguments)}
+        for call in calls
+    ]
+
+
+def _heard(
+    ask: ModelAsk, said: ModelSaid, closing: bool | None = None
+) -> list[_Emission]:
     """모델에게 물어보고 들은 일이 사건으로 남는 모습 — 들은 그대로만 적는다.
 
     보낸 프롬프트와 받은 말은 진짜로 물어봤을 때만 있다 (설계 §8 — 모델이 본 것은 기록된다).
     지어낼 말이 없는 대역 뒤에서는 그 자리가 아예 없어, 예나 지금이나 같은 기록이 남는다.
+    루프 안의 물음만 마무리 호출인지(closing)와 시킨 도구들(tool_calls)을 함께 적는다:
+    한 번에 끝나는 노드의 기록은 도구가 생기기 전과 글자 하나까지 같다.
     """
     compiled: dict[str, object] = {
         "prompt_ref": ask.prompt_ref,
@@ -88,15 +162,16 @@ def _heard(ask: ModelAsk, said: ModelSaid) -> list[_Emission]:
     }
     if said.text is not None:
         completed["text"] = said.text
+    requested: dict[str, object] = {
+        "model_ref": ask.model_ref,
+        **followed_skills([brief.ref for brief in ask.skills]),
+    }
+    if closing is not None:
+        requested["closing"] = closing
+        completed["tool_calls"] = _asked_for(said.tool_calls)
     return [
         _Emission(EventType.PROMPT_COMPILED, compiled),
-        _Emission(
-            EventType.LLM_REQUESTED,
-            {
-                "model_ref": ask.model_ref,
-                **followed_skills([brief.ref for brief in ask.skills]),
-            },
-        ),
+        _Emission(EventType.LLM_REQUESTED, requested),
         _Emission(EventType.LLM_COMPLETED, completed),
     ]
 
@@ -109,6 +184,98 @@ def _asks_a_model(flow: _Flowing, node: Node) -> list[_Emission]:
     """
     said, _ = flow.asks_a_model(node, ways=())
     return said
+
+
+def _max_turns(node: Node) -> int:
+    """이 노드가 모델에게 물을 수 있는 횟수 — 적지 않았으면 한 번(지금까지와 같다)."""
+    told = node.config.get("max_turns")
+    if isinstance(told, bool) or not isinstance(told, int) or told < 1:
+        return DEFAULT_MAX_TURNS
+    return told
+
+
+def _runs_the_calls(
+    flow: _Flowing, node: Node, calls: Sequence[ToolCall], turn: int
+) -> tuple[list[_Emission], list[ToolReply] | None]:
+    """한 턴이 시킨 도구들을 적힌 차례대로 부른다 — 도중에 멎으면 회신이 없음으로 온다.
+
+    병렬로 부르지 않는다: 한 노드씩 순차라는 실행의 규칙이 노드 안에서도 같다.
+    남은 예산은 부르는 자리가 호출마다 확인한다: 한 턴에 여럿을 시켜도 예산만큼만 불리고,
+    나머지는 예산이 다 됐다는 회신으로 돌아온다 (한 턴이 문서의 한도를 넘어서지 못한다).
+    """
+    told: list[_Emission] = []
+    replies: list[ToolReply] = []
+    for call in calls:
+        said, reply = flow.calls_a_named_tool(node, call)
+        told.extend(_in_turn(said, turn))
+        if reply is None:
+            return told, None
+        replies.append(reply)
+    return told, replies
+
+
+def _asks_a_model_with_tools(flow: _Flowing, node: Node) -> list[_Emission]:
+    """도구를 부르며 답을 다듬는 노드 (설계 §4): 묻고, 시킨 것을 부르고, 다시 묻는다.
+
+    두 겹의 한도가 있다 — 이 노드가 물을 수 있는 횟수(max_turns)와 실행 전체의 도구 예산.
+    한도에 닿아도 빈손으로 끝내지 않는다: 도구 없이 한 번 더 물어(마무리 호출) 그 말을 답으로
+    삼는다. 쓸 도구가 하나도 없는 노드는 루프가 아니라 한 번의 물음이다 — 예나 지금이나 같은
+    기록이 남는다.
+    """
+    briefs = flow.tool_briefs(node)
+    if briefs is None:
+        return []
+    if not briefs:
+        return _asks_a_model(flow, node)
+    picked = flow.picks_up(node)
+    limit = _max_turns(node)
+    transcript = list(picked.transcript)
+    left: Sequence[ToolCall] = picked.calls_left
+    turn = picked.turns
+    told: list[_Emission] = []
+    while True:
+        if left:
+            calls, replies = _runs_the_calls(flow, node, left, turn - 1)
+            told.extend(calls)
+            if replies is None:
+                return told
+            transcript.extend(replies)
+            left = ()
+        out_of_turns = turn >= limit
+        closing = out_of_turns or not flow.has_tool_budget()
+        said, heard = flow.asks_a_model(
+            node,
+            tools=() if closing else briefs,
+            transcript=tuple(transcript),
+            closing=closing,
+        )
+        told.extend(_in_turn(said, turn))
+        if heard is None:
+            return told
+        turn += 1
+        if closing or not heard.tool_calls:
+            # 마무리 호출에서 시킨 도구는 부르지 않는다 — 그 말이 답이다.
+            # 진짜 제공자는 말도 시킨 것도 없으면 여기 오기 전에 물러선다
+            # (adapters `model_talk.heard` → NOTHING_SAID → run.failed). 여기 오는 말 없는 답은
+            # 진짜 모델이 없는 실행(대역)의 것이고, 그 실행은 지어낸 말 없이 그래프를 끝까지 걷는다.
+            if closing and not heard.text:
+                flow.found_no_answer(node, turns=turn)
+            else:
+                flow.answers(
+                    node,
+                    heard.text,
+                    turns=turn,
+                    closed_by=_closed_by(closing, out_of_turns),
+                )
+            return told
+        transcript.append(ModelTurn(text=heard.text, tool_calls=heard.tool_calls))
+        left = heard.tool_calls
+
+
+def _closed_by(closing: bool, out_of_turns: bool) -> str:
+    if not closing:
+        return BY_ANSWER
+    return BY_TURN_LIMIT if out_of_turns else BY_TOOL_BUDGET
 
 
 def _asks_a_model_and_picks_a_way(flow: _Flowing, node: Node) -> list[_Emission]:
@@ -146,6 +313,8 @@ class _NodeKind:
     waits_for_person: bool = False
     #: 바깥 도구를 부르는 노드인가 — 연결의 정책에 따라 부르기 전에 사람을 기다릴 수 있다.
     runs_a_tool: bool = False
+    #: 답을 다듬는 동안 스스로 도구를 부르는 노드인가 — 그래서 한 노드 안에서 멈췄다 이어진다.
+    calls_tools_while_it_answers: bool = False
 
 
 #: 표에 없는 타입의 성격 — 남길 말도, 고를 길도, 기다릴 사람도 없다.
@@ -154,7 +323,9 @@ JUST_WORKS = _NodeKind()
 #: 노드 타입마다의 성격 — 새 타입은 여기 한 줄을 더한다 (분기 대신 표).
 KIND_BY_NODE_TYPE: dict[str, _NodeKind] = {
     ROUTER: _NodeKind(work=_asks_a_model_and_picks_a_way, picks_a_way=True),
-    "llm.agent": _NodeKind(work=_asks_a_model),
+    "llm.agent": _NodeKind(
+        work=_asks_a_model_with_tools, calls_tools_while_it_answers=True
+    ),
     GATE: _NodeKind(waits_for_person=True),
     TOOL: _NodeKind(work=_calls_a_tool, runs_a_tool=True),
 }
@@ -200,6 +371,22 @@ def _resumes(node: Node, approval: ApprovalAnswer) -> list[_Emission]:
         _Emission(EventType.RUN_RESUMED, {"waiting_for": node.id, **answer}),
         _Emission(EventType.NODE_COMPLETED, {"node_type": node.type, **answer}),
     ]
+
+
+def _found_no_answer(node: Node) -> _Emission:
+    """답을 내지 못한 노드 뒤에 오는 실행의 끝 — 종결 사건 없이 멈추지 않는다.
+
+    node.failed는 그 걸음의 일이고, 실행이 끝났다는 말은 따로 있어야 한다: 화면도 이어 달리는
+    일꾼도 마지막 사건을 보고 실행의 지금을 읽는다 (`run_status`).
+    """
+    return _Emission(
+        EventType.RUN_FAILED,
+        {
+            "reason": NO_FINAL_ANSWER,
+            "message": f"the step {node.id!r} never reached an answer to give",
+        },
+        node.id,
+    )
 
 
 def _could_not_ask(node: Node, balked: ModelBalked | ToolBalked) -> _Emission:

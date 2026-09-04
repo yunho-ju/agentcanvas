@@ -862,14 +862,14 @@ describe("how many turns an agent may take", () => {
     expect(turnsField()).toHaveValue(4);
   });
 
-  // 엔진이 반복하기 전까지는 저장되는 값일 뿐이다 — 그 사실을 캡션 끝에 붙여 말한다.
-  it("admits in the caption that this server still answers in one go", () => {
+  // 엔진이 도구를 부르며 여러 번 시도하므로, 한 번에 답한다는 고백은 더 이상 사실이 아니다.
+  it("no longer admits that this server answers in one go", () => {
     store().select("node", AGENT);
     render(<Inspector />);
 
     const caption = document.getElementById("config-max_turns-hint");
     expect(caption).toHaveTextContent("턴마다 모델 호출 비용이 들어요");
-    expect(caption).toHaveTextContent("(이 서버는 아직 한 번에 답해요)");
+    expect(caption).not.toHaveTextContent("(이 서버는 아직 한 번에 답해요)");
   });
 
   // 빈 상자는 뜻을 잃는다 — 지운 자리에는 기본값이 초대말로 남는다.

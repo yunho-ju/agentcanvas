@@ -29,6 +29,7 @@ export type RunId = string;
 export type Seq = number;
 export type SpecRevision = string;
 export type Timestamp = string;
+export type Turn = number | null;
 
 export interface RunEvent {
   event_type: EventType;
@@ -38,6 +39,7 @@ export interface RunEvent {
   seq: Seq;
   spec_revision: SpecRevision;
   timestamp: Timestamp;
+  turn?: Turn;
 }
 export interface Payload {
   [k: string]: unknown;

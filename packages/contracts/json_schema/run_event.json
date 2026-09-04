@@ -67,6 +67,19 @@
       "format": "date-time",
       "title": "Timestamp",
       "type": "string"
+    },
+    "turn": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Turn"
     }
   },
   "required": [

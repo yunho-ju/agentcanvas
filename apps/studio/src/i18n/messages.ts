@@ -1801,10 +1801,6 @@ const TEXTS = {
     en: "Undo brings it back any time",
   },
   // 엔진이 도구를 부르며 반복하기 전까지 '최대 몇 턴'은 저장되는 값일 뿐이다 (DESIGN §7 agent-turns).
-  "agent.turns.oneShot": {
-    ko: "(이 서버는 아직 한 번에 답해요)",
-    en: "(this server still answers in one go)",
-  },
   "edge.title": { ko: "연결", en: "Connection" },
   "edge.kind.label": { ko: "연결 종류", en: "Kind of connection" },
   "edge.kind.data": { ko: "값 전달 (data)", en: "Carries a value (data)" },

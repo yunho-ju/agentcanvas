@@ -43,6 +43,9 @@ class RunEvent(ContractModel):
     spec_revision: str = Field(pattern=REVISION_PATTERN)
     payload: dict[str, Any]
     node_id: str | None = None
+    #: 한 노드가 여러 번 묻고 부르는 동안, 이 사건이 그중 몇 번째 물음에 딸린 것인가.
+    #: 한 번에 끝나는 노드는 이 자리가 비어 있다 (설계 D4).
+    turn: int | None = Field(default=None, ge=0)
 
 
 def assert_monotonic_seq(events: Sequence[RunEvent]) -> None:
