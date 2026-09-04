@@ -1138,6 +1138,42 @@ const TEXTS = {
   },
   "run.elapsed": { ko: "{seconds}초", en: "{seconds}s" },
 
+  // 시도 문구는 관찰된 사건에서만 고른다 (아직 안 일어난 일을 앞질러 말하지 않는다).
+  "run.turn.asking": {
+    ko: "{n}번째 시도 — 물어보는 중이에요",
+    en: "Try {n} — asking the AI",
+  },
+  "run.turn.calledTool": {
+    ko: "{n}번째 시도 — '{tool}' 도구를 불렀어요",
+    en: "Try {n} — it called '{tool}'",
+  },
+  "run.turn.calledTwoTools": {
+    ko: "{n}번째 시도 — '{first}'·'{second}' 도구를 불렀어요",
+    en: "Try {n} — it called '{first}' and '{second}'",
+  },
+  "run.turn.calledManyTools": {
+    ko: "{n}번째 시도 — 도구 {count}개를 불렀어요",
+    en: "Try {n} — it called {count} tools",
+  },
+  "run.turn.answered": {
+    ko: "{n}번째 시도 — 답했어요",
+    en: "Try {n} — it answered",
+  },
+  // 한도로 그친 결말 — 실행 보기의 머리말과 노드 카드의 캡션이 한 문장을 함께 쓴다.
+  "run.turn.closing": {
+    ko: "여기까지 알아본 것으로 답했어요",
+    en: "It answered with what it had found so far",
+  },
+  "run.node.calling": {
+    ko: "도구 부르는 중 {turn}/{max}",
+    en: "Calling tools {turn}/{max}",
+  },
+  // 마무리 호출은 도구를 부르지 않는다 — 턴 수로 세지 않는다.
+  "run.node.wrappingUp": {
+    ko: "답을 정리하는 중",
+    en: "Settling the answer",
+  },
+
   "run.starting": { ko: "실행을 여는 중이에요", en: "Opening the run" },
 
   // 실행은 서버가 돌린다 — 못 돌린 까닭과 다음 걸음을 한 목소리로 말한다.

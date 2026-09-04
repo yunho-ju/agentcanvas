@@ -2,11 +2,14 @@
 // 쉬운 말이 본문이고 계약의 event_type 원문은 옆에 붙는 보조 표기다.
 import { memo } from "react";
 import type { RunEvent } from "../generated/run_event";
-import { type Translate, useT } from "../i18n/useT";
+import { localized } from "../i18n/locale";
+import { type Translate, useLocale, useT } from "../i18n/useT";
 import { useEditor } from "../store/editor";
 import { currentSeq } from "../store/runSlice";
 import { eventSummary, payloadLines, skillsFollowed } from "./eventWords";
 import { runAnswer } from "./runAnswer";
+import { groupTurns } from "./turns";
+import { type TurnWords, turnWords } from "./turnWords";
 
 /**
  * 사건 한 줄. 재생 위치가 한 칸 움직일 때 목록 전체를 다시 그릴 이유는 없다 —
@@ -16,6 +19,7 @@ const EventRow = memo(function EventRow({
   event,
   run,
   shown,
+  inTurn,
   onPick,
   t,
 }: {
@@ -23,12 +27,14 @@ const EventRow = memo(function EventRow({
   /** 이 실행 전부 — 끝맺음 한 줄이 그 실행에서 일어난 일까지 보고 말한다 */
   run: RunEvent[];
   shown: boolean;
+  /** 시도 묶음에 든 줄인가 — 머리말 아래로 들여쓴다 */
+  inTurn: boolean;
   onPick: (seq: number) => void;
   t: Translate;
 }) {
   const followed = skillsFollowed(event);
   return (
-    <li className="event-list__row">
+    <li className={inTurn ? "event-list__row event-list__row--in-turn" : "event-list__row"}>
       <button
         type="button"
         className="event-list__what"
@@ -51,6 +57,24 @@ const EventRow = memo(function EventRow({
     </li>
   );
 });
+
+/**
+ * 시도 묶음의 머리말 — 줄이 아니라 제목이다: 누를 수 없고 aria-current를 갖지 않는다.
+ * caption은 머리말이 말하지 않은 것(도구의 쉬운 설명·원문 이름)을 계약의 말로 잇는다.
+ */
+function TurnHead({ words }: { words: TurnWords }) {
+  const locale = useLocale();
+  const t = useT();
+  const caption = words.caption
+    .map((one) => (typeof one === "string" ? one : localized(one, locale)))
+    .join(" · ");
+  return (
+    <li className="event-list__turn">
+      <p className="event-list__turn-head">{t(words.heading)}</p>
+      {caption === "" ? null : <span className="event-list__turn-tool">{caption}</span>}
+    </li>
+  );
+}
 
 export function EventList() {
   const events = useEditor((state) => state.runEvents);
@@ -75,16 +99,23 @@ export function EventList() {
         </div>
       )}
       <ol className="event-list__items">
-        {events.map((event) => (
-          <EventRow
-            key={event.seq}
-            event={event}
-            run={events}
-            shown={event.seq === seq}
-            onPick={goToEvent}
-            t={t}
-          />
-        ))}
+        {groupTurns(events).flatMap((part) => {
+          const words = ranSpec === undefined ? null : turnWords(part, ranSpec);
+          return [
+            ...(words === null ? [] : [<TurnHead key={`turn-${part.events[0].seq}`} words={words} />]),
+            ...part.events.map((event) => (
+              <EventRow
+                key={event.seq}
+                event={event}
+                run={events}
+                shown={event.seq === seq}
+                inTurn={part.turn !== null}
+                onPick={goToEvent}
+                t={t}
+              />
+            )),
+          ];
+        })}
       </ol>
     </section>
   );

@@ -20,6 +20,14 @@ export interface AgentNodeData extends Record<string, unknown> {
   runElapsedMs?: number;
   /** 끝내지 못한 이유 한 줄 */
   runError?: string;
+  /** 도구를 부르며 답을 다듬는 중이라면 지금 도는 시도 (0부터) */
+  runTurn?: number;
+  /** 문서·계약이 이 노드에 허락한 시도 횟수 — 알 수 없으면 없다 */
+  runMaxTurns?: number;
+  /** 지금 도는 것이 마무리 호출인가 — 그 호출은 도구를 부르지 않는다 */
+  runClosing?: boolean;
+  /** 스스로 답한 것이 아니라 한도에 걸려 마무리했는가 */
+  runClosedEarly?: boolean;
 }
 
 export interface FlowNode {

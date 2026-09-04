@@ -35,7 +35,16 @@ export interface NodeRunFact {
   elapsedMs?: number;
   /** 끝내지 못한 이유 한 줄 — 실패했고 이벤트가 이유를 들고 왔을 때만 있다 */
   error?: string;
+  /** 도구를 부르며 답을 다듬는 노드라면 지금 도는 시도 (0부터) */
+  turn?: number;
+  /** 지금 도는 것이 마무리 호출인가 — 그 호출은 도구를 부르지 않는다 */
+  closing?: boolean;
+  /** 스스로 답한 것이 아니라 한도에 걸려 마무리했는가 */
+  closedEarly?: boolean;
 }
+
+/** 한도에 걸려 마무리한 갈래 — 실패가 아니라 "여기까지 알아본 것으로 답한" 결말이다. */
+const CLOSED_EARLY = ["turn_limit", "tool_budget"];
 
 /**
  * 사람이 아니오라고 답한 사건인가 — 답은 payload에 실린다.
@@ -73,9 +82,31 @@ export function nodeRunFacts(
   const startedAtMs: Record<string, number> = {};
   // 도구가 답을 가져오지 못한 노드들 — 그 노드의 끝맺음은 초록불이 아니다.
   const cameUpShort = new Set<string>();
+  // 시도는 상태를 바꾸지 않는다 — 상태와 나란히 흐르다 그 노드의 사실에 얹힌다.
+  const tries: Record<string, Pick<NodeRunFact, "turn" | "closing" | "closedEarly">> = {};
   for (const event of events) {
     if (event.seq > seq) continue;
     if (toolFellShort(event) && event.node_id) cameUpShort.add(event.node_id);
+    if (event.node_id) {
+      if (typeof event.turn === "number") {
+        const carried = tries[event.node_id];
+        const same = carried?.turn === event.turn;
+        tries[event.node_id] = {
+          ...carried,
+          turn: event.turn,
+          ...(same ? {} : { closing: undefined }),
+        };
+      }
+      if (event.event_type === "llm.requested" && event.payload.closing === true) {
+        tries[event.node_id] = { ...tries[event.node_id], closing: true };
+      }
+      if (
+        event.event_type === "node.completed" &&
+        CLOSED_EARLY.includes(String(event.payload.closed_by))
+      ) {
+        tries[event.node_id] = { ...tries[event.node_id], closedEarly: true };
+      }
+    }
     // 끝맺음은 마쳤을 때와 같은 이벤트로 온다 — 그 안에 실린 것이 결말을 가른다.
     const ended = event.event_type === "node.completed";
     const status = ended && turnedDown(event)
@@ -98,6 +129,9 @@ export function nodeRunFacts(
       ...(finished && startedMs !== undefined ? { elapsedMs: at - startedMs } : {}),
       ...(status === "failed" && reasonOf(event) ? { error: reasonOf(event) } : {}),
     };
+  }
+  for (const [nodeId, tried] of Object.entries(tries)) {
+    if (facts[nodeId]) facts[nodeId] = { ...facts[nodeId], ...tried };
   }
   return facts;
 }

@@ -299,3 +299,97 @@ describe("실행을 보는 동안", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 });
+
+// 루프가 도는 동안 카드는 지금 몇 번째 시도인지 말하고, 한도로 그쳤으면 그 사실을 남긴다
+// (DESIGN §7 node-card 실행 중 P4).
+describe("도구를 부르며 답을 다듬는 노드의 카드", () => {
+  it("루프가 도는 동안 몇 번째 시도인지 뱃지로 말한다", () => {
+    renderCard({
+      ...dataFor("llm.agent", FILLED_AGENT),
+      runStatus: "running",
+      runTurn: 1,
+      runMaxTurns: 5,
+    });
+
+    expect(screen.getByText("도구 부르는 중 2/5")).toBeInTheDocument();
+  });
+
+  it("사람 확인을 기다리는 동안에도 뱃지는 그대로 보인다", () => {
+    renderCard({
+      ...dataFor("llm.agent", FILLED_AGENT),
+      runStatus: "waiting",
+      runTurn: 1,
+      runMaxTurns: 5,
+    });
+
+    expect(screen.getByText("도구 부르는 중 2/5")).toBeInTheDocument();
+  });
+
+  it("마무리 호출 동안에는 숫자를 세지 않는다", () => {
+    renderCard({
+      ...dataFor("llm.agent", FILLED_AGENT),
+      runStatus: "running",
+      runTurn: 5,
+      runMaxTurns: 5,
+      runClosing: true,
+    });
+
+    expect(screen.getByText("답을 정리하는 중")).toBeInTheDocument();
+    expect(screen.queryByText(/도구 부르는 중/)).not.toBeInTheDocument();
+  });
+
+  it("시도가 없는 노드는 뱃지를 세우지 않는다", () => {
+    renderCard({ ...dataFor("llm.agent", FILLED_AGENT), runStatus: "running" });
+
+    expect(screen.queryByText(/도구 부르는 중/)).not.toBeInTheDocument();
+  });
+
+  it("최대 시도를 알 수 없으면 숫자를 지어내지 않는다", () => {
+    renderCard({
+      ...dataFor("llm.agent", FILLED_AGENT),
+      runStatus: "running",
+      runTurn: 1,
+    });
+
+    expect(screen.queryByText(/도구 부르는 중/)).not.toBeInTheDocument();
+  });
+
+  it("마친 노드는 시도 뱃지 대신 결말을 말한다", () => {
+    renderCard({
+      ...dataFor("llm.agent", FILLED_AGENT),
+      runStatus: "completed",
+      runTurn: 1,
+      runMaxTurns: 5,
+    });
+
+    expect(screen.queryByText(/도구 부르는 중/)).not.toBeInTheDocument();
+  });
+
+  it("끝내지 못한 노드도 시도 뱃지를 세우지 않는다", () => {
+    renderCard({
+      ...dataFor("llm.agent", FILLED_AGENT),
+      runStatus: "failed",
+      runTurn: 1,
+      runMaxTurns: 5,
+    });
+
+    expect(screen.queryByText(/도구 부르는 중/)).not.toBeInTheDocument();
+  });
+
+  it("한도로 그친 노드는 캡션 한 줄로 그 사실을 말한다", () => {
+    const { container } = renderCard({
+      ...dataFor("llm.agent", FILLED_AGENT),
+      runStatus: "completed",
+      runClosedEarly: true,
+    });
+
+    expect(screen.getByText("여기까지 알아본 것으로 답했어요")).toBeInTheDocument();
+    expect(container.querySelector(".node-card__closed-early")).toBeInTheDocument();
+  });
+
+  it("스스로 답하고 마친 노드에는 그 캡션이 없다", () => {
+    renderCard({ ...dataFor("llm.agent", FILLED_AGENT), runStatus: "completed" });
+
+    expect(screen.queryByText("여기까지 알아본 것으로 답했어요")).not.toBeInTheDocument();
+  });
+});

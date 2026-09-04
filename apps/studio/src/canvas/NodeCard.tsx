@@ -12,6 +12,7 @@ import { type Translate, useLocale, useT } from "../i18n/useT";
 import { useFocusInspector } from "../inspector/inspectorFocus";
 import { GateCard } from "../run/GateCard";
 import { elapsedWords, STATUS_WORDS } from "../run/statusWords";
+import { turnBadge } from "../run/turnWords";
 import { useEditor } from "../store/editor";
 import { docBindings } from "../store/graphSlice";
 import { docSkills } from "../store/skillSlice";
@@ -61,7 +62,17 @@ function PortList({
 }
 
 export function NodeCard({ id, data }: NodeCardProps) {
-  const { nodeType, ports, runStatus, runElapsedMs, runError } = data;
+  const {
+    nodeType,
+    ports,
+    runStatus,
+    runElapsedMs,
+    runError,
+    runTurn,
+    runMaxTurns,
+    runClosing,
+    runClosedEarly,
+  } = data;
   const select = useEditor((state) => state.select);
   const skills = useEditor(docSkills);
   const bindings = useEditor(docBindings);
@@ -97,6 +108,12 @@ export function NodeCard({ id, data }: NodeCardProps) {
   }, [id, portIds, updateNodeInternals]);
 
   const status = runStatus ? STATUS_WORDS[runStatus] : undefined;
+  const tried = turnBadge({
+    status: runStatus,
+    turn: runTurn,
+    closing: runClosing,
+    maxTurns: runMaxTurns,
+  });
   // 실행을 보는 동안에는 상태가 카드의 말이다 — 설정 이야기는 편집으로 돌아왔을 때 한다.
   // 손볼 곳은 한 판정이 센다 — 이 칸이 비었는가, 입은 skill이 문서에 있는가(skill.missing).
   // 아무도 안 입은 skill(validator INFO)은 세지 않는다: 그것은 손볼 곳이 아니다.
@@ -164,6 +181,7 @@ export function NodeCard({ id, data }: NodeCardProps) {
             {t("nodeCard.setup")}
           </button>
         ) : null}
+        {tried ? <span className="node-card__turn">{t(tried)}</span> : null}
         {status ? (
           <span
             className={`node-card__status node-card__status--${runStatus}`}
@@ -179,6 +197,9 @@ export function NodeCard({ id, data }: NodeCardProps) {
           </span>
         ) : null}
       </div>
+      {runClosedEarly ? (
+        <p className="node-card__closed-early">{t("run.turn.closing")}</p>
+      ) : null}
       {runStatus === "failed" && runError ? (
         <p className="node-card__error">{runError}</p>
       ) : null}

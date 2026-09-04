@@ -3,6 +3,7 @@
 // 이 한 자리를 함께 본다 — 같은 밸브가 두 화면에서 다른 말을 하지 않게 한다.
 import type { LocalizedText, Resources } from "../generated/agent_spec";
 import type { RunEvent } from "../generated/run_event";
+import { toolNamed } from "../resources/resourceWords";
 
 /** 지금 기다리는 확인이 어느 도구 호출을 위한 것인가 — 도구 승인이 아니면 없다. */
 export interface GateToolAsk {
@@ -39,9 +40,7 @@ export function gateToolAskIn(
   const toolName = asked?.payload.tool_name;
   const resourceRef = asked?.payload.resource_ref;
   if (typeof toolName !== "string" || typeof resourceRef !== "string") return null;
-  const tool = (resources ?? [])
-    .find((binding) => binding.id === resourceRef)
-    ?.tools?.find((one) => one.name === toolName);
+  const tool = toolNamed(resources ?? [], toolName, resourceRef);
   return {
     toolName,
     ...(tool?.plain_description ? { plainDescription: tool.plain_description } : {}),

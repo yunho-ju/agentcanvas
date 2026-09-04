@@ -1971,6 +1971,25 @@ button:disabled {
   box-shadow: var(--ring-focus);
 }
 
+.node-card__turn {
+  flex: none;
+  margin-left: auto;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--running-soft);
+  color: var(--running-ink);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+}
+
+/* 한도로 그친 결말은 실패가 아니다 — 확인의 호박색으로만 말한다. */
+.node-card__closed-early {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: var(--leading-tight);
+  color: var(--warn-ink);
+}
+
 /* 실패했을 때만 한 줄 — 자세한 이야기는 실행 기록이 한다. */
 .node-card__error {
   margin: 0;
@@ -2428,6 +2447,36 @@ button:disabled {
 
 .event-list__payload dd {
   margin: 0;
+}
+
+/* 한 시도(turn)에 일어난 줄들은 한 묶음으로 읽힌다 — 머리말은 제목이지 줄이 아니다. */
+.event-list__turn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.event-list__turn-head {
+  margin: 0;
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+/* 머리말이 못다 한 말 — 도구의 쉬운 설명은 글이지 이름표가 아니다(원문 이름은 줄의 caption). */
+.event-list__turn-tool {
+  font-size: var(--text-caption);
+  line-height: var(--leading-tight);
+  color: var(--ink-faint);
+}
+
+.event-list__row--in-turn {
+  margin-left: var(--space-2);
+  padding-left: var(--space-2);
+  border-left: var(--border-hair) solid var(--hairline);
 }
 
 /* ── 지난 실행 (실험 루프의 첫 조각) ─────────────────────────────────────

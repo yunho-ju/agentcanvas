@@ -35,9 +35,28 @@ export function toolShape(tool: ToolDef): ToolShape {
   return { inputs: titlesOf(tool.input_schema), outputs: titlesOf(tool.output_schema) };
 }
 
+export function toolsOf(
+  bindings: ResourceBinding[],
+): { binding: string; tool: ToolDef }[] {
+  return bindings.flatMap((binding) =>
+    (binding.tools ?? []).map((tool) => ({ binding: binding.id, tool })),
+  );
+}
+
+/** 이름으로 도구 하나를 찾는다 — 어느 연결의 것인지 아는 자리는 그것까지 맞춰 찾는다. */
+export function toolNamed(
+  bindings: ResourceBinding[],
+  name: string,
+  from?: string,
+): ToolDef | undefined {
+  return toolsOf(bindings).find(
+    (one) => one.tool.name === name && (from === undefined || one.binding === from),
+  )?.tool;
+}
+
 /** 이 연결의 도구가 열쇠를 쓰는가 — 쓰면 이름만 적혀 있다는 사실을 함께 말한다. */
 export function needsASecret(binding: ResourceBinding): boolean {
-  return (binding.tools ?? []).some(
-    (tool) => "auth" in tool.call && Boolean(tool.call.auth),
+  return toolsOf([binding]).some(
+    ({ tool }) => "auth" in tool.call && Boolean(tool.call.auth),
   );
 }
