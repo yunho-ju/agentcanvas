@@ -1,12 +1,14 @@
 // 포트에서 끌어다 놓은 자리에 뜨는 노드 피커 (브리프 B4).
 // 검색 한 칸과 목록 하나 — 키보드만으로도 끝까지 갈 수 있어야 한다.
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import exampleSpec from "../../../examples/basic-agent/agent_spec.json";
+import { App } from "../src/App";
 import { NodePicker } from "../src/canvas/NodePicker";
 import type { AgentSpec } from "../src/generated/agent_spec";
 import { translate } from "../src/i18n/messages";
+import { fakeRun } from "../src/run/fakeRun";
 import { useEditor } from "../src/store/editor";
 
 const example = exampleSpec as unknown as AgentSpec;
@@ -30,6 +32,7 @@ function optionNames(): string[] {
 const ko = (key: string) => translate("ko", { key } as Parameters<typeof translate>[1]);
 
 beforeEach(() => {
+  useEditor.setState({ runEvents: [] });
   useEditor.getState().loadSpec(example);
   useEditor.getState().closePicker();
 });
@@ -138,5 +141,52 @@ describe("노드 피커", () => {
     render(<NodePicker />);
 
     expect(optionNames().join(" ")).toContain("AI 에이전트");
+  });
+});
+
+// 빈 곳을 두 번 누르면 그 자리에 노드를 고른다 (CM-2 — 더블클릭 확대가 이 손짓을 가로챘다).
+describe("빈 곳 더블클릭", () => {
+  function pane(): HTMLElement {
+    return document.querySelector<HTMLElement>(".react-flow__pane") as HTMLElement;
+  }
+
+  function card(id: string): HTMLElement {
+    return document.querySelector<HTMLElement>(
+      `.react-flow__node[data-id="${id}"]`,
+    ) as HTMLElement;
+  }
+
+  it("두 번 누른 자리에 피커가 열린다", () => {
+    render(<App />);
+
+    fireEvent.dblClick(pane(), { clientX: 420, clientY: 260 });
+
+    expect(store().picker).not.toBeNull();
+    expect(store().picker?.from).toBeNull();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("카드 위에서는 열리지 않는다 — 그 자리는 비어 있지 않다", () => {
+    render(<App />);
+
+    fireEvent.dblClick(card("triage"), { clientX: 100, clientY: 100 });
+
+    expect(store().picker).toBeNull();
+  });
+
+  it("실행을 보는 동안에는 열리지 않는다 — 그래프가 잠겨 있다", () => {
+    render(<App />);
+    act(() =>
+      useEditor.setState({
+        runEvents: fakeRun(example, {
+          runId: "run_dblclick",
+          startedAt: new Date("2026-08-01T12:30:00.000Z"),
+        }),
+      }),
+    );
+
+    fireEvent.dblClick(pane(), { clientX: 420, clientY: 260 });
+
+    expect(store().picker).toBeNull();
   });
 });

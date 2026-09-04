@@ -238,6 +238,12 @@ function CanvasSurface() {
         onEdgesChange={onEdgesChange}
         onConnect={(connection) => connect(connection, placeAt(pointer.current).screen)}
         onConnectEnd={onConnectEnd}
+        onPaneContextMenu={(event) => openMenuOn(event, { kind: "pane" })}
+        onNodeContextMenu={(event, node) => openMenuOn(event, { kind: "node", id: node.id })}
+        onEdgeContextMenu={(event, edge) => openMenuOn(event, { kind: "edge", id: edge.id })}
+        // 더블클릭은 빈 자리에 노드를 놓는 손짓이다 — 캔버스 라이브러리의 더블클릭 확대는 끈다
+        // (DESIGN §1 줌은 휠·Shift+1/2, CM-2: 확대가 피커를 가로채 첫 걸음이 막혔다).
+        zoomOnDoubleClick={false}
         // 삭제는 우리 단축키 표가 맡는다 — 되돌리기 기록이 남아야 하기 때문이다.
         deleteKeyCode={null}
         // 초점은 카드 자신이 받는다 — 감싼 껍데기까지 초점을 받으면 Tab이 두 번 멈춘다.
