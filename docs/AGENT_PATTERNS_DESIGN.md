@@ -140,6 +140,7 @@ P1은 지금 바로 할 수 있고 다른 단계와 독립이다. P2→P3→P4�
 - **재개 시 도구 중복 실행**: exactly-once가 아니다(§5). 재개 직전 마지막 `tool.requested`에 짝이 되는 `tool.completed`가 없으면 그 호출은 **다시 부르지 않고** 실패로 회신한다(부작용 있는 도구를 두 번 부르지 않는다).
 - **도구 결과의 지시문 행세**: D9 펜싱. 완전한 방어가 아니라는 점을 문서에 적는다.
 - **도구를 못 쓰는 제공자**: 실행 전에 거절(`tools_unsupported`), inspector에서도 같은 판정.
+- **OpenAI 추론 모델과 도구(2026-09-04 실측)**: `gpt-5.6-luna` 계열은 `/v1/chat/completions`에서 reasoning이 켜진 채로는 function tools를 거절한다(400: "use /v1/responses or set reasoning_effort to 'none'"). 결정: 카탈로그의 모델 정의에 **`tools_need_thinking_off`**(도구를 쓰려면 추론을 꺼야 하는 모델 — `gpt-5` 계열은 서버가 기본 True, env로 덮어쓸 수 있다)를 두고, 어댑터는 **그 표식이 있는 모델의 도구 붙은 호출에서만** `reasoning_effort: "none"`을 싣는다(그 외 모델·도구 없는 호출은 바이트 동일 — gpt-4o 같은 모델은 이 파라미터 자체를 거절한다, reviewer 실측). 이는 그 호출의 추론 품질을 낮추는 대가가 있으며, Responses API로 옮기는 것은 범위 밖으로 남긴다. 어댑터의 `tools_unsupported` 판정은 그대로 fallback이다.
 - **중간 생각이 답으로 새는 것**: D5 규칙을 양쪽 케이스 파일로 고정. 이 규칙이 깨지면 대화 화면의 답도 함께 틀리므로 정합성 테스트가 게이트다.
 - **설문지화**: 되묻기 1회·3문·건너뛰기. 부탁 문장에 근거 없는 질문은 서버가 자른다(`applies_when`을 모델에게 주고, 응답에 근거 문장 인용을 요구 — 인용이 부탁 문장에 없으면 버린다).
 

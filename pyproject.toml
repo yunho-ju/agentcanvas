@@ -28,6 +28,9 @@ line-length = 88
 target-version = "py312"
 
 [tool.pytest.ini_options]
+markers = [
+    "live: 실 열쇠로 진짜 provider를 부르는 확인 — 기본 수집 대상이 아니고, 사람이 파일을 이름으로 부를 때만 돈다",
+]
 testpaths = [
     "packages/contracts/tests",
     "packages/engine/tests",

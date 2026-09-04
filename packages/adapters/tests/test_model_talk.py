@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 
-from agentcanvas_adapters.model_talk import instruction
+from agentcanvas_adapters.model_talk import heard, instruction
 from agentcanvas_contracts.agent_spec import Node, Position
-from agentcanvas_engine.model_call import ModelAsk
+from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid, ToolCall
 from agentcanvas_engine.skill_wear import SkillBrief
 
 
@@ -23,13 +24,13 @@ def a_brief(name: str, body: str | None) -> SkillBrief:
     )
 
 
-def an_ask(skills: tuple[SkillBrief, ...] = ()) -> ModelAsk:
+def an_ask(skills: tuple[SkillBrief, ...] = (), ways: tuple[str, ...] = ()) -> ModelAsk:
     return ModelAsk(
         node=Node(
             id="writer", type="llm.agent", position=Position(x=0, y=0), config={}
         ),
         state={},
-        ways=(),
+        ways=ways,
         model_ref="model://default",
         prompt_ref="prompt://writer@1",
         instruction="Answer the question.",
@@ -91,3 +92,53 @@ def test_a_fork_reads_its_skills_before_the_ways_it_can_choose_from():
     written = instruction(forking)
 
     assert written.index("skills you follow:") < written.index("ways you can choose")
+
+
+class TestWhenTheModelAskedForATool:
+    """도구를 시킨 답을 답으로 치는 규칙은 한 곳에만 산다 — provider마다 다시 쓰지 않는다."""
+
+    def a_call(self) -> ToolCall:
+        return ToolCall(
+            call_id="call_1", name="get_weather", arguments={"city": "서울"}
+        )
+
+    def test_a_call_with_no_words_is_a_whole_answer(self):
+        said = heard(an_ask(), "", "prompt", 11, 7, tool_calls=(self.a_call(),))
+
+        assert isinstance(said, ModelSaid)
+        assert said.text is None
+        assert said.tool_calls == (self.a_call(),)
+
+    def test_no_words_and_no_call_is_still_nothing_said(self):
+        said = heard(an_ask(), "", "prompt", 11, 7)
+
+        assert isinstance(said, ModelBalked)
+        assert said.reason == "provider_error"
+
+    def test_a_fork_that_called_a_tool_is_not_scolded_for_the_shape(self):
+        """갈림길이 도구를 부르는 중이면 아직 길을 고른 것이 아니다 — 모양 탓을 하지 않는다."""
+        said = heard(
+            an_ask(ways=("a", "b")), "", "prompt", 11, 7, tool_calls=(self.a_call(),)
+        )
+
+        assert isinstance(said, ModelSaid)
+        assert said.way is None
+
+    def test_a_fork_that_only_talked_out_of_shape_is_still_trouble(self):
+        said = heard(an_ask(ways=("a", "b")), "hmm, a", "prompt", 11, 7)
+
+        assert isinstance(said, ModelBalked)
+        assert said.reason == "provider_error"
+
+    def test_a_fork_that_chose_while_calling_keeps_the_way_it_chose(self):
+        said = heard(
+            an_ask(ways=("a", "b")),
+            json.dumps({"way": "b"}),
+            "prompt",
+            11,
+            7,
+            tool_calls=(self.a_call(),),
+        )
+
+        assert isinstance(said, ModelSaid)
+        assert said.way == "b"

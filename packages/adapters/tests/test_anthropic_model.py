@@ -18,10 +18,24 @@ from agentcanvas_adapters.anthropic_model import (
     asks_anthropic,
     opens_anthropic,
 )
-from agentcanvas_adapters.scripted import ScriptedLLM, ScriptedReply
+from agentcanvas_adapters.scripted import (
+    ScriptedLLM,
+    ScriptedReply,
+    ScriptedToolCall,
+)
 from agentcanvas_adapters.secrets import env_vault
 from agentcanvas_contracts.agent_spec import Node, Position
-from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
+from agentcanvas_contracts.model_catalog import ModelDef
+from agentcanvas_engine.model_call import (
+    ModelAsk,
+    ModelBalked,
+    ModelSaid,
+    ModelTurn,
+    ToolBrief,
+    ToolCall,
+    ToolReply,
+    TranscriptItem,
+)
 
 A_KEY = "sk-ant-not-a-real-key-000"
 
@@ -35,6 +49,8 @@ def an_ask(
     model_ref: str = "model://claude-haiku",
     state: dict | None = None,
     instruction: str | None = None,
+    tools: tuple[ToolBrief, ...] = (),
+    transcript: tuple[TranscriptItem, ...] = (),
 ) -> ModelAsk:
     return ModelAsk(
         node=a_node("triage", "llm.router") if ways else a_node(),
@@ -43,6 +59,8 @@ def an_ask(
         model_ref=model_ref,
         prompt_ref="prompt://writer@3",
         instruction=instruction,
+        tools=tools,
+        transcript=transcript,
     )
 
 
@@ -335,6 +353,203 @@ class TestWhenTheProviderCannotAnswer:
         assert said.reason == "provider_error"
 
 
+A_TOOL = ToolBrief(
+    name="get_weather",
+    description="tells today's weather in one city",
+    input_schema={
+        "type": "object",
+        "properties": {"city": {"type": "string"}},
+        "required": ["city"],
+    },
+)
+
+A_MODEL_WITHOUT_TOOLS = ModelDef(
+    ref="model://plain",
+    title={"ko": "도구를 모르는 모델", "en": "A model that knows no tools"},
+    provider="anthropic",
+    model_id="claude-plain",
+    tool_calling=False,
+)
+
+
+class TestPuttingToolsOnTheTable:
+    def sent_with(self, **more: object) -> dict:
+        client = ScriptedLLM([ScriptedReply("hello")])
+        asks_anthropic(client)(an_ask(**more))
+        return client.requests[0]
+
+    def test_a_question_with_no_tools_is_sent_exactly_as_it_always_was(self):
+        """도구를 안 쓰는 물음에는 도구 이야기가 한 마디도 실리지 않는다 (회귀)."""
+        sent = self.sent_with()
+
+        assert list(sent) == ["model", "max_tokens", "system", "messages"]
+        assert [message["role"] for message in sent["messages"]] == ["user"]
+
+    def test_the_tools_it_may_call_travel_in_this_provider_s_words(self):
+        sent = self.sent_with(tools=(A_TOOL,))
+
+        assert sent["tools"] == [
+            {
+                "name": "get_weather",
+                "description": "tells today's weather in one city",
+                "input_schema": A_TOOL.input_schema,
+            }
+        ]
+
+    def test_the_turns_before_this_one_are_laid_out_after_the_instruction(self):
+        sent = self.sent_with(
+            tools=(A_TOOL,),
+            transcript=(
+                ModelTurn(
+                    text="one moment",
+                    tool_calls=(
+                        ToolCall(
+                            call_id="toolu_1",
+                            name="get_weather",
+                            arguments={"city": "서울"},
+                        ),
+                    ),
+                ),
+                ToolReply(call_id="toolu_1", name="get_weather", content="맑고 20도"),
+            ),
+        )
+
+        assert sent["messages"][1] == {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "one moment"},
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "get_weather",
+                    "input": {"city": "서울"},
+                },
+            ],
+        }
+        assert sent["messages"][2] == {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_1",
+                    "content": "맑고 20도",
+                }
+            ],
+        }
+
+    def test_two_tools_answered_in_one_turn_come_back_in_one_message(self):
+        """한 턴에 도구를 둘 불렀으면 결과도 한 줄에 나란히 온다 — 이 문의 규칙이다."""
+        sent = self.sent_with(
+            tools=(A_TOOL,),
+            transcript=(
+                ModelTurn(
+                    tool_calls=(
+                        ToolCall(call_id="toolu_1", name="get_weather", arguments={}),
+                        ToolCall(call_id="toolu_2", name="get_weather", arguments={}),
+                    )
+                ),
+                ToolReply(call_id="toolu_1", name="get_weather", content="맑음"),
+                ToolReply(call_id="toolu_2", name="get_weather", content="흐림"),
+            ),
+        )
+
+        assert [message["role"] for message in sent["messages"]] == [
+            "user",
+            "assistant",
+            "user",
+        ]
+        assert [block["tool_use_id"] for block in sent["messages"][2]["content"]] == [
+            "toolu_1",
+            "toolu_2",
+        ]
+
+    def test_results_from_different_turns_are_not_swept_into_one_message(self):
+        """붙어 있는 것만 묶는다 — 사이에 모델의 말이 있으면 그 차례가 그대로 남는다."""
+        sent = self.sent_with(
+            transcript=(
+                ToolReply(call_id="toolu_1", name="get_weather", content="맑음"),
+                ModelTurn(text="one more"),
+                ToolReply(call_id="toolu_2", name="get_weather", content="흐림"),
+            )
+        )
+
+        assert [message["role"] for message in sent["messages"]] == [
+            "user",
+            "user",
+            "assistant",
+            "user",
+        ]
+
+    def test_a_turn_that_said_nothing_carries_only_what_it_asked_for(self):
+        sent = self.sent_with(
+            transcript=(
+                ModelTurn(
+                    tool_calls=(
+                        ToolCall(call_id="toolu_1", name="get_weather", arguments={}),
+                    )
+                ),
+            )
+        )
+
+        assert [block["type"] for block in sent["messages"][1]["content"]] == [
+            "tool_use"
+        ]
+
+    def called(self, *, text: str | None = None):
+        client = ScriptedLLM(
+            [
+                ScriptedReply.with_tool_calls(
+                    [ScriptedToolCall("toolu_1", "get_weather", '{"city": "서울"}')],
+                    text=text,
+                )
+            ]
+        )
+        return asks_anthropic(client)(an_ask(tools=(A_TOOL,)))
+
+    def test_what_the_model_asked_to_call_comes_back_as_a_call(self):
+        said = self.called()
+
+        assert isinstance(said, ModelSaid)
+        assert said.tool_calls == (
+            ToolCall(call_id="toolu_1", name="get_weather", arguments={"city": "서울"}),
+        )
+
+    def test_a_model_that_only_called_a_tool_said_no_words_and_that_is_fine(self):
+        said = self.called()
+
+        assert isinstance(said, ModelSaid)
+        assert said.text is None
+
+    def test_words_said_alongside_a_call_are_kept_too(self):
+        said = self.called(text="let me look it up")
+
+        assert isinstance(said, ModelSaid)
+        assert said.text == "let me look it up"
+
+
+class TestAModelThatCannotTakeTools:
+    def catalog(self) -> dict:
+        return {A_MODEL_WITHOUT_TOOLS.ref: A_MODEL_WITHOUT_TOOLS}
+
+    def test_a_model_the_catalog_says_knows_no_tools_is_not_even_asked(self):
+        client = ScriptedLLM([])
+
+        said = asks_anthropic(client, self.catalog())(
+            an_ask(model_ref="model://plain", tools=(A_TOOL,))
+        )
+
+        assert isinstance(said, ModelBalked)
+        assert said.reason == "tools_unsupported"
+        assert client.requests == []
+
+    def test_that_same_model_answers_as_ever_when_no_tools_are_offered(self):
+        client = ScriptedLLM([ScriptedReply("hello")])
+
+        said = asks_anthropic(client, self.catalog())(an_ask(model_ref="model://plain"))
+
+        assert isinstance(said, ModelSaid)
+
+
 class TestTheStandInItself:
     def test_it_answers_in_the_order_it_was_written(self):
         client = ScriptedLLM([ScriptedReply("first"), ScriptedReply("second")])
@@ -361,14 +576,15 @@ class TestTheStandInItself:
             client.messages.create(model="claude-haiku-4-5", max_tokens=1, messages=[])
 
 
+@pytest.mark.parametrize("tools", [(), (A_TOOL,)])
 @pytest.mark.parametrize("ways", [(), ("clinical", "simple")])
-def test_every_word_this_adapter_sends_is_a_word_the_real_client_takes(ways):
+def test_every_word_this_adapter_sends_is_a_word_the_real_client_takes(ways, tools):
     """대역은 아무 말이나 받아 준다 — 진짜 클라이언트가 받지 않는 말을 보내면 여기서 걸린다.
 
     받지 않는 말은 TypeError가 되어 provider 오류가 아니라 실행 전체의 사고로 샌다.
     """
     client = ScriptedLLM([ScriptedReply(json.dumps({"way": "clinical"}))])
-    asks_anthropic(client)(an_ask(ways=ways))
+    asks_anthropic(client)(an_ask(ways=ways, tools=tools))
 
     taken = inspect.signature(anthropic.resources.messages.Messages.create).parameters
 

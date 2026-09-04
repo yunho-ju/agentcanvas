@@ -118,3 +118,45 @@ def test_the_models_this_product_ships_with_are_at_their_own_door():
     assert {definition.base_url for definition in DEFAULT_MODEL_CATALOG.values()} == {
         None
     }
+
+
+def test_a_model_says_whether_it_can_be_given_tools():
+    """도구를 건넬 수 있는가는 모델마다 다르다 — 화면도 실행도 이 한 자리를 읽는다."""
+    plain = ModelDef(
+        ref="model://plain",
+        title={"ko": "도구를 모르는 모델", "en": "A model that knows no tools"},
+        provider="openai_compatible",
+        model_id="tiny",
+        base_url="http://127.0.0.1:11434/v1",
+        tool_calling=False,
+    )
+
+    assert plain.tool_calling is False
+
+
+def test_the_models_this_product_ships_with_can_all_be_given_tools():
+    """번들 목록은 본사의 모델뿐이다 — 도구를 못 받는 것은 여기 없다."""
+    assert {
+        definition.tool_calling for definition in DEFAULT_MODEL_CATALOG.values()
+    } == {True}
+
+
+def test_a_model_can_say_it_needs_its_thinking_off_to_use_tools():
+    """도구를 쓰려면 추론을 꺼야 하는 문이 있다 — 그 사정은 모델마다 다르므로 정의가 들고 있다."""
+    thinking = ModelDef(
+        ref="model://thinker",
+        title={"ko": "생각하는 모델", "en": "A thinking model"},
+        provider="openai_compatible",
+        model_id="gpt-5.6-luna",
+        tools_need_thinking_off=True,
+    )
+
+    assert thinking.tools_need_thinking_off is True
+
+
+def test_a_model_is_not_asked_to_turn_its_thinking_off_unless_someone_says_so():
+    """대부분의 문은 이 말을 아예 받지 않는다 — 기본은 보내지 않는 것이다."""
+    assert {
+        definition.tools_need_thinking_off
+        for definition in DEFAULT_MODEL_CATALOG.values()
+    } == {False}

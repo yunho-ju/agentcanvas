@@ -10,7 +10,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+import json
+import logging
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from time import perf_counter
 from typing import Any
@@ -24,6 +26,11 @@ from agentcanvas_engine.model_call import (
     ModelCall,
     ModelEvidence,
     ModelSaid,
+    ModelTurn,
+    ToolBrief,
+    ToolCall,
+    ToolReply,
+    TranscriptItem,
 )
 
 from .model_talk import (
@@ -31,6 +38,7 @@ from .model_talk import (
     DECLINED,
     NO_ANSWER,
     NOTHING_SAID,
+    cannot_take_tools,
     heard,
     instruction,
     missing_key,
@@ -41,6 +49,8 @@ from .model_talk import (
     trouble,
 )
 from .secrets import SecretResolver
+
+_logger = logging.getLogger(__name__)
 
 #: 이 provider의 열쇠가 금고에서 갖는 이름.
 OPENAI_API_KEY_REF = "secret://openai-api-key"
@@ -56,8 +66,32 @@ MAX_TOKENS = 4096
 ROOM_AT_THE_COMPANY = "max_completion_tokens"
 ROOM_AT_A_SERVING = "max_tokens"
 
+#: 그런 문에 도구를 실을 때 함께 보내는 생각의 몫 — 어느 문이 이것을 필요로 하는지는 모델
+#: 정의(tools_need_thinking_off)가 말한다. 아무 문에나 얹으면 그 말 자체를 거절하는 문이 있다.
+THINKING_OFF = "none"
+
 #: 조인 모양에 이 provider가 요구하는 이름표.
 WAY_SHAPE_NAME = "the_way_to_take"
+
+#: 물린 청에서 도구를 가리키는 자리들 — 이 자리가 물려야 도구 이야기로 읽는다.
+TOOL_PARAMS = ("tools", "tool_choice", "reasoning_effort")
+
+#: 그 자리를 "받지 못한다"고 말하는 까닭들 (문장으로 오는 경우와 갈래 이름으로 오는 경우).
+UNSUPPORTED_WORDS = (
+    "not supported",
+    "unsupported",
+    "unrecognized",
+    "unknown parameter",
+)
+UNSUPPORTED_CODES = frozenset({"unsupported_parameter", "unknown_parameter"})
+
+#: 자리를 말해 주지 않고 문장으로만 "도구를 못 쓴다"고 답하는 서빙들의 말.
+NO_TOOLS_AT_ALL = (
+    "function calling is not supported",
+    "function calling not supported",
+    "does not support tools",
+    "tools are not supported",
+)
 
 #: 답이 끝까지 오지 못한 까닭 → 사람에게 할 말. 표에 없는 까닭은 답이 온 것으로 본다.
 TROUBLE_BY_FINISH_REASON = {
@@ -103,16 +137,68 @@ def _response_shape(ask: ModelAsk) -> dict[str, Any]:
     }
 
 
+def _tool_shape(brief: ToolBrief) -> dict[str, Any]:
+    """도구 한 벌을 이 문의 말로 — 이름과 쉬운 설명과 넣을 것의 모양."""
+    return {
+        "type": "function",
+        "function": {
+            "name": brief.name,
+            "description": brief.description,
+            "parameters": dict(brief.input_schema),
+        },
+    }
+
+
+def _the_turn_it_took(turn: ModelTurn) -> dict[str, Any]:
+    """모델이 지난 턴에 한 것 — 말은 그대로, 시킨 도구는 이 문의 말로 옮긴다."""
+    message: dict[str, Any] = {"role": "assistant", "content": turn.text}
+    if turn.tool_calls:
+        message["tool_calls"] = [
+            {
+                "id": call.call_id,
+                "type": "function",
+                "function": {
+                    "name": call.name,
+                    "arguments": json.dumps(dict(call.arguments)),
+                },
+            }
+            for call in turn.tool_calls
+        ]
+    return message
+
+
+def _what_the_tool_answered(reply: ToolReply) -> dict[str, Any]:
+    """도구가 돌려준 것 — 어느 호출의 답인지는 저쪽이 매긴 표로 말한다."""
+    return {"role": "tool", "tool_call_id": reply.call_id, "content": reply.content}
+
+
+def _turns_so_far(transcript: Sequence[TranscriptItem]) -> list[dict[str, Any]]:
+    """이전 턴들을 이 문이 읽는 메시지 줄로 편다 — 일어난 차례 그대로."""
+    return [
+        _the_turn_it_took(item)
+        if isinstance(item, ModelTurn)
+        else _what_the_tool_answered(item)
+        for item in transcript
+    ]
+
+
 def _request(ask: ModelAsk, model: ModelDef) -> dict[str, Any]:
-    """저쪽에 보낼 청 한 벌 — 갈림길이면 답의 모양까지 함께 조인다."""
+    """저쪽에 보낼 청 한 벌 — 갈림길이면 답의 모양까지, 도구가 있으면 도구까지 함께 조인다."""
     request: dict[str, Any] = {
         "model": model.model_id,
         **_room_for_an_answer(model),
         "messages": [
             {"role": "system", "content": system_for(ask)},
             {"role": "user", "content": instruction(ask)},
+            *_turns_so_far(ask.transcript),
         ],
     }
+    if ask.tools:
+        request["tools"] = [_tool_shape(brief) for brief in ask.tools]
+        # 부를지 말지는 모델이 정한다 — 우리가 도구를 강요하면 답할 자리가 사라진다.
+        request["tool_choice"] = "auto"
+        if model.tools_need_thinking_off:
+            request["reasoning_effort"] = THINKING_OFF
     if ask.response_schema is not None:
         request["response_format"] = {
             "type": "json_schema",
@@ -130,8 +216,47 @@ def _request(ask: ModelAsk, model: ModelDef) -> dict[str, Any]:
 
 
 def _prompt_sent(request: Mapping[str, Any]) -> str:
-    system, said = request["messages"]
+    system, said = request["messages"][0], request["messages"][1]
     return prompt_of(system["content"], said["content"])
+
+
+def _arguments_of(call: Any) -> Mapping[str, object] | None:
+    """저쪽이 실어 온 인자를 읽는다 — 읽을 수 없으면 지어내지 않고 없다고 답한다.
+
+    대개는 JSON 글로 오지만, OpenAI 말투를 쓰는 서빙 중에는 이미 풀린 판으로 실어 오는 곳이
+    있다. 그 판을 글로 알고 읽으려 들면 TypeError가 ModelCall 밖으로 새어 실행이 통째로
+    무너진다 — 이 층의 약속은 "실패는 예외가 아니라 값"이다.
+    """
+    written = call.function.arguments
+    if isinstance(written, Mapping):
+        return written
+    try:
+        read = json.loads(written or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return read if isinstance(read, dict) else None
+
+
+def _calls_it_asked_for(message: Any) -> tuple[ToolCall, ...]:
+    """모델이 시킨 도구 호출들 — 인자를 읽을 수 없는 호출은 버리고 그 사실을 로그에 남긴다.
+
+    버리는 까닭: 무엇을 넣으라는지 모르는 채로 도구를 부르는 것은 사람이 시키지 않은 일을
+    하는 것이다. 예외로 실행을 세우지도 않는다 — 남은 호출과 말은 그대로 답이 된다.
+    """
+    asked_for = getattr(message, "tool_calls", None) or ()
+    read = []
+    for call in asked_for:
+        arguments = _arguments_of(call)
+        if arguments is None:
+            _logger.warning(
+                "dropped a tool call whose arguments could not be read: %s",
+                call.function.name,
+            )
+            continue
+        read.append(
+            ToolCall(call_id=call.id, name=call.function.name, arguments=arguments)
+        )
+    return tuple(read)
 
 
 def _read(
@@ -144,15 +269,13 @@ def _read(
     cut = TROUBLE_BY_FINISH_REASON.get(chose.finish_reason)
     if cut is not None:
         return trouble(cut)
-    said = chose.message.content
-    if not said:
-        return trouble(NOTHING_SAID)
     return heard(
         ask,
-        said,
+        chose.message.content,
         _prompt_sent(request),
         answer.usage.prompt_tokens,
         answer.usage.completion_tokens,
+        _calls_it_asked_for(chose.message),
     )
 
 
@@ -173,6 +296,45 @@ def _processing_ms(answer: Any) -> int | None:
     except (TypeError, ValueError):
         return None
     return value if value >= 0 else None
+
+
+def _what_was_refused(refused: openai.APIStatusError) -> tuple[str, str, str]:
+    """물린 청에서 어느 자리가·어떤 갈래로·무슨 말로 물렸는지.
+
+    SDK의 `.param`·`.code`는 몸통의 맨 위만 본다 — OpenAI는 그 사정을 `error` 아래에 담으므로
+    그 자리는 언제나 비어 있다(실측). 그래서 몸통을 우리가 직접 읽고, 읽을 수 없는 몸통
+    (JSON이 아니거나 모양이 다른 서빙)은 빈 말로 답해 판정이 지어내지 않게 한다.
+    """
+    body = refused.body
+    told = body.get("error", body) if isinstance(body, dict) else None
+    if not isinstance(told, dict):
+        told = {}
+    return (
+        str(told.get("param") or ""),
+        str(told.get("code") or ""),
+        str(told.get("message") or refused.message or ""),
+    )
+
+
+def _turned_the_tools_away(refused: openai.OpenAIError) -> bool:
+    """저쪽이 물린 까닭이 "이 문은 도구를 못 받는다"인가.
+
+    이름만 보고 넓게 읽으면 사람에게 틀린 안내를 한다: 이전 턴을 잘못 편 것(messages 자리)도,
+    도구 모양이 틀린 것(tools 자리 + 모양 까닭)도 "다른 모델을 고르세요"가 답이 아니다.
+    그래서 **물린 자리**가 도구 쪽이고 **까닭**이 "그 말을 못 받는다"일 때만 그렇게 읽고,
+    자리 없이 문장으로만 말하는 서빙을 위해 도구 자체를 못 쓴다는 말 몇 개를 따로 둔다.
+    """
+    if not isinstance(refused, openai.APIStatusError):
+        return False
+    if not 400 <= refused.status_code < 500:
+        return False
+    param, code, message = _what_was_refused(refused)
+    said = message.lower()
+    if any(phrase in said for phrase in NO_TOOLS_AT_ALL):
+        return True
+    if not param.startswith(TOOL_PARAMS):
+        return False
+    return code in UNSUPPORTED_CODES or any(word in said for word in UNSUPPORTED_WORDS)
 
 
 def opens_openai(base_url: str | None, key: str) -> openai.OpenAI:
@@ -202,6 +364,8 @@ def openai_from(
         model = known.get(ask.model_ref)
         if model is None:
             return no_such_model(ask.model_ref)
+        if ask.tools and not model.tool_calling:
+            return cannot_take_tools(ask.model_ref)
         if model.base_url is None and key is None:
             # 회사 제자리에는 진짜 열쇠가 있어야 한다 — 관례값으로 문을 두드리지 않는다.
             return missing_key(OPENAI_API_KEY_REF)
@@ -215,7 +379,9 @@ def openai_from(
         started = perf_counter()
         try:
             answer = client.chat.completions.create(**request)
-        except openai.OpenAIError:
+        except openai.OpenAIError as refused:
+            if ask.tools and _turned_the_tools_away(refused):
+                return cannot_take_tools(ask.model_ref)
             # 저쪽 사정은 여기서 끝난다 — 무엇이 어긋났는지는 우리 화면의 말이 아니다.
             return trouble(NO_ANSWER)
         said = _read(ask, request, answer)
@@ -238,10 +404,15 @@ def openai_from(
 __all__ = [
     "LOCAL_KEY",
     "MAX_TOKENS",
+    "NO_TOOLS_AT_ALL",
     "OPENAI_API_KEY_REF",
     "ROOM_AT_A_SERVING",
     "ROOM_AT_THE_COMPANY",
+    "THINKING_OFF",
+    "TOOL_PARAMS",
     "TROUBLE_BY_FINISH_REASON",
+    "UNSUPPORTED_CODES",
+    "UNSUPPORTED_WORDS",
     "WAY_SHAPE_NAME",
     "openai_from",
     "opens_openai",

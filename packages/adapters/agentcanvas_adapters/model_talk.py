@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid
+from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelSaid, ToolCall
 from agentcanvas_engine.skill_wear import SkillBrief
 
 #: 무엇을 하는 자리인지 모델에게 먼저 일러 주는 말.
@@ -47,6 +47,17 @@ def missing_key(key_ref: str) -> ModelBalked:
         message=(
             "this step needs a key the server does not have —"
             f" put one in the server's secrets as {key_ref}"
+        ),
+    )
+
+
+def cannot_take_tools(model_ref: str) -> ModelBalked:
+    """도구를 못 받는 모델에 도구를 건넨 일 — 그물에 나가기 전에 이 까닭을 답한다."""
+    return ModelBalked(
+        reason="tools_unsupported",
+        message=(
+            f"the model {model_ref} cannot use tools —"
+            " pick a model that can, or take the tools off this step"
         ),
     )
 
@@ -137,21 +148,33 @@ def _the_way_in(said: str) -> str | None:
 
 
 def heard(
-    ask: ModelAsk, said: str, prompt: str, input_tokens: int, output_tokens: int
+    ask: ModelAsk,
+    said: str | None,
+    prompt: str,
+    input_tokens: int,
+    output_tokens: int,
+    tool_calls: tuple[ToolCall, ...] = (),
 ) -> ModelSaid | ModelBalked:
-    """들은 말을 계약의 답으로 옮긴다 — 갈림길에서는 그 말이 고른 길이어야 한다.
+    """들은 것을 계약의 답으로 옮긴다 — 갈림길에서는 그 말이 고른 길이어야 한다.
+
+    도구를 시킨 답은 말이 없어도 온전한 답이다: 아직 답하는 중이라 할 말이 없을 뿐이다.
+    그래서 갈림길이 도구를 부르는 중이면 모양 탓(WRONG_SHAPE)도 하지 않는다 — 길은 도구를
+    다 쓴 다음 턴에 고른다. 아무 말도 없고 시킨 것도 없을 때만 들은 것이 없다고 말한다.
 
     길이 ways 밖인지는 여기서 따지지 않는다: 막다른 길인지는 그래프가 정한다 (P3-1).
     """
-    way = _the_way_in(said) if ask.ways else None
-    if ask.ways and way is None:
+    if not said and not tool_calls:
+        return trouble(NOTHING_SAID)
+    way = _the_way_in(said) if ask.ways and said else None
+    if ask.ways and way is None and not tool_calls:
         return trouble(WRONG_SHAPE)
     return ModelSaid(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         way=way,
-        text=said,
+        text=said or None,
         prompt=prompt,
+        tool_calls=tool_calls,
     )
 
 
@@ -163,6 +186,7 @@ __all__ = [
     "PICKING_SYSTEM",
     "SPEAKING_SYSTEM",
     "WRONG_SHAPE",
+    "cannot_take_tools",
     "heard",
     "instruction",
     "missing_key",

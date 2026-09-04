@@ -7,7 +7,9 @@
     "title": {
       "en": "Claude Haiku — fastest",
       "ko": "Claude Haiku — 가장 빠름"
-    }
+    },
+    "tool_calling": true,
+    "tools_need_thinking_off": false
   },
   "model://claude-opus": {
     "base_url": null,
@@ -17,7 +19,9 @@
     "title": {
       "en": "Claude Opus — deep reasoning",
       "ko": "Claude Opus — 깊은 판단"
-    }
+    },
+    "tool_calling": true,
+    "tools_need_thinking_off": false
   },
   "model://claude-sonnet": {
     "base_url": null,
@@ -27,7 +31,9 @@
     "title": {
       "en": "Claude Sonnet — fast and balanced",
       "ko": "Claude Sonnet — 빠르고 균형 잡힘"
-    }
+    },
+    "tool_calling": true,
+    "tools_need_thinking_off": false
   },
   "model://default": {
     "base_url": null,
@@ -37,6 +43,8 @@
     "title": {
       "en": "Default model",
       "ko": "기본 모델"
-    }
+    },
+    "tool_calling": true,
+    "tools_need_thinking_off": false
   }
 }

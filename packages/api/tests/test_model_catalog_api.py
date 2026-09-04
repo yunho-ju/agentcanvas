@@ -8,14 +8,17 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import pytest
 from agentcanvas_adapters.secrets import SECRET_ENV_PREFIX, env_vault
 from agentcanvas_api.app import (
     LOCAL_MODEL_ENV,
     LOCAL_MODEL_REF,
+    LOCAL_TOOL_CALLING_ENV,
     OPENAI_MODEL_ENV,
     OPENAI_MODEL_REF,
+    OPENAI_TOOLS_THINKING_OFF_ENV,
     catalog_in,
     create_app,
 )
@@ -28,7 +31,7 @@ from fastapi.testclient import TestClient
 AN_OPENAI_KEY = "sk-not-a-real-openai-key-000"
 DEFAULT_MODEL_REF = "model://default"
 #: 화면이 읽는 것만 나간다 — 서버를 띄운 자리의 설정(주소·모델 ID)조차 실리지 않는다.
-PUBLIC_FIELDS = {"ref", "title", "callable", "reason"}
+PUBLIC_FIELDS = {"ref", "title", "callable", "reason", "tool_calling"}
 
 
 def a_key_env(**more: str) -> dict[str, str]:
@@ -77,6 +80,59 @@ class TestWhatThisServerCanCall:
         default = standing_in({})[DEFAULT_MODEL_REF]
 
         assert set(default) == PUBLIC_FIELDS
+
+    def test_it_says_whether_a_model_can_be_given_tools(self):
+        assert standing_in({})[DEFAULT_MODEL_REF]["tool_calling"] is True
+
+    def test_a_model_on_my_own_computer_is_taken_for_no_tools_until_i_say_so(self):
+        """내 컴퓨터에서 띄운 것이 도구를 받는지는 서버를 띄운 사람만 안다 — 지어내지 않는다."""
+        local = standing_in({LOCAL_MODEL_ENV: "gemma4:26b"})[LOCAL_MODEL_REF]
+
+        assert local["tool_calling"] is False
+
+    def test_the_person_who_started_this_server_can_say_it_takes_tools(self):
+        env = {LOCAL_MODEL_ENV: "gemma4:26b", LOCAL_TOOL_CALLING_ENV: "true"}
+
+        assert standing_in(env)[LOCAL_MODEL_REF]["tool_calling"] is True
+
+    def test_a_thinking_model_at_the_company_is_marked_to_turn_it_off_for_tools(self):
+        """gpt-5 계열은 생각을 켠 채로는 도구를 거절한다 — 서버가 그 사정을 미리 적어 둔다."""
+        env = a_key_env(**{OPENAI_MODEL_ENV: "gpt-5.6-luna"})
+
+        assert catalog_in(env)[OPENAI_MODEL_REF].tools_need_thinking_off is True
+
+    def test_a_model_that_does_not_think_is_left_alone(self):
+        """gpt-4o는 이 말 자체를 거절한다 — 표에 없는 이름에는 얹지 않는다."""
+        env = a_key_env(**{OPENAI_MODEL_ENV: "gpt-4o"})
+
+        assert catalog_in(env)[OPENAI_MODEL_REF].tools_need_thinking_off is False
+
+    def test_the_person_who_started_this_server_can_overrule_that_guess(self):
+        env = a_key_env(
+            **{
+                OPENAI_MODEL_ENV: "gpt-5.6-luna",
+                OPENAI_TOOLS_THINKING_OFF_ENV: "false",
+            }
+        )
+
+        assert catalog_in(env)[OPENAI_MODEL_REF].tools_need_thinking_off is False
+
+    def test_that_overruling_works_the_other_way_too(self):
+        env = a_key_env(
+            **{OPENAI_MODEL_ENV: "gpt-4o", OPENAI_TOOLS_THINKING_OFF_ENV: "yes"}
+        )
+
+        assert catalog_in(env)[OPENAI_MODEL_REF].tools_need_thinking_off is True
+
+    def test_a_word_this_server_cannot_read_says_so_out_loud(self, caplog):
+        """알아들을 수 없는 말은 조용히 아니라고 읽지 않는다 — 사람이 고칠 수 있게 말한다."""
+        env = {LOCAL_MODEL_ENV: "gemma4:26b", LOCAL_TOOL_CALLING_ENV: "sometimes"}
+
+        with caplog.at_level(logging.WARNING):
+            standing = standing_in(env)[LOCAL_MODEL_REF]
+
+        assert standing["tool_calling"] is False
+        assert LOCAL_TOOL_CALLING_ENV in caplog.text
 
     def test_the_key_itself_never_travels_with_the_answer(self):
         env = a_key_env(**{OPENAI_MODEL_ENV: "gpt-public-example"})

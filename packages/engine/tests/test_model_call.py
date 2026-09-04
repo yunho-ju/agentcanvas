@@ -15,6 +15,10 @@ from agentcanvas_engine.model_call import (
     ModelCall,
     ModelSaid,
     ModelTrouble,
+    ModelTurn,
+    ToolBrief,
+    ToolCall,
+    ToolReply,
     says_the_first_way,
 )
 from agentcanvas_engine.routed_runtime import routed_run
@@ -276,12 +280,89 @@ class TestTheModelNobodyInjected:
 
 
 def test_the_kinds_of_trouble_a_run_can_name_are_fixed():
-    """실행이 사람에게 말할 수 있는 까닭은 이 셋뿐이다 — 늘리려면 여기서 먼저 정한다."""
+    """실행이 사람에게 말할 수 있는 까닭은 이 넷뿐이다 — 늘리려면 여기서 먼저 정한다."""
     assert get_args(ModelTrouble) == (
         "unknown_model",
         "missing_secret",
         "provider_error",
+        "tools_unsupported",
     )
+
+
+class TestDoorsThatAreOpenToTools:
+    """도구를 물음에 실을 수 있다 — 이 층은 여전히 모델을 부르지 않고 모양만 정한다."""
+
+    def an_ask(self, **more: object) -> ModelAsk:
+        return ModelAsk(
+            node=a_node("writer"),
+            state={},
+            ways=(),
+            model_ref="model://default",
+            prompt_ref="prompt://writer@1",
+            **more,
+        )
+
+    def test_a_node_that_was_given_no_tools_asks_with_none(self):
+        ask = self.an_ask()
+
+        assert ask.tools == ()
+        assert ask.transcript == ()
+
+    def test_a_tool_travels_as_its_name_its_plain_words_and_the_shape_it_takes(self):
+        brief = ToolBrief(
+            name="get_weather",
+            description="tells today's weather in one city",
+            input_schema={"type": "object", "properties": {"city": {"type": "string"}}},
+        )
+
+        ask = self.an_ask(tools=(brief,))
+
+        assert ask.tools[0].name == "get_weather"
+        assert ask.tools[0].description == "tells today's weather in one city"
+        assert ask.tools[0].input_schema["properties"] == {"city": {"type": "string"}}
+
+    def test_the_turns_before_this_one_travel_in_the_order_they_happened(self):
+        called = ToolCall(
+            call_id="call_1", name="get_weather", arguments={"city": "서울"}
+        )
+
+        ask = self.an_ask(
+            transcript=(
+                ModelTurn(tool_calls=(called,)),
+                ToolReply(call_id="call_1", name="get_weather", content="맑음"),
+            )
+        )
+
+        assert [type(item) for item in ask.transcript] == [ModelTurn, ToolReply]
+        assert ask.transcript[0].tool_calls[0].arguments == {"city": "서울"}
+        assert ask.transcript[1].content == "맑음"
+
+    def test_a_turn_can_be_words_alone_calls_alone_or_both(self):
+        called = ToolCall(call_id="call_1", name="get_weather", arguments={})
+
+        assert ModelTurn(text="thinking").tool_calls == ()
+        assert ModelTurn(tool_calls=(called,)).text is None
+        assert ModelTurn(text="one moment", tool_calls=(called,)).text == "one moment"
+
+    def test_a_model_that_asked_for_nothing_says_it_called_nothing(self):
+        assert (
+            ModelSaid(input_tokens=11, output_tokens=7, text="hello").tool_calls == ()
+        )
+
+    def test_what_the_model_asked_for_comes_back_as_a_call_with_its_own_id(self):
+        said = ModelSaid(
+            input_tokens=11,
+            output_tokens=7,
+            tool_calls=(
+                ToolCall(
+                    call_id="call_1", name="get_weather", arguments={"city": "서울"}
+                ),
+            ),
+        )
+
+        assert said.tool_calls[0].call_id == "call_1"
+        assert said.tool_calls[0].name == "get_weather"
+        assert said.tool_calls[0].arguments == {"city": "서울"}
 
 
 class TestWhoIsEverAskedToDecide:

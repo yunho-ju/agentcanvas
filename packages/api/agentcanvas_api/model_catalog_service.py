@@ -38,6 +38,8 @@ class ModelStanding(BaseModel):
     title: LocalizedText
     callable: bool
     reason: WhyNotCallable | None
+    #: 이 모델에게 도구를 건넬 수 있는가 — 화면이 '쓸 도구'를 잠글지 여기서 읽는다.
+    tool_calling: bool
 
 
 class ServerModels(BaseModel):
@@ -67,6 +69,7 @@ def _standing_of(model: ModelDef, callable_now: bool) -> ModelStanding:
         title=model.title,
         callable=callable_now,
         reason=None if callable_now else "missing_secret",
+        tool_calling=model.tool_calling,
     )
 
 

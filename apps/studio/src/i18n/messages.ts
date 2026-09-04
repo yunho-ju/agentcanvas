@@ -1749,6 +1749,10 @@ const TEXTS = {
     ko: "모델 쪽에서 답을 주지 않았어요 — 잠시 뒤에 다시 실행해 주세요",
     en: "The model service did not answer — wait a moment, then run it again",
   },
+  "event.run.failed.tools_unsupported": {
+    ko: "이 모델은 도구를 쓸 수 없어요 — 도구를 쓸 수 있는 모델을 고르거나, 이 단계에서 도구를 빼 주세요",
+    en: "This model cannot use tools — pick a model that can, or take the tools off this step",
+  },
   // 도구를 부르지 못한 갈래 — 사람이 문서에서 고칠 수 있는 것들이다.
   "event.run.failed.unknown_binding": {
     ko: "노드가 가리키는 연결이 이 문서에 없어요 — 설정에서 쓸 연결을 다시 골라 주세요",

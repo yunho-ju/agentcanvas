@@ -36,7 +36,8 @@ PUBLIC_REQUESTS = {
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
-def _boolean(name: str, written: str) -> bool:
+def boolean_setting(name: str, written: str) -> bool:
+    """서버를 띄운 자리가 적어 둔 예/아니요 한 마디 — 알아들을 수 없는 말은 값이 아니다."""
     normalized = written.strip().lower()
     if normalized in {"1", "true", "yes", "on"}:
         return True
@@ -81,7 +82,9 @@ class AuthSettings:
             raise RuntimeError(
                 f"{SESSION_TTL_ENV} must be between 60 and {MAX_SESSION_TTL_SECONDS}"
             )
-        secure = _boolean(COOKIE_SECURE_ENV, environ.get(COOKIE_SECURE_ENV, "false"))
+        secure = boolean_setting(
+            COOKIE_SECURE_ENV, environ.get(COOKIE_SECURE_ENV, "false")
+        )
         return cls(
             enabled=True,
             admin_password=password,
@@ -311,6 +314,7 @@ __all__ = [
     "AdminSessionMiddleware",
     "AuthSettings",
     "BuiltinAuth",
+    "boolean_setting",
     "clear_session_cookie",
     "set_session_cookie",
 ]

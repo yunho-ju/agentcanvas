@@ -10,18 +10,28 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import anthropic
 from agentcanvas_contracts.model_catalog import DEFAULT_MODEL_CATALOG, ModelDef
-from agentcanvas_engine.model_call import ModelAsk, ModelBalked, ModelCall, ModelSaid
+from agentcanvas_engine.model_call import (
+    ModelAsk,
+    ModelBalked,
+    ModelCall,
+    ModelSaid,
+    ModelTurn,
+    ToolBrief,
+    ToolCall,
+    ToolReply,
+    TranscriptItem,
+)
 
 from .model_talk import (
     CUT_SHORT,
     DECLINED,
     NO_ANSWER,
-    NOTHING_SAID,
+    cannot_take_tools,
     heard,
     instruction,
     missing_key,
@@ -46,14 +56,86 @@ TROUBLE_BY_STOP_REASON = {
 }
 
 
+def _tool_shape(brief: ToolBrief) -> dict[str, Any]:
+    """도구 한 벌을 이 문의 말로 — 이름과 쉬운 설명과 넣을 것의 모양."""
+    return {
+        "name": brief.name,
+        "description": brief.description,
+        "input_schema": dict(brief.input_schema),
+    }
+
+
+def _the_turn_it_took(turn: ModelTurn) -> dict[str, Any]:
+    """모델이 지난 턴에 한 것 — 말도 시킨 도구도 이 문에서는 같은 줄의 조각들이다."""
+    spoken = [{"type": "text", "text": turn.text}] if turn.text else []
+    return {
+        "role": "assistant",
+        "content": [
+            *spoken,
+            *(
+                {
+                    "type": "tool_use",
+                    "id": call.call_id,
+                    "name": call.name,
+                    "input": dict(call.arguments),
+                }
+                for call in turn.tool_calls
+            ),
+        ],
+    }
+
+
+def _what_the_tools_answered(replies: Sequence[ToolReply]) -> dict[str, Any]:
+    """한 턴에 부른 도구들이 돌려준 것 — 이 문에서는 사람이 말한 자리에 결과 조각으로 들어간다.
+
+    한 줄에 모아 넣는 까닭: 한 턴에 도구를 둘 불렀으면 저쪽은 그 결과도 한 줄에서 기다린다.
+    한 줄에 하나씩 나눠 보내면 첫 줄이 두 번째 호출의 답을 빠뜨린 것이 되어 청이 물린다.
+    """
+    return {
+        "role": "user",
+        "content": [
+            {
+                "type": "tool_result",
+                "tool_use_id": reply.call_id,
+                "content": reply.content,
+            }
+            for reply in replies
+        ],
+    }
+
+
+def _turns_so_far(transcript: Sequence[TranscriptItem]) -> list[dict[str, Any]]:
+    """이전 턴들을 이 문이 읽는 메시지 줄로 편다 — 일어난 차례 그대로, 붙어 있는 결과는 한 줄로."""
+    written: list[dict[str, Any]] = []
+    answered: list[ToolReply] = []
+    for item in transcript:
+        if isinstance(item, ToolReply):
+            answered.append(item)
+            continue
+        written.extend(_gathered(answered))
+        answered = []
+        written.append(_the_turn_it_took(item))
+    return [*written, *_gathered(answered)]
+
+
+def _gathered(replies: Sequence[ToolReply]) -> list[dict[str, Any]]:
+    """모아 둔 결과들을 한 줄로 — 모아 둔 것이 없으면 줄도 없다."""
+    return [_what_the_tools_answered(replies)] if replies else []
+
+
 def _request(ask: ModelAsk, model: ModelDef) -> dict[str, Any]:
-    """저쪽에 보낼 청 한 벌 — 갈림길이면 답의 모양까지 함께 조인다."""
+    """저쪽에 보낼 청 한 벌 — 갈림길이면 답의 모양까지, 도구가 있으면 도구까지 함께 조인다."""
     request: dict[str, Any] = {
         "model": model.model_id,
         "max_tokens": MAX_TOKENS,
         "system": system_for(ask),
-        "messages": [{"role": "user", "content": instruction(ask)}],
+        "messages": [
+            {"role": "user", "content": instruction(ask)},
+            *_turns_so_far(ask.transcript),
+        ],
     }
+    if ask.tools:
+        request["tools"] = [_tool_shape(brief) for brief in ask.tools]
     if ask.response_schema is not None:
         request["output_config"] = {
             "format": {"type": "json_schema", "schema": dict(ask.response_schema)}
@@ -73,6 +155,15 @@ def _words_of(answer: Any) -> str | None:
     return "".join(said) if said else None
 
 
+def _calls_it_asked_for(answer: Any) -> tuple[ToolCall, ...]:
+    """응답에서 도구를 시킨 조각들을 계약의 호출로 옮긴다 — 인자는 이미 풀려서 온다."""
+    return tuple(
+        ToolCall(call_id=block.id, name=block.name, arguments=block.input)
+        for block in answer.content
+        if getattr(block, "type", None) == "tool_use"
+    )
+
+
 def asks_anthropic(
     client: Any, catalog: Mapping[str, ModelDef] | None = None
 ) -> ModelCall:
@@ -83,6 +174,8 @@ def asks_anthropic(
         model = known.get(ask.model_ref)
         if model is None:
             return no_such_model(ask.model_ref)
+        if ask.tools and not model.tool_calling:
+            return cannot_take_tools(ask.model_ref)
         request = _request(ask, model)
         try:
             answer = client.messages.create(**request)
@@ -93,15 +186,13 @@ def asks_anthropic(
         cut = TROUBLE_BY_STOP_REASON.get(answer.stop_reason)
         if cut is not None:
             return trouble(cut)
-        said = _words_of(answer)
-        if not said:
-            return trouble(NOTHING_SAID)
         return heard(
             ask,
-            said,
+            _words_of(answer),
             prompt_of(request["system"], request["messages"][0]["content"]),
             answer.usage.input_tokens,
             answer.usage.output_tokens,
+            _calls_it_asked_for(answer),
         )
 
     return asks

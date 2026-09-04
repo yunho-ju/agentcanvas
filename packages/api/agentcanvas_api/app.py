@@ -79,6 +79,7 @@ from .auth import (
     AdminSessionMiddleware,
     AuthSettings,
     BuiltinAuth,
+    boolean_setting,
     clear_session_cookie,
     set_session_cookie,
 )
@@ -160,6 +161,17 @@ ALLOWED_ORIGINS_ENV = "AGENTCANVAS_ALLOWED_ORIGINS"
 #: 내 컴퓨터에서 띄운 모델을 이 서버에 알려 주는 자리 — 이름(예: gemma4:26b)과 그 문의 주소.
 LOCAL_MODEL_ENV = "AGENTCANVAS_LOCAL_MODEL"
 LOCAL_BASE_URL_ENV = "AGENTCANVAS_LOCAL_BASE_URL"
+
+#: 내 컴퓨터에서 띄운 그 모델이 도구를 받는가 — 서버를 띄운 사람만 아는 일이라 묻고, 답이
+#: 없으면 못 받는 것으로 본다 (된다고 지어내면 실행이 저쪽 문 앞에서 되돌아온다).
+LOCAL_TOOL_CALLING_ENV = "AGENTCANVAS_LOCAL_TOOL_CALLING"
+
+#: 본사의 그 모델이 도구를 쓰려면 생각을 꺼야 하는가 — 적지 않으면 이름으로 짐작한다.
+OPENAI_TOOLS_THINKING_OFF_ENV = "AGENTCANVAS_OPENAI_TOOLS_THINKING_OFF"
+
+#: 생각을 켠 채로는 도구를 거절하는 이름들 (2026-09-04 실측: gpt-5.6-luna). 새 계열이 생기면
+#: 여기 한 줄이다 — 이름을 갈래로 나누는 if는 두지 않는다.
+THINKING_MODEL_PREFIXES = ("gpt-5",)
 
 #: 대개 로컬 서빙이 서 있는 자리 (Ollama의 OpenAI 말투 문).
 DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:11434/v1"
@@ -551,8 +563,30 @@ def _on_my_computer(env: Mapping[str, str]) -> dict[str, ModelDef]:
             provider="openai_compatible",
             model_id=named,
             base_url=env.get(LOCAL_BASE_URL_ENV, "").strip() or DEFAULT_LOCAL_BASE_URL,
+            tool_calling=_asked_for(env, LOCAL_TOOL_CALLING_ENV, unless_told=False),
         )
     }
+
+
+def _asked_for(env: Mapping[str, str], name: str, unless_told: bool) -> bool:
+    """서버를 띄운 자리가 예/아니요로 적어 둔 것 — 적지 않았으면 우리가 짐작한 값 그대로다.
+
+    알아들을 수 없는 말은 조용히 아니라고 읽지 않는다: 크게 말하고 짐작한 값으로 돌아간다
+    (이 자리는 뜰 때 한 번이 아니라 목록을 물을 때마다 지나가므로, 터뜨리면 화면이 통째로 닫힌다).
+    """
+    written = env.get(name, "").strip()
+    if not written:
+        return unless_told
+    try:
+        return boolean_setting(name, written)
+    except RuntimeError as unclear:
+        _logger.warning("%s — taking it as %s", unclear, unless_told)
+        return unless_told
+
+
+def _thinks_before_it_answers(model_id: str) -> bool:
+    """이 이름이 생각하는 계열인가 — 표에 적힌 앞머리 하나로만 정한다."""
+    return model_id.startswith(THINKING_MODEL_PREFIXES)
 
 
 def _at_the_company(env: Mapping[str, str]) -> dict[str, ModelDef]:
@@ -566,6 +600,11 @@ def _at_the_company(env: Mapping[str, str]) -> dict[str, ModelDef]:
             title={"ko": f"OpenAI의 모델 — {named}", "en": f"OpenAI — {named}"},
             provider="openai_compatible",
             model_id=named,
+            tools_need_thinking_off=_asked_for(
+                env,
+                OPENAI_TOOLS_THINKING_OFF_ENV,
+                unless_told=_thinks_before_it_answers(named),
+            ),
         )
     }
 
@@ -1499,9 +1538,12 @@ __all__ = [
     "LOCAL_MODEL_ENV",
     "LOCAL_MODEL_REF",
     "LOCAL_STUDIO_ORIGINS",
+    "LOCAL_TOOL_CALLING_ENV",
     "OPENAI_MODEL_ENV",
     "OPENAI_MODEL_REF",
+    "OPENAI_TOOLS_THINKING_OFF_ENV",
     "REFUSAL_STATUS",
+    "THINKING_MODEL_PREFIXES",
     "ArchitectCostEvidence",
     "ArchitectDraftRequest",
     "ArchitectEvidence",

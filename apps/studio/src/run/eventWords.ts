@@ -29,6 +29,7 @@ export const FAILURE_REASONS = [
   "unknown_model",
   "missing_secret",
   "provider_error",
+  "tools_unsupported",
   // 도구를 부르지 못한 갈래 중 사람이 문서를 고쳐야 하는 것들 (engine ToolTrouble).
   "unknown_binding",
   "unknown_tool",

@@ -34,6 +34,13 @@ class ModelDef(ContractModel):
     #: 어느 문으로 물어볼지 — 적지 않으면 그 provider의 제자리다. 내 컴퓨터에서 띄운 모델은
     #: 이 자리에 그 주소를 적는다 (주소는 열쇠가 아니다 — 감출 것이 없다).
     base_url: str | None = None
+    #: 이 모델에게 도구를 건넬 수 있는가 — 못 받는 모델에 도구를 붙이면 그리는 자리에서 막고,
+    #: 실행은 그물에 나가기 전에 그 까닭을 답한다. 본사의 모델들은 받고, 내 컴퓨터에서 띄운
+    #: 것은 서버를 띄운 사람이 된다고 말할 때만 받는다.
+    tool_calling: bool = True
+    #: 도구를 쓰려면 추론을 꺼야 하는 문인가 — 그런 모델에는 도구를 실을 때 생각의 몫을 끄고
+    #: 부른다. 대부분의 문은 그 말 자체를 받지 않으므로 기본은 보내지 않는 것이다.
+    tools_need_thinking_off: bool = False
 
 
 DEFAULT_MODEL_CATALOG: dict[str, ModelDef] = {

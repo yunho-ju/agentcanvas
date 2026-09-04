@@ -7,10 +7,24 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from agentcanvas_engine.evaluation.entailment import Entailment
+
+
+@dataclass(frozen=True)
+class ScriptedToolCall:
+    """대역이 시키는 도구 호출 하나 — 인자는 저쪽이 실어 오는 모습 그대로 적는다.
+
+    풀지 않은 채 두는 까닭: 읽을 수 없는 인자가 왔을 때를 각본으로 줄 수 있어야 한다.
+    """
+
+    call_id: str
+    name: str
+    #: 대개는 JSON 글이지만, 이미 풀린 판을 실어 오는 서빙도 있다 — 대역은 둘 다 설 수 있다.
+    arguments: str | object = "{}"
 
 
 @dataclass(frozen=True)
@@ -19,6 +33,16 @@ class _Text:
 
     text: str
     type: str = "text"
+
+
+@dataclass(frozen=True)
+class _ToolUse:
+    """도구를 시킨 조각 — Anthropic 응답의 tool_use 블록이 서는 자리."""
+
+    id: str
+    name: str
+    input: dict[str, object]
+    type: str = "tool_use"
 
 
 @dataclass(frozen=True)
@@ -32,7 +56,7 @@ class _Answer:
     """대역이 돌려주는 응답 — 진짜 응답에서 이 층이 읽는 것만 들고 있다."""
 
     stop_reason: str
-    content: list[_Text]
+    content: list[_Text | _ToolUse]
     usage: _Usage
 
 
@@ -46,15 +70,42 @@ class ScriptedReply:
     output_tokens: int = 5
     #: 말 조각이 하나도 없는 응답 — 도구만 부르고 아무 말도 하지 않은 자리를 흉내 낸다.
     speaks: bool = True
+    #: 이 답이 시킨 도구 호출들 — 말과 나란히 오거나, 말 없이 이것만 오거나.
+    tool_calls: tuple[ScriptedToolCall, ...] = ()
 
     @classmethod
     def with_no_text(cls) -> ScriptedReply:
         return cls(text="", speaks=False)
 
+    @classmethod
+    def with_tool_calls(
+        cls, calls: Sequence[ScriptedToolCall], text: str | None = None
+    ) -> ScriptedReply:
+        """도구를 시킨 답 한 마디 — 말을 적지 않으면 도구만 시키고 아무 말도 하지 않는다."""
+        return cls(
+            text=text or "",
+            stop_reason="tool_use",
+            speaks=text is not None,
+            tool_calls=tuple(calls),
+        )
+
     def answered(self) -> _Answer:
+        spoken: list[_Text | _ToolUse] = [_Text(self.text)] if self.speaks else []
         return _Answer(
             stop_reason=self.stop_reason,
-            content=[_Text(self.text)] if self.speaks else [],
+            content=[
+                *spoken,
+                *(
+                    _ToolUse(
+                        call.call_id,
+                        call.name,
+                        json.loads(call.arguments)
+                        if isinstance(call.arguments, str)
+                        else call.arguments,
+                    )
+                    for call in self.tool_calls
+                ),
+            ],
             usage=_Usage(self.input_tokens, self.output_tokens),
         )
 
@@ -93,8 +144,24 @@ class ScriptedLLM:
 
 
 @dataclass(frozen=True)
+class _Function:
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True)
+class _CalledTool:
+    """OpenAI 말투로 온 도구 호출 하나 — 인자는 저쪽이 실어 오는 그대로 JSON 글이다."""
+
+    id: str
+    function: _Function
+    type: str = "function"
+
+
+@dataclass(frozen=True)
 class _Message:
     content: str | None
+    tool_calls: list[_CalledTool] | None = None
 
 
 @dataclass(frozen=True)
@@ -127,17 +194,34 @@ class ScriptedChoice:
     completion_tokens: int = 5
     #: 답한 자리가 하나도 없는 응답 — 아무것도 고르지 못한 자리를 흉내 낸다.
     answers: bool = True
+    #: 이 답이 시킨 도구 호출들 — 말과 나란히 오거나, 말 없이 이것만 오거나.
+    tool_calls: tuple[ScriptedToolCall, ...] = ()
 
     @classmethod
     def with_no_choice_at_all(cls) -> ScriptedChoice:
         return cls(text=None, answers=False)
 
+    @classmethod
+    def with_tool_calls(
+        cls, calls: Sequence[ScriptedToolCall], text: str | None = None
+    ) -> ScriptedChoice:
+        """도구를 시킨 답 한 마디 — 저쪽은 이때 tool_calls로 멈췄다고 말한다."""
+        return cls(text=text, finish_reason="tool_calls", tool_calls=tuple(calls))
+
+    def _message(self) -> _Message:
+        return _Message(
+            self.text,
+            [
+                _CalledTool(call.call_id, _Function(call.name, call.arguments))
+                for call in self.tool_calls
+            ]
+            or None,
+        )
+
     def completed(self) -> _Completion:
         return _Completion(
             choices=(
-                [_Choice(_Message(self.text), self.finish_reason)]
-                if self.answers
-                else []
+                [_Choice(self._message(), self.finish_reason)] if self.answers else []
             ),
             usage=_ChatUsage(self.prompt_tokens, self.completion_tokens),
         )
@@ -208,4 +292,5 @@ __all__ = [
     "ScriptedLLM",
     "ScriptedOpenAI",
     "ScriptedReply",
+    "ScriptedToolCall",
 ]

@@ -58,6 +58,16 @@
     },
     "title": {
       "$ref": "#/$defs/LocalizedText"
+    },
+    "tool_calling": {
+      "default": true,
+      "title": "Tool Calling",
+      "type": "boolean"
+    },
+    "tools_need_thinking_off": {
+      "default": false,
+      "title": "Tools Need Thinking Off",
+      "type": "boolean"
     }
   },
   "required": [

@@ -10,6 +10,8 @@ export type Provider = "anthropic" | "openai_compatible";
 export type Ref = string;
 export type En = string;
 export type Ko = string;
+export type ToolCalling = boolean;
+export type ToolsNeedThinkingOff = boolean;
 
 /**
  * ref 하나가 가리키는 모델 — 형식이 아니라 이름이라 schema를 들고 다니지 않는다.
@@ -23,6 +25,8 @@ export interface ModelDef {
   provider: Provider;
   ref: Ref;
   title: LocalizedText;
+  tool_calling?: ToolCalling;
+  tools_need_thinking_off?: ToolsNeedThinkingOff;
 }
 /**
  * 화면에 그대로 나가는 한 조각의 글. 한 언어만 채운 글은 계약이 아니다.

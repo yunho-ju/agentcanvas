@@ -18,6 +18,53 @@ from .skill_wear import SkillBrief
 
 
 @dataclass(frozen=True)
+class ToolBrief:
+    """모델에게 보이는 도구 한 벌 — 무엇을 하는 것이고, 무엇을 넣어야 부를 수 있는가.
+
+    문서의 도구 정의를 이 모양으로 푸는 일은 엔진이 끝냈다: 묻는 쪽은 이름과 쉬운 설명과
+    입력 모양만 읽어 저쪽 말투로 옮긴다 (skill을 SkillBrief로 푸는 자리와 같은 규칙 —
+    사람이 읽는 두 언어 중 어느 것을 실을지는 여기 오기 전에 정해진다).
+    """
+
+    name: str
+    description: str
+    input_schema: Mapping[str, object]
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """모델이 시킨 도구 호출 하나 — 어느 이름을, 무엇을 넣어, 어느 표를 달고 불렀는가.
+
+    표(call_id)는 저쪽이 매긴 것 그대로다: 결과를 회신할 때 이 표로 짝을 맞춘다.
+    """
+
+    call_id: str
+    name: str
+    arguments: Mapping[str, object]
+
+
+@dataclass(frozen=True)
+class ModelTurn:
+    """이전 턴에서 모델이 한 것 — 말만 했거나, 도구만 시켰거나, 둘 다이거나."""
+
+    text: str | None = None
+    tool_calls: tuple[ToolCall, ...] = ()
+
+
+@dataclass(frozen=True)
+class ToolReply:
+    """시킨 도구를 부르고 돌려준 것 — 어느 호출의 답인지 표로 말한다."""
+
+    call_id: str
+    name: str
+    content: str
+
+
+#: 이전 턴 하나 — 모델이 한 말이거나, 도구가 돌려준 것이거나. provider 말투와 무관한 중립 구조다.
+TranscriptItem = ModelTurn | ToolReply
+
+
+@dataclass(frozen=True)
 class ModelAsk:
     """노드 하나가 모델에게 묻는 것 — 무엇을 보고, (갈림길이면) 어느 길들 중에 고르는가.
 
@@ -38,6 +85,10 @@ class ModelAsk:
     response_name: str | None = None
     #: 이 노드가 입은 skill — 문서에서 푸는 일은 엔진이 끝냈다 (묻는 쪽은 spec을 뒤지지 않는다).
     skills: tuple[SkillBrief, ...] = ()
+    #: 이 물음에서 모델이 부를 수 있는 도구들 — 비어 있으면 도구 이야기는 저쪽에 가지 않는다.
+    tools: tuple[ToolBrief, ...] = ()
+    #: 이 물음 앞에 있었던 턴들 — 모델이 한 말과 도구가 돌려준 것이 일어난 차례 그대로.
+    transcript: tuple[TranscriptItem, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -65,10 +116,15 @@ class ModelSaid:
     text: str | None = None
     prompt: str | None = None
     evidence: ModelEvidence | None = None
+    #: 모델이 시킨 도구 호출들 — 아무것도 시키지 않았으면 비어 있다.
+    tool_calls: tuple[ToolCall, ...] = ()
 
 
-#: 모델에게 물어보지 못했거나 답을 받지 못한 까닭 — 없는 모델인가, 열쇠가 없는가, 저쪽 사정인가.
-ModelTrouble = Literal["unknown_model", "missing_secret", "provider_error"]
+#: 모델에게 물어보지 못했거나 답을 받지 못한 까닭 — 없는 모델인가, 열쇠가 없는가, 저쪽 사정인가,
+#: 아니면 도구를 건넸는데 그 모델이 도구를 받지 못하는가.
+ModelTrouble = Literal[
+    "unknown_model", "missing_secret", "provider_error", "tools_unsupported"
+]
 
 
 @dataclass(frozen=True)
@@ -123,7 +179,12 @@ __all__ = [
     "ModelEvidence",
     "ModelSaid",
     "ModelTrouble",
+    "ModelTurn",
     "RouteAsk",
+    "ToolBrief",
+    "ToolCall",
+    "ToolReply",
+    "TranscriptItem",
     "first_way",
     "judged_by",
     "says_the_first_way",
